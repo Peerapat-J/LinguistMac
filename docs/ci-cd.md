@@ -9,7 +9,7 @@ The `CI` workflow runs on pull requests, pushes to `main`, and manual dispatches
 - `swift build --product LinguistMac`
 - `swift test`
 - `xcodebuild` build for the `LinguistMac` scheme
-- `xcodebuild` test for the `LinguistMac` scheme
+- `xcodebuild` test for the `LinguistMac-Package` scheme
 
 ## Delivery artifact
 
@@ -25,6 +25,6 @@ Run the same checks locally before pushing:
 swift build --product LinguistMac
 swift test
 xcodebuild -scheme LinguistMac -destination 'platform=macOS' -derivedDataPath /tmp/linguistmac-derived CODE_SIGNING_ALLOWED=NO build
-xcodebuild -scheme LinguistMac -destination 'platform=macOS' -derivedDataPath /tmp/linguistmac-derived-test CODE_SIGNING_ALLOWED=NO test
+xcodebuild -scheme LinguistMac-Package -destination 'platform=macOS' -derivedDataPath /tmp/linguistmac-derived-test CODE_SIGNING_ALLOWED=NO test
 ./script/build_and_run.sh --package
 ```

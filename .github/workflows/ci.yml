@@ -44,10 +44,10 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: Test app scheme with xcodebuild
+      - name: Test package scheme with xcodebuild
         run: |
           xcodebuild \
-            -scheme LinguistMac \
+            -scheme LinguistMac-Package \
             -destination 'platform=macOS' \
             -derivedDataPath "$RUNNER_TEMP/LinguistMacDerivedDataTests" \
             CODE_SIGNING_ALLOWED=NO \
