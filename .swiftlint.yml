@@ -1,0 +1,36 @@
+included:
+  - Package.swift
+  - Sources
+  - Tests
+
+excluded:
+  - .build
+  - .git
+  - .swiftpm
+  - DerivedData
+  - dist
+
+analyzer_rules:
+  - unused_declaration
+  - unused_import
+
+line_length:
+  warning: 120
+  error: 160
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+
+file_length:
+  warning: 500
+  error: 800
+
+type_body_length:
+  warning: 300
+  error: 500
+
+function_body_length:
+  warning: 50
+  error: 100

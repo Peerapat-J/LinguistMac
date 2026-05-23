@@ -1,5 +1,5 @@
-import XCTest
 @testable import LinguistMacCore
+import XCTest
 
 final class AppFeatureTests: XCTestCase {
     func testStarterFeaturesAreNotEmpty() {
