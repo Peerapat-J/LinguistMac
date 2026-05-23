@@ -16,7 +16,28 @@ INFO_PLIST="$APP_CONTENTS/Info.plist"
 
 cd "$ROOT_DIR"
 
-pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+is_app_running() {
+  /usr/bin/osascript <<APPLESCRIPT 2>/dev/null | /usr/bin/grep -q "true"
+application id "$BUNDLE_ID" is running
+APPLESCRIPT
+}
+
+quit_existing_app() {
+  if is_app_running; then
+    /usr/bin/osascript <<APPLESCRIPT >/dev/null 2>&1 || true
+tell application id "$BUNDLE_ID" to quit
+APPLESCRIPT
+
+    for _ in {1..20}; do
+      is_app_running || return
+      sleep 0.1
+    done
+  fi
+
+  pkill -f "$APP_BINARY" >/dev/null 2>&1 || true
+}
+
+quit_existing_app
 
 swift build --product "$APP_NAME"
 BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
