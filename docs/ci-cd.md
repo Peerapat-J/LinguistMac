@@ -7,6 +7,7 @@ LinguistMac uses GitHub Actions to keep the clean-room macOS rewrite buildable a
 The `CI` workflow runs on pull requests, pushes to `main`, and manual dispatches. It checks:
 
 - SwiftLint in strict mode
+- SwiftLint analyzer rules with compiler-log input
 - SwiftFormat in lint mode
 - `swift build` for Debug and Release
 - `swift test` for Debug and Release
@@ -27,6 +28,8 @@ Run the same checks locally before pushing:
 
 ```sh
 swiftlint lint --strict --no-cache
+xcodebuild -scheme LinguistMac -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/linguistmac-swiftlint CODE_SIGNING_ALLOWED=NO clean build > /tmp/linguistmac-swiftlint-analyze.log 2>&1
+swiftlint analyze --strict --compiler-log-path /tmp/linguistmac-swiftlint-analyze.log
 swiftformat --lint . --config .swiftformat --cache ignore
 swift build -c debug --product LinguistMac
 swift build -c release --product LinguistMac

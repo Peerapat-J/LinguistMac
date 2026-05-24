@@ -1,5 +1,3 @@
-import Foundation
-
 public struct AppFeature: Identifiable, Equatable, Sendable {
     public let id: String
     public let title: String

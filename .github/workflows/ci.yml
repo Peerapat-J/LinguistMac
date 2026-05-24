@@ -22,7 +22,9 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Install lint tools
         run: |
@@ -37,8 +39,21 @@ jobs:
           swiftlint version
           swiftformat --version
 
-      - name: Run SwiftLint
+      - name: Run SwiftLint lint
         run: swiftlint lint --strict --no-cache
+
+      - name: Capture compiler log for SwiftLint analyzer
+        run: |
+          xcodebuild \
+            -scheme LinguistMac \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/LinguistMacSwiftLintDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build > "$RUNNER_TEMP/swiftlint-analyze.log" 2>&1
+
+      - name: Run SwiftLint
+        run: swiftlint analyze --strict --compiler-log-path "$RUNNER_TEMP/swiftlint-analyze.log"
 
       - name: Check SwiftFormat
         run: swiftformat --lint . --config .swiftformat --cache ignore
@@ -58,7 +73,9 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Print tool versions
         run: |
@@ -99,7 +116,9 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Build with strict Swift compiler flags
         run: |
@@ -134,7 +153,9 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
 
       - name: Build app bundle
         run: ./script/build_and_run.sh --package
@@ -143,7 +164,7 @@ jobs:
         run: ditto -c -k --keepParent dist/LinguistMac.app dist/LinguistMac-unsigned.zip
 
       - name: Upload unsigned app artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: LinguistMac-unsigned
           path: dist/LinguistMac-unsigned.zip
