@@ -1,0 +1,171 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-format:
+    name: Lint and format
+    runs-on: macos-15
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Install lint tools
+        run: |
+          if ! command -v swiftlint >/dev/null; then
+            brew install swiftlint
+          fi
+
+          if ! command -v swiftformat >/dev/null; then
+            brew install swiftformat
+          fi
+
+          swiftlint version
+          swiftformat --version
+
+      - name: Run SwiftLint lint
+        run: swiftlint lint --strict --no-cache
+
+      - name: Capture compiler log for SwiftLint analyzer
+        run: |
+          xcodebuild \
+            -scheme LinguistMac \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/LinguistMacSwiftLintDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build > "$RUNNER_TEMP/swiftlint-analyze.log" 2>&1
+
+      - name: Run SwiftLint
+        run: swiftlint analyze --strict --compiler-log-path "$RUNNER_TEMP/swiftlint-analyze.log"
+
+      - name: Check SwiftFormat
+        run: swiftformat --lint . --config .swiftformat --cache ignore
+
+  build-and-test:
+    name: Build and test (${{ matrix.configuration }})
+    runs-on: macos-15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - configuration: Debug
+            swift-configuration: debug
+          - configuration: Release
+            swift-configuration: release
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Print tool versions
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Build Swift package
+        run: swift build -c ${{ matrix.swift-configuration }} --product LinguistMac
+
+      - name: Run Swift package tests
+        run: swift test -c ${{ matrix.swift-configuration }}
+
+      - name: Build app scheme with xcodebuild
+        run: |
+          xcodebuild \
+            -scheme LinguistMac \
+            -configuration ${{ matrix.configuration }} \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/LinguistMacDerivedData-${{ matrix.configuration }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Test package scheme with xcodebuild
+        run: |
+          xcodebuild \
+            -scheme LinguistMac-Package \
+            -configuration ${{ matrix.configuration }} \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/LinguistMacDerivedDataTests-${{ matrix.configuration }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            ENABLE_TESTABILITY=YES \
+            test
+
+  strict-analysis:
+    name: Strict analysis
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Build with strict Swift compiler flags
+        run: |
+          swift build \
+            -c debug \
+            --product LinguistMac \
+            -Xswiftc -warnings-as-errors \
+            -Xswiftc -strict-concurrency=complete
+
+      - name: Run Xcode static analyzer
+        run: |
+          xcodebuild \
+            -scheme LinguistMac \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/LinguistMacAnalyzerDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+            CLANG_ANALYZER_NONNULL=YES \
+            analyze
+
+  package-unsigned-app:
+    name: Package unsigned app
+    needs:
+      - lint-and-format
+      - build-and-test
+      - strict-analysis
+    runs-on: macos-15
+    timeout-minutes: 15
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Build app bundle
+        run: ./script/build_and_run.sh --package
+
+      - name: Archive unsigned app bundle
+        run: ditto -c -k --keepParent dist/LinguistMac.app dist/LinguistMac-unsigned.zip
+
+      - name: Upload unsigned app artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: LinguistMac-unsigned
+          path: dist/LinguistMac-unsigned.zip
+          if-no-files-found: error

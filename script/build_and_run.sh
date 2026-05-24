@@ -37,17 +37,17 @@ APPLESCRIPT
   pkill -f "$APP_BINARY" >/dev/null 2>&1 || true
 }
 
-quit_existing_app
+build_app_bundle() {
+  swift build --product "$APP_NAME"
+  local build_binary
+  build_binary="$(swift build --show-bin-path)/$APP_NAME"
 
-swift build --product "$APP_NAME"
-BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
+  rm -rf "$APP_BUNDLE"
+  mkdir -p "$APP_MACOS"
+  cp "$build_binary" "$APP_BINARY"
+  chmod +x "$APP_BINARY"
 
-rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS"
-cp "$BUILD_BINARY" "$APP_BINARY"
-chmod +x "$APP_BINARY"
-
-cat >"$INFO_PLIST" <<PLIST
+  cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -67,6 +67,7 @@ cat >"$INFO_PLIST" <<PLIST
 </dict>
 </plist>
 PLIST
+}
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
@@ -74,26 +75,39 @@ open_app() {
 
 case "$MODE" in
   run)
+    quit_existing_app
+    build_app_bundle
     open_app
     ;;
+  --package|package)
+    build_app_bundle
+    ;;
   --debug|debug)
+    quit_existing_app
+    build_app_bundle
     lldb -- "$APP_BINARY"
     ;;
   --logs|logs)
+    quit_existing_app
+    build_app_bundle
     open_app
     /usr/bin/log stream --info --style compact --predicate "process == \"$APP_NAME\""
     ;;
   --telemetry|telemetry)
+    quit_existing_app
+    build_app_bundle
     open_app
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
   --verify|verify)
+    quit_existing_app
+    build_app_bundle
     open_app
     sleep 1
     pgrep -x "$APP_NAME" >/dev/null
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
+    echo "usage: $0 [run|--package|--debug|--logs|--telemetry|--verify]" >&2
     exit 2
     ;;
 esac
