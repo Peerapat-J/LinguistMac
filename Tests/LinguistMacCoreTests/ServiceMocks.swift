@@ -1,5 +1,5 @@
-@testable import LinguistMacCore
 import Foundation
+@testable import LinguistMacCore
 
 struct StubScreenCaptureService: ScreenCaptureServicing {
     var result: Result<CapturedScreenRegion, TranslationFailure>

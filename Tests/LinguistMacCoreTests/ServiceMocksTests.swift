@@ -1,5 +1,5 @@
-@testable import LinguistMacCore
 import Foundation
+@testable import LinguistMacCore
 import XCTest
 
 final class ServiceMocksTests: XCTestCase {
