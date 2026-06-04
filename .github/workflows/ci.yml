@@ -45,6 +45,7 @@ jobs:
       - name: Capture compiler log for SwiftLint analyzer
         run: |
           xcodebuild \
+            -project LinguistMac.xcodeproj \
             -scheme LinguistMac \
             -configuration Debug \
             -destination 'platform=macOS' \
@@ -67,9 +68,7 @@ jobs:
       matrix:
         include:
           - configuration: Debug
-            swift-configuration: debug
           - configuration: Release
-            swift-configuration: release
 
     steps:
       - name: Check out repository
@@ -79,18 +78,12 @@ jobs:
 
       - name: Print tool versions
         run: |
-          swift --version
           xcodebuild -version
 
-      - name: Build Swift package
-        run: swift build -c ${{ matrix.swift-configuration }} --product LinguistMac
-
-      - name: Run Swift package tests
-        run: swift test -c ${{ matrix.swift-configuration }}
-
-      - name: Build app scheme with xcodebuild
+      - name: Build app with xcodebuild
         run: |
           xcodebuild \
+            -project LinguistMac.xcodeproj \
             -scheme LinguistMac \
             -configuration ${{ matrix.configuration }} \
             -destination 'platform=macOS' \
@@ -98,10 +91,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: Test package scheme with xcodebuild
+      - name: Run unit tests with xcodebuild
         run: |
           xcodebuild \
-            -scheme LinguistMac-Package \
+            -project LinguistMac.xcodeproj \
+            -scheme LinguistMac \
             -configuration ${{ matrix.configuration }} \
             -destination 'platform=macOS' \
             -derivedDataPath "$RUNNER_TEMP/LinguistMacDerivedDataTests-${{ matrix.configuration }}" \
@@ -122,15 +116,21 @@ jobs:
 
       - name: Build with strict Swift compiler flags
         run: |
-          swift build \
-            -c debug \
-            --product LinguistMac \
-            -Xswiftc -warnings-as-errors \
-            -Xswiftc -strict-concurrency=complete
+          xcodebuild \
+            -project LinguistMac.xcodeproj \
+            -scheme LinguistMac \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/LinguistMacStrictDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
+            GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+            build
 
       - name: Run Xcode static analyzer
         run: |
           xcodebuild \
+            -project LinguistMac.xcodeproj \
             -scheme LinguistMac \
             -configuration Debug \
             -destination 'platform=macOS' \

@@ -42,8 +42,8 @@ easy to review in GitHub.
 Start narrow and expand:
 
 ```sh
-swift test
-swift build -c debug --product LinguistMac
+xcodebuild -project LinguistMac.xcodeproj -scheme LinguistMac -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES test
+xcodebuild -project LinguistMac.xcodeproj -scheme LinguistMac -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
 ```
 
 Before a PR, also run the CI-equivalent commands documented in

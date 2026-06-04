@@ -12,9 +12,9 @@ It should be updated whenever app capabilities or distribution choices change.
 - Initial build version: `1`
 - Category: `public.app-category.utilities`
 
-The SwiftPM packaging helper copies `Configuration/LinguistMac/Info.plist`
-into the generated `.app` bundle. The same values are mirrored in
-`AppIdentity.linguistMac` so tests can catch accidental drift.
+`LinguistMac.xcodeproj` uses `Configuration/LinguistMac/Info.plist` as the app
+target Info.plist. The same values are mirrored in `AppIdentity.linguistMac` so
+tests can catch accidental drift.
 
 ## Entitlement Baseline
 
