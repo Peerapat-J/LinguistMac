@@ -26,10 +26,10 @@ public extension AppFeature {
             systemImage: "rectangle.dashed"
         ),
         AppFeature(
-            id: "word-card",
-            title: "Word Card",
-            summary: "Show pronunciation, parts of speech, and alternate meanings.",
-            systemImage: "text.magnifyingglass"
+            id: "quick-translate",
+            title: "Quick Translate",
+            summary: "Translate typed or selected text without taking a screenshot.",
+            systemImage: "text.cursor"
         ),
         AppFeature(
             id: "history",
