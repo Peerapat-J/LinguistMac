@@ -1,5 +1,3 @@
-import Foundation
-
 public struct AppSettings: Equatable, Sendable {
     public var sourceLanguage: TranslationLanguage
     public var targetLanguage: TranslationLanguage
