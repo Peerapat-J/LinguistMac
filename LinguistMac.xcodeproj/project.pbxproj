@@ -21,6 +21,7 @@
 		B1000000000000000000000C /* AppleTranslationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000C /* AppleTranslationProvider.swift */; };
 		B1000000000000000000000D /* VisionOCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000D /* VisionOCRService.swift */; };
 		B1000000000000000000000E /* ScreenCaptureKitScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000E /* ScreenCaptureKitScreenCaptureService.swift */; };
+		B1000000000000000000000F /* AppleTranslationSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000F /* AppleTranslationSessionAdapter.swift */; };
 		B10000000000000000000010 /* AppFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000010 /* AppFeature.swift */; };
 		B10000000000000000000011 /* AppIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000011 /* AppIdentity.swift */; };
 		B10000000000000000000012 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000012 /* AppSettings.swift */; };
@@ -77,6 +78,7 @@
 		B2000000000000000000000C /* AppleTranslationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleTranslationProvider.swift; sourceTree = "<group>"; };
 		B2000000000000000000000D /* VisionOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionOCRService.swift; sourceTree = "<group>"; };
 		B2000000000000000000000E /* ScreenCaptureKitScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCaptureKitScreenCaptureService.swift; sourceTree = "<group>"; };
+		B2000000000000000000000F /* AppleTranslationSessionAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleTranslationSessionAdapter.swift; sourceTree = "<group>"; };
 		B20000000000000000000010 /* AppFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeature.swift; sourceTree = "<group>"; };
 		B20000000000000000000011 /* AppIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIdentity.swift; sourceTree = "<group>"; };
 		B20000000000000000000012 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -167,6 +169,7 @@
 				B2000000000000000000000A /* OnboardingView.swift */,
 				B2000000000000000000000B /* LiveLinguistServices.swift */,
 				B2000000000000000000000C /* AppleTranslationProvider.swift */,
+				B2000000000000000000000F /* AppleTranslationSessionAdapter.swift */,
 				B2000000000000000000000D /* VisionOCRService.swift */,
 				B2000000000000000000000E /* ScreenCaptureKitScreenCaptureService.swift */,
 			);
@@ -367,6 +370,7 @@
 				B1000000000000000000000A /* OnboardingView.swift in Sources */,
 				B1000000000000000000000B /* LiveLinguistServices.swift in Sources */,
 				B1000000000000000000000C /* AppleTranslationProvider.swift in Sources */,
+				B1000000000000000000000F /* AppleTranslationSessionAdapter.swift in Sources */,
 				B1000000000000000000000D /* VisionOCRService.swift in Sources */,
 				B1000000000000000000000E /* ScreenCaptureKitScreenCaptureService.swift in Sources */,
 			);

@@ -52,61 +52,13 @@ struct AppleTranslationProvider: TranslationProviding {
             throw TranslationFailure.providerUnavailable(.apple)
         }
 
-        #if compiler(>=6.3)
-            return try await translateWithAppleSession(request, source: source, target: target, text: text)
-        #else
-            _ = source
-            _ = target
-            throw TranslationFailure.providerUnavailable(.apple)
-        #endif
+        return try await AppleTranslationSessionAdapter.translate(
+            request,
+            source: source,
+            target: target,
+            text: text
+        )
     }
-
-    private func mapAppleTranslationError(_ error: Error) -> TranslationFailure {
-        let isUnsupportedLanguageError =
-            TranslationError.unsupportedSourceLanguage ~= error ||
-            TranslationError.unsupportedTargetLanguage ~= error ||
-            TranslationError.unsupportedLanguagePairing ~= error
-
-        if isUnsupportedLanguageError {
-            return .unsupportedLanguagePair
-        }
-        if TranslationError.unableToIdentifyLanguage ~= error {
-            return .providerFailed("Apple Translation could not identify the source language.")
-        }
-        if TranslationError.nothingToTranslate ~= error {
-            return .emptyInput
-        }
-        #if compiler(>=6.3)
-            if #available(macOS 26.0, *), TranslationError.notInstalled ~= error {
-                return .missingLanguagePack(.apple)
-            }
-        #endif
-
-        return .providerFailed(error.localizedDescription)
-    }
-
-    #if compiler(>=6.3)
-        @available(macOS 26.0, *)
-        private func translateWithAppleSession(
-            _ request: TranslationRequest,
-            source: Locale.Language,
-            target: Locale.Language,
-            text: String
-        ) async throws -> TranslationResult {
-            do {
-                let session = TranslationSession(installedSource: source, target: target)
-                try await session.prepareTranslation()
-                let response = try await session.translate(text)
-                return TranslationResult(
-                    request: request,
-                    translatedText: response.targetText,
-                    originalText: response.sourceText
-                )
-            } catch {
-                throw mapAppleTranslationError(error)
-            }
-        }
-    #endif
 }
 
 struct AppleTranslationAvailabilityService: LanguageAvailabilityChecking {
