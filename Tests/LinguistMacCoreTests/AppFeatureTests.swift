@@ -16,4 +16,10 @@ final class AppFeatureTests: XCTestCase {
             AppFeature.starterFeatures.contains { $0.id == "screen-translation" }
         )
     }
+
+    func testStarterFeaturesIncludeQuickTranslate() {
+        XCTAssertTrue(
+            AppFeature.starterFeatures.contains { $0.id == "quick-translate" }
+        )
+    }
 }
