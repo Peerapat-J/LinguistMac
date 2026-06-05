@@ -1,8 +1,12 @@
 # Reference Feature Inventory
 
 This inventory captures high-level behavior for clean-room planning. It is based
-on public README and CHANGELOG level information from `Peerapat-J/translateOnScreen`
-as inspected on 2026-06-04. It must not be treated as implementation guidance.
+on public README and CHANGELOG level information from
+`Peerapat-J/translateOnScreen` as inspected on 2026-06-04. Source:
+https://github.com/Peerapat-J/translateOnScreen; immutable ref: `main` commit
+`47e0e672c551a151d52b2aadab46315578d9ffaf`; archive:
+https://github.com/Peerapat-J/translateOnScreen/archive/47e0e672c551a151d52b2aadab46315578d9ffaf.zip.
+It must not be treated as implementation guidance.
 
 ## Product Shape
 
