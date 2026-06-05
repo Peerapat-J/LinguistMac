@@ -7,6 +7,10 @@ public struct AppSettings: Equatable, Sendable {
     public var screenTranslationShortcut: KeyboardShortcut
     public var textSelectionShortcut: KeyboardShortcut
     public var quickTranslateShortcut: KeyboardShortcut
+    public var popupFontSize: Double
+    public var popupWidth: Double
+    public var matchPopupWidthToSelection: Bool
+    public var hasCompletedOnboarding: Bool
 
     public init(
         sourceLanguage: TranslationLanguage = .autoDetect,
@@ -16,7 +20,11 @@ public struct AppSettings: Equatable, Sendable {
         launchAtLoginEnabled: Bool = false,
         screenTranslationShortcut: KeyboardShortcut = .screenTranslationDefault,
         textSelectionShortcut: KeyboardShortcut = .textSelectionDefault,
-        quickTranslateShortcut: KeyboardShortcut = .quickTranslateDefault
+        quickTranslateShortcut: KeyboardShortcut = .quickTranslateDefault,
+        popupFontSize: Double = 15,
+        popupWidth: Double = 420,
+        matchPopupWidthToSelection: Bool = true,
+        hasCompletedOnboarding: Bool = false
     ) {
         self.sourceLanguage = sourceLanguage
         self.targetLanguage = targetLanguage
@@ -26,6 +34,10 @@ public struct AppSettings: Equatable, Sendable {
         self.screenTranslationShortcut = screenTranslationShortcut
         self.textSelectionShortcut = textSelectionShortcut
         self.quickTranslateShortcut = quickTranslateShortcut
+        self.popupFontSize = popupFontSize
+        self.popupWidth = popupWidth
+        self.matchPopupWidthToSelection = matchPopupWidthToSelection
+        self.hasCompletedOnboarding = hasCompletedOnboarding
     }
 }
 

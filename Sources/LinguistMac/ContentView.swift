@@ -2,48 +2,48 @@ import LinguistMacCore
 import SwiftUI
 
 struct ContentView: View {
-    private let features = AppFeature.starterFeatures
+    @ObservedObject var model: AppShellModel
 
     var body: some View {
-        NavigationSplitView {
-            List(features) { feature in
-                Label(feature.title, systemImage: feature.systemImage)
-                    .tag(feature.id)
-            }
-            .navigationTitle("LinguistMac")
-        } detail: {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("LinguistMac")
-                    .font(.largeTitle)
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("LinguistMac Status")
+                    .font(.title2)
                     .fontWeight(.semibold)
 
-                Text("Fresh macOS scaffold for a clean-room screen translation app.")
-                    .font(.body)
+                Text("Menu bar shell is ready for the next translation pipeline milestones.")
                     .foregroundStyle(.secondary)
+            }
 
-                Divider()
+            Divider()
 
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(features) { feature in
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(feature.title)
-                                Text(feature.summary)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } icon: {
-                            Image(systemName: feature.systemImage)
-                                .foregroundStyle(.secondary)
-                                .frame(width: 18)
-                        }
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Menu bar commands route through app state.", systemImage: "menubar.rectangle")
+                Label("Settings, Quick Translate, and popup surfaces are windowed shells.", systemImage: "macwindow")
+                Label("Recent translations are placeholders until history persistence lands.", systemImage: "clock")
+            }
+
+            if model.recentTranslations.isEmpty {
+                ContentUnavailableView(
+                    "No Recent Translations",
+                    systemImage: "clock.arrow.circlepath",
+                    description: Text("Run a mock screen or quick translation from the menu bar.")
+                )
+                .frame(maxWidth: .infinity, minHeight: 180)
+            } else {
+                List(model.recentTranslations) { result in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(result.translatedText)
+                        Text(result.originalText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
-
-                Spacer()
             }
-            .padding(24)
-            .frame(minWidth: 420, minHeight: 300, alignment: .topLeading)
+
+            Spacer()
         }
+        .padding(24)
+        .frame(minWidth: 520, minHeight: 420, alignment: .topLeading)
     }
 }
