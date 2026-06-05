@@ -48,7 +48,7 @@ build_app_bundle() {
     -configuration "$CONFIGURATION" \
     -destination 'platform=macOS' \
     -derivedDataPath "$DERIVED_DATA_PATH" \
-    CODE_SIGNING_ALLOWED="${CODE_SIGNING_ALLOWED:-NO}" \
+    CODE_SIGNING_ALLOWED="${CODE_SIGNING_ALLOWED:-YES}" \
     build
 
   rm -rf "$APP_BUNDLE"
