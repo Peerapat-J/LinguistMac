@@ -112,6 +112,7 @@ extension TranslationLanguage {
         return Locale.Language(identifier: id)
     }
 
+    // swiftlint:disable:next unused_declaration superfluous_disable_command
     static func fromLocaleLanguage(_ language: Locale.Language) -> TranslationLanguage? {
         TranslationLanguageCatalog.language(forID: language.minimalIdentifier)
     }
