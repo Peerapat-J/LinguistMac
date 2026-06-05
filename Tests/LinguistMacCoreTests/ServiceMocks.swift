@@ -24,9 +24,14 @@ struct StubTranslationProvider: TranslationProviding {
     var requiresAPIKey: Bool
     var usesNetwork: Bool
     var translatedText: String
+    var failure: TranslationFailure?
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResult {
-        TranslationResult(
+        if let failure {
+            throw failure
+        }
+
+        return TranslationResult(
             request: request,
             translatedText: translatedText
         )
