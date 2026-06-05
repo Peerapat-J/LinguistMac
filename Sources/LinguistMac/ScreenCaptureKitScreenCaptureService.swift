@@ -29,18 +29,19 @@ struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
             throw TranslationFailure.providerFailed("Selected-region capture requires macOS 15.2 or newer.")
         }
 
-        let image: CGImage = try await withCheckedThrowingContinuation { continuation in
+        return try await withCheckedThrowingContinuation { continuation in
             SCScreenshotManager.captureImage(in: rect) { image, error in
                 if let error {
                     continuation.resume(throwing: TranslationFailure.providerFailed(error.localizedDescription))
                 } else if let image {
                     continuation.resume(returning: image)
                 } else {
-                    continuation.resume(throwing: TranslationFailure.providerFailed("Screen capture returned no image."))
+                    continuation.resume(
+                        throwing: TranslationFailure.providerFailed("Screen capture returned no image.")
+                    )
                 }
             }
         }
-        return image
     }
 
     private func pngData(from image: CGImage) throws -> Data {
@@ -50,7 +51,8 @@ struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
                   UTType.png.identifier as CFString,
                   1,
                   nil
-              ) else {
+              )
+        else {
             throw TranslationFailure.providerFailed("Could not prepare captured image data.")
         }
 
@@ -126,7 +128,7 @@ private final class RegionSelectionOverlayController {
     private func finishOverlay() -> CheckedContinuation<CGRect, Error>? {
         windows.forEach { $0.orderOut(nil) }
         windows.removeAll()
-        let continuation = self.continuation
+        let continuation = continuation
         self.continuation = nil
         return continuation
     }

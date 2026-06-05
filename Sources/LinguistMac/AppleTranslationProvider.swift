@@ -43,7 +43,8 @@ struct AppleTranslationProvider: TranslationProviding {
             throw TranslationFailure.emptyInput
         }
         guard let source = request.sourceLanguage.localeLanguage,
-              let target = request.targetLanguage.localeLanguage else {
+              let target = request.targetLanguage.localeLanguage
+        else {
             throw TranslationFailure.providerFailed("Apple Translation needs a resolved source and target language.")
         }
 
@@ -51,24 +52,22 @@ struct AppleTranslationProvider: TranslationProviding {
             throw TranslationFailure.providerUnavailable(.apple)
         }
 
-        do {
-            let session = TranslationSession(installedSource: source, target: target)
-            try await session.prepareTranslation()
-            let response = try await session.translate(text)
-            return TranslationResult(
-                request: request,
-                translatedText: response.targetText,
-                originalText: response.sourceText
-            )
-        } catch {
-            throw mapAppleTranslationError(error)
-        }
+        #if compiler(>=6.3)
+            return try await translateWithAppleSession(request, source: source, target: target, text: text)
+        #else
+            _ = source
+            _ = target
+            throw TranslationFailure.providerUnavailable(.apple)
+        #endif
     }
 
     private func mapAppleTranslationError(_ error: Error) -> TranslationFailure {
-        if TranslationError.unsupportedSourceLanguage ~= error
-            || TranslationError.unsupportedTargetLanguage ~= error
-            || TranslationError.unsupportedLanguagePairing ~= error {
+        let isUnsupportedLanguageError =
+            TranslationError.unsupportedSourceLanguage ~= error ||
+            TranslationError.unsupportedTargetLanguage ~= error ||
+            TranslationError.unsupportedLanguagePairing ~= error
+
+        if isUnsupportedLanguageError {
             return .unsupportedLanguagePair
         }
         if TranslationError.unableToIdentifyLanguage ~= error {
@@ -77,12 +76,37 @@ struct AppleTranslationProvider: TranslationProviding {
         if TranslationError.nothingToTranslate ~= error {
             return .emptyInput
         }
-        if #available(macOS 26.0, *), TranslationError.notInstalled ~= error {
-            return .missingLanguagePack(.apple)
-        }
+        #if compiler(>=6.3)
+            if #available(macOS 26.0, *), TranslationError.notInstalled ~= error {
+                return .missingLanguagePack(.apple)
+            }
+        #endif
 
         return .providerFailed(error.localizedDescription)
     }
+
+    #if compiler(>=6.3)
+        @available(macOS 26.0, *)
+        private func translateWithAppleSession(
+            _ request: TranslationRequest,
+            source: Locale.Language,
+            target: Locale.Language,
+            text: String
+        ) async throws -> TranslationResult {
+            do {
+                let session = TranslationSession(installedSource: source, target: target)
+                try await session.prepareTranslation()
+                let response = try await session.translate(text)
+                return TranslationResult(
+                    request: request,
+                    translatedText: response.targetText,
+                    originalText: response.sourceText
+                )
+            } catch {
+                throw mapAppleTranslationError(error)
+            }
+        }
+    #endif
 }
 
 struct AppleTranslationAvailabilityService: LanguageAvailabilityChecking {
@@ -96,13 +120,13 @@ struct AppleTranslationAvailabilityService: LanguageAvailabilityChecking {
         }
 
         let availability = LanguageAvailability()
+        let trimmedSampleText = sampleText?.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             let status: LanguageAvailability.Status
             if let sourceLanguage = source.localeLanguage {
                 status = await availability.status(from: sourceLanguage, to: targetLanguage)
-            } else if let sampleText,
-                      !sampleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                status = try await availability.status(for: sampleText, to: targetLanguage)
+            } else if let trimmedSampleText, !trimmedSampleText.isEmpty {
+                status = try await availability.status(for: trimmedSampleText, to: targetLanguage)
             } else {
                 return .unknown
             }

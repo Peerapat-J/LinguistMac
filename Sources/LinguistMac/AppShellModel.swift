@@ -28,6 +28,7 @@ final class AppShellModel: ObservableObject {
             persistSettings()
         }
     }
+
     @Published private(set) var recentTranslations: [TranslationResult]
     @Published var popupState: TranslationPopupState
     @Published var quickDraft: QuickTranslateDraft

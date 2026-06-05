@@ -130,5 +130,4 @@ struct QuickTranslateView: View {
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
         }
     }
-
 }

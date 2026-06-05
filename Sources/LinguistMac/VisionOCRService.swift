@@ -36,15 +36,20 @@ struct AppleVisionOCRService: OCRServicing {
     }
 
     private func detectedLanguage(from observations: [Vision.RecognizedTextObservation]) -> TranslationLanguage? {
-        guard #available(macOS 26.0, *) else {
-            return nil
-        }
+        #if compiler(>=6.3)
+            guard #available(macOS 26.0, *) else {
+                return nil
+            }
 
-        return observations
-            .lazy
-            .flatMap(\.recognitionLanguages)
-            .compactMap(TranslationLanguage.fromLocaleLanguage)
-            .first
+            return observations
+                .lazy
+                .flatMap(\.recognitionLanguages)
+                .compactMap(TranslationLanguage.fromLocaleLanguage)
+                .first
+        #else
+            _ = observations
+            return nil
+        #endif
     }
 
     private func detectedLanguage(in text: String) -> TranslationLanguage? {
