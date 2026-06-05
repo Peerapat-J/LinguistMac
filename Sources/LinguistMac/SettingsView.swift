@@ -18,6 +18,9 @@ struct SettingsView: View {
         }
         .padding(24)
         .frame(width: 620, height: 520)
+        .task {
+            await model.refreshReadiness()
+        }
     }
 
     private var generalSettings: some View {
@@ -31,7 +34,7 @@ struct SettingsView: View {
                 }
 
                 Picker("Target", selection: $model.settings.targetLanguage) {
-                    ForEach(model.availableLanguages.filter { !$0.supportsAutoDetect }, id: \.id) { language in
+                    ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
                         Text(language.displayName)
                             .tag(language)
                     }

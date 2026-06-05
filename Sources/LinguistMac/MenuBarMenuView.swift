@@ -19,9 +19,11 @@ struct MenuBarMenuView: View {
             Divider()
 
             Button {
-                model.presentScreenTranslationPreview()
                 openWindow(id: AppWindow.translationPopup.rawValue)
                 activateApp()
+                Task {
+                    await model.runScreenTranslation()
+                }
             } label: {
                 Label("Screen Translate", systemImage: "viewfinder")
             }
@@ -95,6 +97,9 @@ struct MenuBarMenuView: View {
             }
         }
         .frame(minWidth: 240, alignment: .leading)
+        .task {
+            await model.refreshReadiness()
+        }
     }
 
     private func summary(for result: TranslationResult) -> String {

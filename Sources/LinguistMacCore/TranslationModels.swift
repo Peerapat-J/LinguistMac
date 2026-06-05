@@ -30,6 +30,12 @@ public extension TranslationLanguage {
     static let simplifiedChinese = TranslationLanguage(id: "zh-Hans", displayName: "Chinese Simplified")
 }
 
+public extension TranslationLanguage {
+    var canBeTargetLanguage: Bool {
+        !supportsAutoDetect
+    }
+}
+
 public struct TranslationProviderID: RawRepresentable, Equatable, Hashable, Sendable {
     public let rawValue: String
 
@@ -150,6 +156,7 @@ public enum TranslationFailure: Error, Equatable, Sendable {
     case noTextRecognized
     case emptyInput
     case unsupportedLanguagePair
+    case missingLanguagePack(TranslationProviderID)
     case providerUnavailable(TranslationProviderID)
     case missingAPIKey(TranslationProviderID)
     case providerFailed(String)

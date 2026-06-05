@@ -61,6 +61,21 @@ struct StubTranslationProviderRegistry: TranslationProviderRegistry {
     }
 }
 
+struct StubLanguageAvailabilityChecker: LanguageAvailabilityChecking {
+    var readiness: LanguagePackReadiness
+
+    func readiness(
+        from source: TranslationLanguage,
+        to target: TranslationLanguage,
+        sampleText: String?
+    ) async -> LanguagePackReadiness {
+        _ = source
+        _ = target
+        _ = sampleText
+        return readiness
+    }
+}
+
 actor InMemoryAppSettingsStore: AppSettingsStoring {
     private var settings: AppSettings
 
