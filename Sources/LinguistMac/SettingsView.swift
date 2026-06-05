@@ -94,6 +94,7 @@ struct SettingsView: View {
                         case .accessibility:
                             model.openSystemSettings(for: .accessibility)
                         case .appleTranslation, .cloudProvider:
+                            model.openSettingsWindow()
                             model.record(.settings)
                         }
                     }

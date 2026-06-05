@@ -182,6 +182,11 @@ final class AppShellModel: ObservableObject {
         record(.onboarding)
     }
 
+    func openSettingsWindow() {
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     func openSystemSettings(for kind: PermissionKind) {
         record(.openSystemSettings(kind))
 
