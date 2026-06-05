@@ -99,7 +99,7 @@ struct MenuBarMenuView: View {
 
     private func summary(for result: TranslationResult) -> String {
         let text = result.translatedText.replacingOccurrences(of: "\n", with: " ")
-        if text.count <= 30 {
+        if text.count <= 27 {
             return text
         }
 
