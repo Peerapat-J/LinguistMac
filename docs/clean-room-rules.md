@@ -48,12 +48,16 @@ Every implementation PR should answer:
 
 - Which GitHub issue or milestone does this close or advance?
 - Which behavior was implemented?
-- Which public/product source describes that behavior?
+- Which public/product source describes that behavior? Include `URL + accessed
+  date + version/tag/commit (or immutable snapshot)`.
 - Which tests cover the behavior?
 - Was any GPL source, asset, script, UI text, or architecture copied? The
   expected answer is no.
 - Were privacy-sensitive paths reviewed for clipboard, permissions, API keys,
   network calls, or captured text?
+
+Expected provenance format for auditability:
+`Source: <URL>; accessed: <YYYY-MM-DD>; immutable ref: <version/tag/commit/archive URL>`.
 
 ## Commit Discipline
 
