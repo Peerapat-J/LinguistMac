@@ -1,39 +1,18 @@
 import AppKit
 import LinguistMacCore
-import SwiftUI
-
-struct KeyboardInputMonitorView: View {
-    @Environment(\.openWindow) private var openWindow
-    @State private var monitor = KeyboardInputMonitor()
-    @ObservedObject var model: AppShellModel
-
-    var body: some View {
-        Color.clear
-            .frame(width: 0, height: 0)
-            .task {
-                monitor.start(model: model) { window in
-                    openWindow(id: window.rawValue)
-                    NSApp.activate(ignoringOtherApps: true)
-                }
-                await model.refreshShortcutRegistrations()
-            }
-            .onDisappear {
-                monitor.stop()
-            }
-    }
-}
 
 @MainActor
-private final class KeyboardInputMonitor {
+final class KeyboardInputMonitor {
     private var localMonitor: Any?
     private var globalMonitor: Any?
 
+    @discardableResult
     func start(
         model: AppShellModel,
         openWindow: @escaping @MainActor (AppWindow) -> Void
-    ) {
+    ) -> Bool {
         guard localMonitor == nil, globalMonitor == nil else {
-            return
+            return false
         }
 
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak model] event in
@@ -48,6 +27,8 @@ private final class KeyboardInputMonitor {
                 await self.handle(event, model: model, openWindow: openWindow)
             }
         }
+
+        return true
     }
 
     func stop() {

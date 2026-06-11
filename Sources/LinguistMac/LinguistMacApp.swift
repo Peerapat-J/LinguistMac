@@ -1,14 +1,21 @@
+import AppKit
 import SwiftUI
 
 @main
 struct LinguistMacApp: App {
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model = AppShellModel()
+    @State private var keyboardInputMonitor = KeyboardInputMonitor()
 
     var body: some Scene {
         MenuBarExtra("LinguistMac", systemImage: "character.book.closed") {
             MenuBarMenuView(model: model)
         }
         .menuBarExtraStyle(.menu)
+        .onChange(of: scenePhase, initial: true) { _, _ in
+            startKeyboardInputMonitor()
+        }
 
         WindowGroup("LinguistMac", id: AppWindow.status.rawValue) {
             ZStack {
@@ -18,7 +25,6 @@ struct LinguistMacApp: App {
                     OnboardingView(model: model)
                 }
             }
-            .background(KeyboardInputMonitorView(model: model))
         }
         .defaultSize(width: 620, height: 520)
 
@@ -39,6 +45,18 @@ struct LinguistMacApp: App {
 
         Settings {
             SettingsView(model: model)
+        }
+    }
+
+    private func startKeyboardInputMonitor() {
+        let didStart = keyboardInputMonitor.start(model: model) { window in
+            openWindow(id: window.rawValue)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        if didStart {
+            Task {
+                await model.refreshShortcutRegistrations()
+            }
         }
     }
 }
