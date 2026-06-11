@@ -48,6 +48,7 @@ final class ServiceMocksTests: XCTestCase {
             historyStore: InMemoryTranslationHistoryStore(),
             permissionChecker: StubPermissionChecker(statuses: [.screenRecording: .granted]),
             clipboard: InMemoryClipboard(),
+            selectedTextCapture: StubSelectedTextCapture(result: .success("hello")),
             shortcutRegistry: RecordingShortcutRegistry()
         )
 
@@ -89,6 +90,7 @@ final class ServiceMocksTests: XCTestCase {
             historyStore: InMemoryTranslationHistoryStore(),
             permissionChecker: StubPermissionChecker(statuses: [.screenRecording: .granted]),
             clipboard: InMemoryClipboard(),
+            selectedTextCapture: StubSelectedTextCapture(result: .success("hello")),
             shortcutRegistry: RecordingShortcutRegistry()
         )
 

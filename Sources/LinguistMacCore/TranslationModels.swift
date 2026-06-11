@@ -191,6 +191,7 @@ public enum TranslationFailure: Error, Equatable, Sendable {
     case missingLanguagePack(TranslationProviderID)
     case providerUnavailable(TranslationProviderID)
     case missingAPIKey(TranslationProviderID)
+    case inputModeDisabled(TranslationInputMode)
     case providerFailed(String)
 }
 

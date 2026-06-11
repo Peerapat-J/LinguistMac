@@ -48,6 +48,10 @@ public protocol ClipboardServicing: Sendable {
     func writeText(_ text: String) async
 }
 
+public protocol SelectedTextCapturing: Sendable {
+    func captureSelectedText() async throws -> String
+}
+
 public protocol ShortcutRegistering: Sendable {
     func register(_ shortcut: KeyboardShortcut, for action: ShortcutAction) async throws
     func unregister(_ action: ShortcutAction) async

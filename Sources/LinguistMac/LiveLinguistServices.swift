@@ -17,6 +17,7 @@ enum LiveLinguistServices {
             historyStore: InMemoryRecentTranslationStore(),
             permissionChecker: SystemPermissionChecker(),
             clipboard: SystemClipboardService(),
+            selectedTextCapture: SystemSelectedTextCaptureService(),
             shortcutRegistry: NoOpShortcutRegistry()
         )
     }
@@ -96,6 +97,8 @@ private extension UserDefaults {
         static let targetLanguageID = "LinguistMac.settings.targetLanguageID"
         static let selectedProviderID = "LinguistMac.settings.selectedProviderID"
         static let autoCopyEnabled = "LinguistMac.settings.autoCopyEnabled"
+        static let doubleCopyTranslationEnabled = "LinguistMac.settings.doubleCopyTranslationEnabled"
+        static let dragTranslationEnabled = "LinguistMac.settings.dragTranslationEnabled"
         static let popupFontSize = "LinguistMac.settings.popupFontSize"
         static let popupWidth = "LinguistMac.settings.popupWidth"
         static let matchPopupWidthToSelection = "LinguistMac.settings.matchPopupWidthToSelection"
@@ -120,6 +123,10 @@ private extension UserDefaults {
             selectedProviderID: providerID,
             autoCopyEnabled: object(forKey: Key.autoCopyEnabled) as? Bool ?? defaults.autoCopyEnabled,
             launchAtLoginEnabled: defaults.launchAtLoginEnabled,
+            doubleCopyTranslationEnabled: object(forKey: Key.doubleCopyTranslationEnabled) as? Bool
+                ?? defaults.doubleCopyTranslationEnabled,
+            dragTranslationEnabled: object(forKey: Key.dragTranslationEnabled) as? Bool
+                ?? defaults.dragTranslationEnabled,
             screenTranslationShortcut: defaults.screenTranslationShortcut,
             textSelectionShortcut: defaults.textSelectionShortcut,
             quickTranslateShortcut: defaults.quickTranslateShortcut,
@@ -136,6 +143,8 @@ private extension UserDefaults {
         set(settings.targetLanguage.id, forKey: Key.targetLanguageID)
         set(settings.selectedProviderID.rawValue, forKey: Key.selectedProviderID)
         set(settings.autoCopyEnabled, forKey: Key.autoCopyEnabled)
+        set(settings.doubleCopyTranslationEnabled, forKey: Key.doubleCopyTranslationEnabled)
+        set(settings.dragTranslationEnabled, forKey: Key.dragTranslationEnabled)
         set(settings.popupFontSize, forKey: Key.popupFontSize)
         set(settings.popupWidth, forKey: Key.popupWidth)
         set(settings.matchPopupWidthToSelection, forKey: Key.matchPopupWidthToSelection)

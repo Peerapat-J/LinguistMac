@@ -141,6 +141,8 @@ extension TranslationFailure {
             "Provider is unavailable: \(providerID.rawValue)."
         case let .missingAPIKey(providerID):
             "API key required for \(providerID.rawValue)."
+        case let .inputModeDisabled(inputMode):
+            "\(inputMode.rawValue) is disabled in Settings."
         case let .providerFailed(message):
             message
         }

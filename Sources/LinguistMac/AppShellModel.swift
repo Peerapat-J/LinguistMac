@@ -34,6 +34,8 @@ final class AppShellModel: ObservableObject {
     @Published var quickDraft: QuickTranslateDraft
     @Published var quickSessionState: TranslationSessionState
     @Published var screenSessionState: TranslationSessionState
+    @Published var inputModeSessionState: TranslationSessionState
+    @Published private(set) var shortcutRegistrationResults: [ShortcutRegistrationResult]
     @Published var readiness: OnboardingReadinessSnapshot
     @Published private(set) var lastCommand: AppShellCommand?
 
@@ -41,6 +43,8 @@ final class AppShellModel: ObservableObject {
     let availableProviders: [TranslationProviderDescriptor]
 
     private let services: LinguistServices
+    private let shortcutRegistrationCoordinator: ShortcutRegistrationCoordinator
+    private var doubleCopyTriggerDetector: DoubleCopyTriggerDetector
 
     private static let liveAvailableProviders: [TranslationProviderDescriptor] = [
         TranslationProviderDescriptor(
@@ -69,6 +73,8 @@ final class AppShellModel: ObservableObject {
         )
         quickSessionState = .idle
         screenSessionState = .idle
+        inputModeSessionState = .idle
+        shortcutRegistrationResults = []
         readiness = OnboardingReadinessSnapshot.make(
             screenRecording: .notDetermined,
             accessibility: .notDetermined,
@@ -76,6 +82,8 @@ final class AppShellModel: ObservableObject {
             cloudProviderConfigured: false
         )
         self.services = services
+        shortcutRegistrationCoordinator = ShortcutRegistrationCoordinator(registry: services.shortcutRegistry)
+        doubleCopyTriggerDetector = DoubleCopyTriggerDetector()
         if initialSettings != storedSettings {
             persistSettings()
         }
@@ -167,6 +175,36 @@ final class AppShellModel: ObservableObject {
         }
     }
 
+    func runSelectedTextTranslation() async {
+        await runInputModeTranslation(.selectedText) { coordinator, settings in
+            await coordinator.translateSelectedText(settings: settings)
+        }
+    }
+
+    func runClipboardDoubleCopyTranslation() async {
+        await runInputModeTranslation(.clipboardDoubleCopy) { coordinator, settings in
+            await coordinator.translateClipboardDoubleCopy(settings: settings)
+        }
+    }
+
+    func runDragTranslation() async {
+        await runInputModeTranslation(.dragTranslation) { coordinator, settings in
+            await coordinator.translateDragSelection(settings: settings)
+        }
+    }
+
+    @discardableResult
+    func observeCopyCommand(at date: Date = Date()) async -> Bool {
+        guard settings.doubleCopyTranslationEnabled,
+              doubleCopyTriggerDetector.recordCopyCommand(at: date)
+        else {
+            return false
+        }
+
+        await runClipboardDoubleCopyTranslation()
+        return true
+    }
+
     func togglePopupOriginal() {
         popupState = popupState.toggledOriginalVisibility()
     }
@@ -219,6 +257,14 @@ final class AppShellModel: ObservableObject {
         )
     }
 
+    func refreshShortcutRegistrations() async {
+        let accessibility = await services.permissionChecker.status(for: .accessibility)
+        shortcutRegistrationResults = await shortcutRegistrationCoordinator.refresh(
+            settings: settings,
+            accessibilityStatus: accessibility
+        )
+    }
+
     func openSettingsWindow() {
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -244,6 +290,37 @@ final class AppShellModel: ObservableObject {
         let store = services.settingsStore
         Task {
             try? await store.saveSettings(settings)
+        }
+    }
+
+    private func runInputModeTranslation(
+        _ inputMode: TranslationInputMode,
+        operation: (InputModeTranslationCoordinator, AppSettings) async -> TranslationSessionState
+    ) async {
+        let loadingRequest = TranslationRequest(
+            text: "",
+            sourceLanguage: settings.sourceLanguage,
+            targetLanguage: settings.targetLanguage,
+            inputMode: inputMode,
+            providerID: settings.selectedProviderID
+        )
+        inputModeSessionState = .capturing
+        popupState = .loading(loadingRequest)
+
+        let coordinator = InputModeTranslationCoordinator(services: services)
+        let finalState = await operation(coordinator, settings)
+        inputModeSessionState = finalState
+
+        switch finalState {
+        case let .completed(result):
+            popupState = .success(result, showsOriginal: false)
+            saveRecent(result)
+        case let .failed(failure):
+            popupState = .failed(failure, originalText: nil)
+        case let .translating(request):
+            popupState = .loading(request)
+        case .idle, .requestingPermission, .capturing, .recognizing:
+            popupState = .loading(loadingRequest)
         }
     }
 

@@ -11,11 +11,14 @@ struct LinguistMacApp: App {
         .menuBarExtraStyle(.menu)
 
         WindowGroup("LinguistMac", id: AppWindow.status.rawValue) {
-            if model.settings.hasCompletedOnboarding {
-                ContentView(model: model)
-            } else {
-                OnboardingView(model: model)
+            ZStack {
+                if model.settings.hasCompletedOnboarding {
+                    ContentView(model: model)
+                } else {
+                    OnboardingView(model: model)
+                }
             }
+            .background(KeyboardInputMonitorView(model: model))
         }
         .defaultSize(width: 620, height: 520)
 

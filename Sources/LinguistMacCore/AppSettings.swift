@@ -4,6 +4,8 @@ public struct AppSettings: Equatable, Sendable {
     public var selectedProviderID: TranslationProviderID
     public var autoCopyEnabled: Bool
     public var launchAtLoginEnabled: Bool
+    public var doubleCopyTranslationEnabled: Bool
+    public var dragTranslationEnabled: Bool
     public var screenTranslationShortcut: KeyboardShortcut
     public var textSelectionShortcut: KeyboardShortcut
     public var quickTranslateShortcut: KeyboardShortcut
@@ -18,6 +20,8 @@ public struct AppSettings: Equatable, Sendable {
         selectedProviderID: TranslationProviderID = .apple,
         autoCopyEnabled: Bool = false,
         launchAtLoginEnabled: Bool = false,
+        doubleCopyTranslationEnabled: Bool = false,
+        dragTranslationEnabled: Bool = false,
         screenTranslationShortcut: KeyboardShortcut = .screenTranslationDefault,
         textSelectionShortcut: KeyboardShortcut = .textSelectionDefault,
         quickTranslateShortcut: KeyboardShortcut = .quickTranslateDefault,
@@ -31,6 +35,8 @@ public struct AppSettings: Equatable, Sendable {
         self.selectedProviderID = selectedProviderID
         self.autoCopyEnabled = autoCopyEnabled
         self.launchAtLoginEnabled = launchAtLoginEnabled
+        self.doubleCopyTranslationEnabled = doubleCopyTranslationEnabled
+        self.dragTranslationEnabled = dragTranslationEnabled
         self.screenTranslationShortcut = screenTranslationShortcut
         self.textSelectionShortcut = textSelectionShortcut
         self.quickTranslateShortcut = quickTranslateShortcut
