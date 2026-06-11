@@ -149,6 +149,14 @@ actor InMemoryClipboard: ClipboardServicing {
     }
 }
 
+struct StubSelectedTextCapture: SelectedTextCapturing {
+    var result: Result<String, TranslationFailure>
+
+    func captureSelectedText() async throws -> String {
+        try result.get()
+    }
+}
+
 actor RecordingShortcutRegistry: ShortcutRegistering {
     private var registrations: [ShortcutAction: KeyboardShortcut] = [:]
 

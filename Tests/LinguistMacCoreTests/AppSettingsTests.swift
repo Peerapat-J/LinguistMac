@@ -10,6 +10,8 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.selectedProviderID, .apple)
         XCTAssertFalse(settings.autoCopyEnabled)
         XCTAssertFalse(settings.launchAtLoginEnabled)
+        XCTAssertFalse(settings.doubleCopyTranslationEnabled)
+        XCTAssertFalse(settings.dragTranslationEnabled)
     }
 
     func testDefaultShortcutsCoverPrimaryInputModes() {

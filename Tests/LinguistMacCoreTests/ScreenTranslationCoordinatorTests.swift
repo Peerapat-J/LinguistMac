@@ -164,6 +164,7 @@ final class ScreenTranslationCoordinatorTests: XCTestCase {
                 requestStatuses: [.screenRecording: requestPermissionStatus ?? permissionStatus]
             ),
             clipboard: clipboard,
+            selectedTextCapture: StubSelectedTextCapture(result: .success("selected text")),
             shortcutRegistry: RecordingShortcutRegistry()
         )
     }

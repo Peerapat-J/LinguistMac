@@ -39,6 +39,29 @@ struct MenuBarMenuView: View {
             }
 
             Button {
+                dismissWindow(id: AppWindow.translationPopup.rawValue)
+                Task {
+                    await model.runSelectedTextTranslation()
+                    openWindow(id: AppWindow.translationPopup.rawValue)
+                    activateApp()
+                }
+            } label: {
+                Label("Selected Text", systemImage: "selection.pin.in.out")
+            }
+
+            Button {
+                dismissWindow(id: AppWindow.translationPopup.rawValue)
+                Task {
+                    await model.runDragTranslation()
+                    openWindow(id: AppWindow.translationPopup.rawValue)
+                    activateApp()
+                }
+            } label: {
+                Label("Drag Translate", systemImage: "cursorarrow.motionlines")
+            }
+            .disabled(!model.settings.dragTranslationEnabled)
+
+            Button {
                 openSettingsWindow()
             } label: {
                 Label("Settings", systemImage: "gearshape")
@@ -101,6 +124,7 @@ struct MenuBarMenuView: View {
         .frame(minWidth: 240, alignment: .leading)
         .task {
             await model.refreshReadiness()
+            await model.refreshShortcutRegistrations()
         }
     }
 

@@ -50,6 +50,8 @@ struct SettingsView: View {
                 }
 
                 Toggle("Auto-copy result", isOn: $model.settings.autoCopyEnabled)
+                Toggle("Cmd+C+C translation", isOn: $model.settings.doubleCopyTranslationEnabled)
+                Toggle("Drag translation", isOn: $model.settings.dragTranslationEnabled)
                 Toggle("Launch at login", isOn: $model.settings.launchAtLoginEnabled)
                     .disabled(true)
                 Text("Launch-at-login wiring lands with the app preferences milestone.")
@@ -61,9 +63,7 @@ struct SettingsView: View {
                 ShortcutRow(title: "Screen Translate", shortcut: model.settings.screenTranslationShortcut)
                 ShortcutRow(title: "Selected Text", shortcut: model.settings.textSelectionShortcut)
                 ShortcutRow(title: "Quick Translate", shortcut: model.settings.quickTranslateShortcut)
-                Text("Global shortcut registration arrives in M3.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                shortcutStatus
             }
         }
     }
@@ -119,6 +119,27 @@ struct SettingsView: View {
             model.setOnboardingCompleted(isCompleted)
         }
     }
+
+    @ViewBuilder
+    private var shortcutStatus: some View {
+        if model.shortcutRegistrationResults.isEmpty {
+            Text("Shortcuts will register after Accessibility is available.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            ForEach(model.shortcutRegistrationResults, id: \.action) { result in
+                HStack {
+                    Image(systemName: result.isRegistered ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(result.isRegistered ? .green : .orange)
+                    Text(result.action.settingsTitle)
+                    Spacer()
+                    Text(result.statusText)
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
+            }
+        }
+    }
 }
 
 private struct ShortcutRow: View {
@@ -155,6 +176,38 @@ private extension LinguistMacCore.KeyboardModifier {
             "Opt+"
         case .shift:
             "Shift+"
+        }
+    }
+}
+
+private extension ShortcutAction {
+    var settingsTitle: String {
+        switch self {
+        case .screenTranslation:
+            "Screen Translate"
+        case .textSelectionTranslation:
+            "Selected Text"
+        case .quickTranslate:
+            "Quick Translate"
+        case .clipboardDoubleCopy:
+            "Cmd+C+C"
+        case .dragTranslation:
+            "Drag Translation"
+        }
+    }
+}
+
+private extension ShortcutRegistrationResult {
+    var statusText: String {
+        switch issue {
+        case nil:
+            "Registered"
+        case .permissionDenied:
+            "Needs Accessibility"
+        case let .duplicate(action):
+            "Conflicts with \(action.settingsTitle)"
+        case .unavailable:
+            "Unavailable"
         }
     }
 }

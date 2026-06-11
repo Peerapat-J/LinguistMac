@@ -79,6 +79,23 @@ public enum TranslationInputMode: String, CaseIterable, Sendable {
     case quickTranslate
 }
 
+public extension TranslationInputMode {
+    var displayName: String {
+        switch self {
+        case .screenSelection:
+            String(localized: "Screen Translate")
+        case .selectedText:
+            String(localized: "Selected Text")
+        case .clipboardDoubleCopy:
+            String(localized: "Cmd+C+C")
+        case .dragTranslation:
+            String(localized: "Drag Translation")
+        case .quickTranslate:
+            String(localized: "Quick Translate")
+        }
+    }
+}
+
 public enum ShortcutAction: String, CaseIterable, Sendable {
     case screenTranslation
     case textSelectionTranslation
@@ -191,6 +208,7 @@ public enum TranslationFailure: Error, Equatable, Sendable {
     case missingLanguagePack(TranslationProviderID)
     case providerUnavailable(TranslationProviderID)
     case missingAPIKey(TranslationProviderID)
+    case inputModeDisabled(TranslationInputMode)
     case providerFailed(String)
 }
 

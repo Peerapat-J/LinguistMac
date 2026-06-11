@@ -7,6 +7,7 @@ public struct LinguistServices: Sendable {
     public let historyStore: any TranslationHistoryStoring
     public let permissionChecker: any PermissionChecking
     public let clipboard: any ClipboardServicing
+    public let selectedTextCapture: any SelectedTextCapturing
     public let shortcutRegistry: any ShortcutRegistering
 
     public init(
@@ -18,6 +19,7 @@ public struct LinguistServices: Sendable {
         historyStore: any TranslationHistoryStoring,
         permissionChecker: any PermissionChecking,
         clipboard: any ClipboardServicing,
+        selectedTextCapture: any SelectedTextCapturing,
         shortcutRegistry: any ShortcutRegistering
     ) {
         self.screenCapture = screenCapture
@@ -28,6 +30,7 @@ public struct LinguistServices: Sendable {
         self.historyStore = historyStore
         self.permissionChecker = permissionChecker
         self.clipboard = clipboard
+        self.selectedTextCapture = selectedTextCapture
         self.shortcutRegistry = shortcutRegistry
     }
 }
