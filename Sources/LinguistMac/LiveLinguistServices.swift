@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import Carbon
 import CoreGraphics
@@ -41,11 +42,30 @@ struct SystemPermissionChecker: PermissionChecking {
         case .screenRecording:
             CGRequestScreenCaptureAccess() ? .granted : .denied
         case .accessibility:
-            AXIsProcessTrusted() ? .granted : .notDetermined
+            await requestAccessibilityPermission()
         case .keychain, .network:
             .notDetermined
         }
     }
+
+    private func requestAccessibilityPermission() async -> PermissionStatus {
+        await MainActor.run {
+            let options = [
+                Self.accessibilityPromptOptionKey: true
+            ] as CFDictionary
+
+            guard !AXIsProcessTrustedWithOptions(options) else {
+                return .granted
+            }
+
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+            return AXIsProcessTrusted() ? .granted : .notDetermined
+        }
+    }
+
+    private static let accessibilityPromptOptionKey = "AXTrustedCheckOptionPrompt"
 }
 
 actor UserDefaultsAppSettingsStore: AppSettingsStoring {
