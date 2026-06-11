@@ -42,8 +42,9 @@ struct AppleTranslationProvider: TranslationProviding {
         guard !text.isEmpty else {
             throw TranslationFailure.emptyInput
         }
-        guard let source = request.sourceLanguage.localeLanguage,
-              let target = request.targetLanguage.localeLanguage
+        let resolvedRequest = request.resolvingAutoDetectedSource()
+        guard let source = resolvedRequest.sourceLanguage.localeLanguage,
+              let target = resolvedRequest.targetLanguage.localeLanguage
         else {
             throw TranslationFailure.providerFailed("Apple Translation needs a resolved source and target language.")
         }
@@ -53,7 +54,7 @@ struct AppleTranslationProvider: TranslationProviding {
         }
 
         return try await AppleTranslationSessionAdapter.translate(
-            request,
+            resolvedRequest,
             source: source,
             target: target,
             text: text

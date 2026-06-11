@@ -140,7 +140,9 @@ final class AppShellModel: ObservableObject {
 
     func runQuickTranslate() async {
         do {
-            let request = try quickDraft.makeRequest(providerID: settings.selectedProviderID)
+            let request = try quickDraft
+                .makeRequest(providerID: settings.selectedProviderID)
+                .resolvingAutoDetectedSource()
             quickSessionState = .translating(request)
             popupState = .loading(request)
 

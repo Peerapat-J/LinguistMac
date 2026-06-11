@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 
 public struct TranslationLanguage: Equatable, Hashable, Sendable {
     public let id: String
@@ -125,6 +126,37 @@ public struct TranslationRequest: Equatable, Sendable {
         self.targetLanguage = targetLanguage
         self.inputMode = inputMode
         self.providerID = providerID
+    }
+}
+
+public enum SourceLanguageResolver {
+    public static func detectedLanguage(in text: String) -> TranslationLanguage? {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty,
+              let dominantLanguage = NLLanguageRecognizer.dominantLanguage(for: trimmedText)
+        else {
+            return nil
+        }
+
+        return TranslationLanguageCatalog.language(forID: dominantLanguage.rawValue)
+    }
+}
+
+public extension TranslationRequest {
+    func resolvingAutoDetectedSource() -> TranslationRequest {
+        guard sourceLanguage.supportsAutoDetect,
+              let detectedLanguage = SourceLanguageResolver.detectedLanguage(in: text)
+        else {
+            return self
+        }
+
+        return TranslationRequest(
+            text: text,
+            sourceLanguage: detectedLanguage,
+            targetLanguage: targetLanguage,
+            inputMode: inputMode,
+            providerID: providerID
+        )
     }
 }
 
