@@ -2,6 +2,21 @@
 import XCTest
 
 final class TranslationModelsTests: XCTestCase {
+    func testInputModeDisplayNamesAreUserFacing() {
+        let displayNames: [TranslationInputMode: String] = [
+            .screenSelection: "Screen Translate",
+            .selectedText: "Selected Text",
+            .clipboardDoubleCopy: "Cmd+C+C",
+            .dragTranslation: "Drag Translation",
+            .quickTranslate: "Quick Translate"
+        ]
+
+        for (inputMode, displayName) in displayNames {
+            XCTAssertEqual(inputMode.displayName, displayName)
+            XCTAssertNotEqual(inputMode.displayName, inputMode.rawValue)
+        }
+    }
+
     func testTranslationResultUsesRequestTextAsOriginalByDefault() {
         let request = TranslationRequest(
             text: "hello",
