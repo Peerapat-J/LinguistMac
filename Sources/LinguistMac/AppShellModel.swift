@@ -38,43 +38,28 @@ final class AppShellModel: ObservableObject {
     @Published private(set) var lastCommand: AppShellCommand?
 
     let availableLanguages = TranslationLanguageCatalog.defaultLanguages
+    let availableProviders: [TranslationProviderDescriptor]
 
-    let availableProviders: [TranslationProviderDescriptor] = [
+    private let services: LinguistServices
+
+    private static let liveAvailableProviders: [TranslationProviderDescriptor] = [
         TranslationProviderDescriptor(
             id: .apple,
             displayName: "Apple Translation",
             requiresAPIKey: false,
             usesNetwork: false
-        ),
-        TranslationProviderDescriptor(
-            id: .deepl,
-            displayName: "DeepL",
-            requiresAPIKey: true,
-            usesNetwork: true
-        ),
-        TranslationProviderDescriptor(
-            id: .googleCloud,
-            displayName: "Google Cloud",
-            requiresAPIKey: true,
-            usesNetwork: true
-        ),
-        TranslationProviderDescriptor(
-            id: .microsoftAzure,
-            displayName: "Microsoft Azure",
-            requiresAPIKey: true,
-            usesNetwork: true
         )
     ]
-
-    private let services: LinguistServices
 
     init(
         settings: AppSettings? = nil,
         recentTranslations: [TranslationResult] = [],
         services: LinguistServices = LiveLinguistServices.make()
     ) {
-        let initialSettings = settings ?? UserDefaultsAppSettingsStore.loadInitialSettings()
+        let storedSettings = settings ?? UserDefaultsAppSettingsStore.loadInitialSettings()
+        let initialSettings = storedSettings.selectingAvailableProvider(from: Self.liveAvailableProviders)
 
+        availableProviders = Self.liveAvailableProviders
         self.settings = initialSettings
         self.recentTranslations = recentTranslations
         popupState = .empty
@@ -91,6 +76,9 @@ final class AppShellModel: ObservableObject {
             cloudProviderConfigured: false
         )
         self.services = services
+        if initialSettings != storedSettings {
+            persistSettings()
+        }
     }
 
     var recentMenuItems: [TranslationResult] {
