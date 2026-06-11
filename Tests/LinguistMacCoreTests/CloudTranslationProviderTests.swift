@@ -52,7 +52,7 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertEqual(body?["text"] as? [String], ["hello"])
     }
 
-    func testGoogleCloudProviderBuildsQueryRequestAndDecodesResponse() async throws {
+    func testGoogleCloudProviderBuildsBodyRequestAndDecodesResponse() async throws {
         let client = StubCloudTranslationClient(
             response: jsonResponse(#"{"data":{"translations":[{"translatedText":"sawasdee"}]}}"#)
         )
@@ -66,15 +66,20 @@ final class CloudTranslationProviderTests: XCTestCase {
         let requests = await client.requests
         let sentRequest = try XCTUnwrap(requests.first)
         let query = queryItems(from: sentRequest.url)
+        let body = try bodyObject(from: sentRequest) as? [String: String]
 
         XCTAssertEqual(result.translatedText, "sawasdee")
         XCTAssertEqual(sentRequest.url.scheme, "https")
         XCTAssertEqual(sentRequest.url.host, "translation.googleapis.com")
         XCTAssertEqual(query["key"], "test-key")
-        XCTAssertEqual(query["q"], "hello")
-        XCTAssertEqual(query["source"], "en")
-        XCTAssertEqual(query["target"], "th")
-        XCTAssertEqual(query["format"], "text")
+        XCTAssertNil(query["q"])
+        XCTAssertNil(query["source"])
+        XCTAssertNil(query["target"])
+        XCTAssertNil(query["format"])
+        XCTAssertEqual(body?["q"], "hello")
+        XCTAssertEqual(body?["source"], "en")
+        XCTAssertEqual(body?["target"], "th")
+        XCTAssertEqual(body?["format"], "text")
     }
 
     func testMicrosoftAzureProviderBuildsRequestAndDecodesResponse() async throws {

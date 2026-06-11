@@ -264,25 +264,24 @@ public struct CloudTranslationProvider: TranslationProviding {
         apiKey: String
     ) throws -> CloudTranslationHTTPRequest {
         var components = URLComponents(string: "https://translation.googleapis.com/language/translate/v2")
-        var queryItems = [
-            URLQueryItem(name: "key", value: apiKey),
-            URLQueryItem(name: "q", value: text),
-            URLQueryItem(name: "target", value: request.targetLanguage.id),
-            URLQueryItem(name: "format", value: "text")
-        ]
-        if !request.sourceLanguage.supportsAutoDetect {
-            queryItems.append(URLQueryItem(name: "source", value: request.sourceLanguage.id))
-        }
-        components?.queryItems = queryItems
+        components?.queryItems = [URLQueryItem(name: "key", value: apiKey)]
 
         guard let url = components?.url else {
             throw TranslationFailure.providerUnavailable(id)
         }
 
-        return CloudTranslationHTTPRequest(
+        var body = GoogleCloudTranslateRequest(
+            text: text,
+            target: request.targetLanguage.id,
+            format: "text"
+        )
+        body.source = request.sourceLanguage.supportsAutoDetect ? nil : request.sourceLanguage.id
+
+        return try CloudTranslationHTTPRequest(
             providerID: id,
             url: url,
-            headers: ["Content-Type": "application/json"]
+            headers: ["Content-Type": "application/json"],
+            body: JSONEncoder().encode(body)
         )
     }
 
@@ -385,6 +384,20 @@ private struct GoogleCloudTranslateResponse: Decodable {
     }
 
     let data: Payload
+}
+
+private struct GoogleCloudTranslateRequest: Encodable {
+    let text: String
+    let target: String
+    let format: String
+    var source: String?
+
+    enum CodingKeys: String, CodingKey {
+        case text = "q"
+        case target
+        case format
+        case source
+    }
 }
 
 private struct MicrosoftAzureTranslateRequest: Encodable {
