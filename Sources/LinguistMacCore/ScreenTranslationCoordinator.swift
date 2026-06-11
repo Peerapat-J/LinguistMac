@@ -63,7 +63,7 @@ public actor ScreenTranslationCoordinator {
 
             let provider = try await services.translatorRegistry.provider(for: request.providerID)
             let result = try await provider.translate(request)
-            try await services.historyStore.save(result)
+            await saveHistoryIfPossible(result)
 
             if settings.autoCopyEnabled {
                 await services.clipboard.writeText(result.translatedText)
@@ -85,6 +85,14 @@ public actor ScreenTranslationCoordinator {
         }
 
         return recognizedLanguage ?? settingsSource
+    }
+
+    private func saveHistoryIfPossible(_ result: TranslationResult) async {
+        do {
+            try await services.historyStore.save(result)
+        } catch {
+            // History persistence is best-effort; translation success remains authoritative.
+        }
     }
 
     private func failure(from error: Error) -> TranslationFailure {

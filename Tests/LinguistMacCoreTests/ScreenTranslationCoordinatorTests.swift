@@ -43,6 +43,30 @@ final class ScreenTranslationCoordinatorTests: XCTestCase {
         XCTAssertEqual(states[4], .completed(result))
     }
 
+    func testCoordinatorCompletesWhenHistorySaveFails() async {
+        let clipboard = InMemoryClipboard()
+        let services = makeServices(
+            captureResult: .success(CapturedScreenRegion(imageData: Data([1]))),
+            ocrResult: .success(RecognizedText(text: "hello", language: .english)),
+            translatedText: "sawasdee",
+            historyStore: FailingTranslationHistoryStore(),
+            clipboard: clipboard
+        )
+        let coordinator = ScreenTranslationCoordinator(services: services)
+        var settings = AppSettings(sourceLanguage: .autoDetect, targetLanguage: .thai)
+        settings.autoCopyEnabled = true
+
+        let finalState = await coordinator.translateScreenSelection(settings: settings)
+
+        guard case let .completed(result) = finalState else {
+            return XCTFail("Expected completed state, got \(finalState)")
+        }
+
+        XCTAssertEqual(result.translatedText, "sawasdee")
+        let clipboardText = await clipboard.readText()
+        XCTAssertEqual(clipboardText, "sawasdee")
+    }
+
     func testCoordinatorFailsWhenScreenRecordingPermissionIsMissing() async {
         let services = makeServices(
             permissionStatus: .notDetermined,
@@ -96,7 +120,7 @@ final class ScreenTranslationCoordinatorTests: XCTestCase {
         ocrResult: Result<RecognizedText, TranslationFailure>,
         readiness: LanguagePackReadiness = .ready,
         translatedText: String = "translated",
-        historyStore: InMemoryTranslationHistoryStore = InMemoryTranslationHistoryStore(),
+        historyStore: any TranslationHistoryStoring = InMemoryTranslationHistoryStore(),
         clipboard: InMemoryClipboard = InMemoryClipboard()
     ) -> LinguistServices {
         let provider = StubTranslationProvider(

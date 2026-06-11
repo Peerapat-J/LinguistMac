@@ -108,6 +108,18 @@ actor InMemoryTranslationHistoryStore: TranslationHistoryStoring {
     }
 }
 
+struct FailingTranslationHistoryStore: TranslationHistoryStoring {
+    func save(_ result: TranslationResult) async throws {
+        _ = result
+        throw TranslationFailure.providerFailed("History save failed.")
+    }
+
+    func recent(limit: Int) async throws -> [TranslationResult] {
+        _ = limit
+        throw TranslationFailure.providerFailed("History load failed.")
+    }
+}
+
 struct StubPermissionChecker: PermissionChecking {
     var statuses: [PermissionKind: PermissionStatus]
 
