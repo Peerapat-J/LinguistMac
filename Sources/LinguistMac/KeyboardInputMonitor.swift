@@ -71,11 +71,12 @@ private final class KeyboardInputMonitor {
             return
         }
 
-        if event.isCommandC,
-           await model.observeCopyCommand()
-        {
-            openWindow(.translationPopup)
-            return
+        if event.isCommandC {
+            let didTriggerDoubleCopy = await model.observeCopyCommand()
+            if didTriggerDoubleCopy {
+                openWindow(.translationPopup)
+                return
+            }
         }
 
         let settings = model.settings
