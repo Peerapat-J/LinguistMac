@@ -19,6 +19,8 @@ struct SettingsView: View {
         .padding(24)
         .frame(width: 620, height: 520)
         .task {
+            await model.refreshProviderDescriptors()
+            await model.refreshAppPreferences()
             await model.refreshReadiness()
         }
     }
@@ -39,12 +41,19 @@ struct SettingsView: View {
                             .tag(language)
                     }
                 }
+
+                Picker("App language", selection: $model.settings.appLanguage) {
+                    ForEach(AppLanguage.allCases, id: \.rawValue) { language in
+                        Text(language.displayName)
+                            .tag(language)
+                    }
+                }
             }
 
             Section("Translation") {
                 Picker("Engine", selection: $model.settings.selectedProviderID) {
                     ForEach(model.availableProviders, id: \.id) { provider in
-                        Text(provider.displayName)
+                        Text(provider.pickerTitle)
                             .tag(provider.id)
                     }
                 }
@@ -52,11 +61,18 @@ struct SettingsView: View {
                 Toggle("Auto-copy result", isOn: $model.settings.autoCopyEnabled)
                 Toggle("Cmd+C+C translation", isOn: $model.settings.doubleCopyTranslationEnabled)
                 Toggle("Drag translation", isOn: $model.settings.dragTranslationEnabled)
-                Toggle("Launch at login", isOn: $model.settings.launchAtLoginEnabled)
-                    .disabled(true)
-                Text("Launch-at-login wiring lands with the app preferences milestone.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Toggle("Launch at login", isOn: launchAtLoginBinding)
+                if let message = model.appPreferenceMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Provider Keys") {
+                ForEach(model.availableProviders.filter(\.requiresAPIKey), id: \.id) { provider in
+                    ProviderConfigurationRow(model: model, provider: provider)
+                }
             }
 
             Section("Shortcuts") {
@@ -120,6 +136,16 @@ struct SettingsView: View {
         }
     }
 
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding {
+            model.settings.launchAtLoginEnabled
+        } set: { isEnabled in
+            Task {
+                await model.setLaunchAtLoginEnabled(isEnabled)
+            }
+        }
+    }
+
     @ViewBuilder
     private var shortcutStatus: some View {
         if model.shortcutRegistrationResults.isEmpty {
@@ -138,6 +164,70 @@ struct SettingsView: View {
                 }
                 .font(.caption)
             }
+        }
+    }
+}
+
+private struct ProviderConfigurationRow: View {
+    @ObservedObject var model: AppShellModel
+    let provider: TranslationProviderDescriptor
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(provider.displayName)
+                    Text(provider.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Label(provider.configurationStatus.displayText, systemImage: provider.statusImage)
+                    .font(.caption)
+                    .foregroundStyle(provider.isConfigured ? .green : .orange)
+            }
+
+            SecureField("API key", text: apiKeyDraftBinding)
+
+            HStack {
+                Button("Save") {
+                    Task {
+                        await model.saveAPIKey(for: provider.id)
+                    }
+                }
+
+                Button("Test") {
+                    Task {
+                        await model.testAPIKeyConfiguration(for: provider.id)
+                    }
+                }
+
+                Button("Clear", role: .destructive) {
+                    Task {
+                        await model.clearAPIKey(for: provider.id)
+                    }
+                }
+
+                Spacer()
+            }
+            .controlSize(.small)
+
+            if let message = model.providerConfigurationMessages[provider.id] {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var apiKeyDraftBinding: Binding<String> {
+        Binding {
+            model.providerAPIKeyDrafts[provider.id, default: ""]
+        } set: { value in
+            model.providerAPIKeyDrafts[provider.id] = value
         }
     }
 }
@@ -162,6 +252,25 @@ private struct ShortcutRow: View {
             .map(\.displaySymbol)
             .joined()
         return modifiers + shortcut.key.uppercased()
+    }
+}
+
+private extension TranslationProviderDescriptor {
+    var pickerTitle: String {
+        isConfigured || !requiresAPIKey
+            ? displayName
+            : "\(displayName) - API key required"
+    }
+
+    var statusImage: String {
+        switch configurationStatus {
+        case .ready:
+            "checkmark.circle.fill"
+        case .needsAPIKey:
+            "key.fill"
+        case .unavailable:
+            "exclamationmark.triangle.fill"
+        }
     }
 }
 

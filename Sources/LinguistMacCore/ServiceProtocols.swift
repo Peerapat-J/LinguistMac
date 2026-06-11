@@ -9,9 +9,12 @@ public protocol OCRServicing: Sendable {
 public protocol TranslationProviding: Sendable {
     var id: TranslationProviderID { get }
     var displayName: String { get }
+    var detail: String { get }
     var requiresAPIKey: Bool { get }
     var usesNetwork: Bool { get }
+    var privacySummary: String { get }
 
+    func isConfigured() async -> Bool
     func translate(_ request: TranslationRequest) async throws -> TranslationResult
 }
 
@@ -31,6 +34,18 @@ public protocol LanguageAvailabilityChecking: Sendable {
 public protocol AppSettingsStoring: Sendable {
     func loadSettings() async throws -> AppSettings
     func saveSettings(_ settings: AppSettings) async throws
+}
+
+public protocol APIKeyStoring: Sendable {
+    func apiKey(for providerID: TranslationProviderID) async throws -> String?
+    func saveAPIKey(_ apiKey: String, for providerID: TranslationProviderID) async throws
+    func deleteAPIKey(for providerID: TranslationProviderID) async throws
+    func containsAPIKey(for providerID: TranslationProviderID) async -> Bool
+}
+
+public protocol LaunchAtLoginServicing: Sendable {
+    func isEnabled() async -> Bool
+    func setEnabled(_ isEnabled: Bool) async throws
 }
 
 public protocol TranslationHistoryStoring: Sendable {
@@ -55,4 +70,8 @@ public protocol SelectedTextCapturing: Sendable {
 public protocol ShortcutRegistering: Sendable {
     func register(_ shortcut: KeyboardShortcut, for action: ShortcutAction) async throws
     func unregister(_ action: ShortcutAction) async
+}
+
+public protocol CloudTranslationClient: Sendable {
+    func perform(_ request: CloudTranslationHTTPRequest) async throws -> CloudTranslationHTTPResponse
 }

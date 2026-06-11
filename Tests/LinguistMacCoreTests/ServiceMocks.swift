@@ -21,10 +21,16 @@ struct StubOCRService: OCRServicing {
 struct StubTranslationProvider: TranslationProviding {
     var id: TranslationProviderID
     var displayName: String
+    var detail: String = "Stub provider"
     var requiresAPIKey: Bool
     var usesNetwork: Bool
+    var privacySummary: String = "Stub privacy"
     var translatedText: String
     var failure: TranslationFailure?
+
+    func isConfigured() async -> Bool {
+        failure != .missingAPIKey(id)
+    }
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResult {
         if let failure {
@@ -50,12 +56,15 @@ struct StubTranslationProviderRegistry: TranslationProviderRegistry {
     }
 
     func availableProviders() async -> [TranslationProviderDescriptor] {
-        [
+        await [
             TranslationProviderDescriptor(
                 id: provider.id,
                 displayName: provider.displayName,
                 requiresAPIKey: provider.requiresAPIKey,
-                usesNetwork: provider.usesNetwork
+                usesNetwork: provider.usesNetwork,
+                detail: provider.detail,
+                configurationStatus: provider.isConfigured() ? .ready : .needsAPIKey,
+                privacySummary: provider.privacySummary
             )
         ]
     }
@@ -89,6 +98,46 @@ actor InMemoryAppSettingsStore: AppSettingsStoring {
 
     func saveSettings(_ settings: AppSettings) async throws {
         self.settings = settings
+    }
+}
+
+actor InMemoryAPIKeyStore: APIKeyStoring {
+    private var keys: [TranslationProviderID: String]
+
+    init(keys: [TranslationProviderID: String] = [:]) {
+        self.keys = keys
+    }
+
+    func apiKey(for providerID: TranslationProviderID) async throws -> String? {
+        keys[providerID]
+    }
+
+    func saveAPIKey(_ apiKey: String, for providerID: TranslationProviderID) async throws {
+        keys[providerID] = apiKey
+    }
+
+    func deleteAPIKey(for providerID: TranslationProviderID) async throws {
+        keys.removeValue(forKey: providerID)
+    }
+
+    func containsAPIKey(for providerID: TranslationProviderID) async -> Bool {
+        keys[providerID]?.isEmpty == false
+    }
+}
+
+actor StubLaunchAtLoginService: LaunchAtLoginServicing {
+    private var enabled: Bool
+
+    init(enabled: Bool = false) {
+        self.enabled = enabled
+    }
+
+    func isEnabled() async -> Bool {
+        enabled
+    }
+
+    func setEnabled(_ isEnabled: Bool) async throws {
+        enabled = isEnabled
     }
 }
 
@@ -170,5 +219,19 @@ actor RecordingShortcutRegistry: ShortcutRegistering {
 
     func registeredShortcut(for action: ShortcutAction) async -> KeyboardShortcut? {
         registrations[action]
+    }
+}
+
+actor StubCloudTranslationClient: CloudTranslationClient {
+    private(set) var requests: [CloudTranslationHTTPRequest] = []
+    var response: CloudTranslationHTTPResponse
+
+    init(response: CloudTranslationHTTPResponse) {
+        self.response = response
+    }
+
+    func perform(_ request: CloudTranslationHTTPRequest) async throws -> CloudTranslationHTTPResponse {
+        requests.append(request)
+        return response
     }
 }

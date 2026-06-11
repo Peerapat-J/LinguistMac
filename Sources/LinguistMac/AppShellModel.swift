@@ -37,23 +37,17 @@ final class AppShellModel: ObservableObject {
     @Published var inputModeSessionState: TranslationSessionState
     @Published private(set) var shortcutRegistrationResults: [ShortcutRegistrationResult]
     @Published var readiness: OnboardingReadinessSnapshot
+    @Published private(set) var availableProviders: [TranslationProviderDescriptor]
+    @Published var providerAPIKeyDrafts: [TranslationProviderID: String]
+    @Published private(set) var providerConfigurationMessages: [TranslationProviderID: String]
+    @Published private(set) var appPreferenceMessage: String?
     @Published private(set) var lastCommand: AppShellCommand?
 
     let availableLanguages = TranslationLanguageCatalog.defaultLanguages
-    let availableProviders: [TranslationProviderDescriptor]
 
     private let services: LinguistServices
     private let shortcutRegistrationCoordinator: ShortcutRegistrationCoordinator
     private var doubleCopyTriggerDetector: DoubleCopyTriggerDetector
-
-    private static let liveAvailableProviders: [TranslationProviderDescriptor] = [
-        TranslationProviderDescriptor(
-            id: .apple,
-            displayName: "Apple Translation",
-            requiresAPIKey: false,
-            usesNetwork: false
-        )
-    ]
 
     init(
         settings: AppSettings? = nil,
@@ -61,9 +55,12 @@ final class AppShellModel: ObservableObject {
         services: LinguistServices = LiveLinguistServices.make()
     ) {
         let storedSettings = settings ?? UserDefaultsAppSettingsStore.loadInitialSettings()
-        let initialSettings = storedSettings.selectingAvailableProvider(from: Self.liveAvailableProviders)
+        let initialProviders = TranslationProviderCatalog.defaultDescriptors()
+        let initialSettings = storedSettings
+            .selectingAvailableProvider(from: initialProviders)
+            .sanitized()
 
-        availableProviders = Self.liveAvailableProviders
+        availableProviders = initialProviders
         self.settings = initialSettings
         self.recentTranslations = recentTranslations
         popupState = .empty
@@ -81,6 +78,9 @@ final class AppShellModel: ObservableObject {
             appleTranslation: .unknown,
             cloudProviderConfigured: false
         )
+        providerAPIKeyDrafts = [:]
+        providerConfigurationMessages = [:]
+        appPreferenceMessage = nil
         self.services = services
         shortcutRegistrationCoordinator = ShortcutRegistrationCoordinator(registry: services.shortcutRegistry)
         doubleCopyTriggerDetector = DoubleCopyTriggerDetector()
@@ -146,16 +146,17 @@ final class AppShellModel: ObservableObject {
                 to: request.targetLanguage,
                 sampleText: request.text
             )
-            switch readiness {
-            case .ready, .unknown:
-                break
-            case .needsDownload:
-                throw TranslationFailure.missingLanguagePack(request.providerID)
-            case .unavailable:
-                throw TranslationFailure.unsupportedLanguagePair
-            }
-
             let translator = try await services.translatorRegistry.provider(for: request.providerID)
+            if !translator.usesNetwork {
+                switch readiness {
+                case .ready, .unknown:
+                    break
+                case .needsDownload:
+                    throw TranslationFailure.missingLanguagePack(request.providerID)
+                case .unavailable:
+                    throw TranslationFailure.unsupportedLanguagePair
+                }
+            }
             let result = try await translator.translate(request)
             quickSessionState = .completed(result)
             popupState = .success(result, showsOriginal: false)
@@ -248,12 +249,15 @@ final class AppShellModel: ObservableObject {
             to: settings.targetLanguage,
             sampleText: nil
         )
+        let cloudProviderConfigured = availableProviders.contains {
+            $0.usesNetwork && $0.isConfigured
+        }
 
         readiness = OnboardingReadinessSnapshot.make(
             screenRecording: screenRecording,
             accessibility: accessibility,
             appleTranslation: appleTranslation,
-            cloudProviderConfigured: false
+            cloudProviderConfigured: cloudProviderConfigured
         )
     }
 
@@ -333,6 +337,73 @@ final class AppShellModel: ObservableObject {
         case .keychain, .network:
             URL(string: "x-apple.systempreferences:com.apple.preference.security")
         }
+    }
+}
+
+extension AppShellModel {
+    func refreshProviderDescriptors() async {
+        let providers = await services.translatorRegistry.availableProviders()
+        availableProviders = providers
+
+        let sanitizedSettings = settings
+            .selectingAvailableProvider(from: providers)
+            .sanitized()
+        if sanitizedSettings != settings {
+            settings = sanitizedSettings
+        }
+
+        await refreshReadiness()
+    }
+
+    func refreshAppPreferences() async {
+        settings.launchAtLoginEnabled = await services.launchAtLogin.isEnabled()
+    }
+
+    func setLaunchAtLoginEnabled(_ isEnabled: Bool) async {
+        do {
+            try await services.launchAtLogin.setEnabled(isEnabled)
+            settings.launchAtLoginEnabled = await services.launchAtLogin.isEnabled()
+            appPreferenceMessage = isEnabled ? "Launch at login enabled." : "Launch at login disabled."
+        } catch {
+            settings.launchAtLoginEnabled = await services.launchAtLogin.isEnabled()
+            appPreferenceMessage = "Launch at login could not be updated."
+        }
+    }
+
+    func saveAPIKey(for providerID: TranslationProviderID) async {
+        let trimmedKey = providerAPIKeyDrafts[providerID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmedKey.isEmpty else {
+            providerConfigurationMessages[providerID] = "Enter an API key before saving."
+            return
+        }
+
+        do {
+            try await services.apiKeyStore.saveAPIKey(trimmedKey, for: providerID)
+            providerAPIKeyDrafts[providerID] = ""
+            providerConfigurationMessages[providerID] = "API key saved."
+            await refreshProviderDescriptors()
+        } catch {
+            providerConfigurationMessages[providerID] = "API key could not be saved."
+        }
+    }
+
+    func clearAPIKey(for providerID: TranslationProviderID) async {
+        do {
+            try await services.apiKeyStore.deleteAPIKey(for: providerID)
+            providerAPIKeyDrafts[providerID] = ""
+            providerConfigurationMessages[providerID] = "API key cleared."
+            await refreshProviderDescriptors()
+        } catch {
+            providerConfigurationMessages[providerID] = "API key could not be cleared."
+        }
+    }
+
+    func testAPIKeyConfiguration(for providerID: TranslationProviderID) async {
+        let isConfigured = await services.apiKeyStore.containsAPIKey(for: providerID)
+        providerConfigurationMessages[providerID] = isConfigured
+            ? "API key is present. Translation requests can use this provider."
+            : "No API key is saved for this provider."
+        await refreshProviderDescriptors()
     }
 }
 

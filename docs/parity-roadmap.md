@@ -57,6 +57,8 @@ Goal: complete user-configurable provider parity.
 - `#25` secure API key storage.
 - `#26` launch at login, app language, and auto-copy settings.
 
+Implementation notes and defaults live in `docs/m4-settings-providers.md`.
+
 ## M5 History + UX Polish + Release Readiness
 
 Goal: finish daily-use polish and release posture.

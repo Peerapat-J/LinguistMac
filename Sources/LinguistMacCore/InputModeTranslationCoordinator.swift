@@ -106,23 +106,25 @@ public actor InputModeTranslationCoordinator {
             providerID: settings.selectedProviderID
         )
 
-        setState(.translating(request))
-        let readiness = await services.languageAvailability.readiness(
-            from: request.sourceLanguage,
-            to: request.targetLanguage,
-            sampleText: request.text
-        )
-        switch readiness {
-        case .ready, .unknown:
-            break
-        case .needsDownload:
-            return fail(with: .missingLanguagePack(request.providerID))
-        case .unavailable:
-            return fail(with: .unsupportedLanguagePair)
-        }
-
         do {
             let provider = try await services.translatorRegistry.provider(for: request.providerID)
+            setState(.translating(request))
+            if !provider.usesNetwork {
+                let readiness = await services.languageAvailability.readiness(
+                    from: request.sourceLanguage,
+                    to: request.targetLanguage,
+                    sampleText: request.text
+                )
+                switch readiness {
+                case .ready, .unknown:
+                    break
+                case .needsDownload:
+                    return fail(with: .missingLanguagePack(request.providerID))
+                case .unavailable:
+                    return fail(with: .unsupportedLanguagePair)
+                }
+            }
+
             let result = try await provider.translate(request)
             await saveHistoryIfPossible(result)
 

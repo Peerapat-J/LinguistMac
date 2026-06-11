@@ -18,13 +18,14 @@ tests can catch accidental drift.
 
 ## Entitlement Baseline
 
-`Configuration/LinguistMac/LinguistMac.entitlements` currently enables only the
-App Sandbox:
+`Configuration/LinguistMac/LinguistMac.entitlements` currently enables the App
+Sandbox and outbound client networking for opt-in M4 cloud providers:
 
 - `com.apple.security.app-sandbox`
+- `com.apple.security.network.client`
 
-Do not add network, file, automation, or broader security exceptions until the
-feature issue that requires them is implemented and reviewed.
+Do not add file, automation, or broader security exceptions until the feature
+issue that requires them is implemented and reviewed.
 
 ## Permission Matrix
 
@@ -33,14 +34,15 @@ feature issue that requires them is implemented and reviewed.
 | Screen Recording | Selected-region screenshot capture for OCR | Required for default screen translation; model and docs only in M0 |
 | Accessibility | Selected text, double-copy, and drag translation workflows | Optional until M3 input modes |
 | Keychain | Optional cloud provider API keys | Optional until M4 provider/key issues |
-| Network client | Optional cloud translation providers | Not enabled in baseline entitlement; add only with M4 provider work |
-| Launch at login | User preference for startup behavior | Optional until M4 app-preferences issue |
+| Network client | Optional cloud translation providers | Enabled in M4 for user-selected BYOK providers only |
+| Launch at login | User preference for startup behavior | Implemented in M4 app-preferences issue |
 
 ## Privacy Defaults
 
 - Apple Translation remains the planned default provider.
 - Auto-copy is off by default.
 - Cloud translation providers are opt-in and require user-supplied keys.
+- Network requests are made only by the selected cloud provider engine.
 - No telemetry or auto-update integration is part of M0.
 - Permission failures should become user-visible states rather than silent
   failures when feature workflows land.

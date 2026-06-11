@@ -1,9 +1,10 @@
-public struct AppSettings: Equatable, Sendable {
+public struct AppSettings: Codable, Equatable, Sendable {
     public var sourceLanguage: TranslationLanguage
     public var targetLanguage: TranslationLanguage
     public var selectedProviderID: TranslationProviderID
     public var autoCopyEnabled: Bool
     public var launchAtLoginEnabled: Bool
+    public var appLanguage: AppLanguage
     public var doubleCopyTranslationEnabled: Bool
     public var dragTranslationEnabled: Bool
     public var screenTranslationShortcut: KeyboardShortcut
@@ -20,6 +21,7 @@ public struct AppSettings: Equatable, Sendable {
         selectedProviderID: TranslationProviderID = .apple,
         autoCopyEnabled: Bool = false,
         launchAtLoginEnabled: Bool = false,
+        appLanguage: AppLanguage = .system,
         doubleCopyTranslationEnabled: Bool = false,
         dragTranslationEnabled: Bool = false,
         screenTranslationShortcut: KeyboardShortcut = .screenTranslationDefault,
@@ -35,6 +37,7 @@ public struct AppSettings: Equatable, Sendable {
         self.selectedProviderID = selectedProviderID
         self.autoCopyEnabled = autoCopyEnabled
         self.launchAtLoginEnabled = launchAtLoginEnabled
+        self.appLanguage = appLanguage
         self.doubleCopyTranslationEnabled = doubleCopyTranslationEnabled
         self.dragTranslationEnabled = dragTranslationEnabled
         self.screenTranslationShortcut = screenTranslationShortcut
@@ -59,9 +62,36 @@ public extension AppSettings {
         settings.selectedProviderID = fallbackProvider.id
         return settings
     }
+
+    func sanitized() -> AppSettings {
+        var settings = self
+        if !settings.targetLanguage.canBeTargetLanguage {
+            settings.targetLanguage = .english
+        }
+        settings.popupFontSize = min(max(settings.popupFontSize, 12), 22)
+        settings.popupWidth = min(max(settings.popupWidth, 320), 720)
+        return settings
+    }
 }
 
-public struct KeyboardShortcut: Equatable, Hashable, Sendable {
+public enum AppLanguage: String, CaseIterable, Codable, Sendable {
+    case system
+    case english
+    case korean
+
+    public var displayName: String {
+        switch self {
+        case .system:
+            "System"
+        case .english:
+            "English"
+        case .korean:
+            "Korean"
+        }
+    }
+}
+
+public struct KeyboardShortcut: Codable, Equatable, Hashable, Sendable {
     public var key: String
     public var modifiers: Set<KeyboardModifier>
 
@@ -71,7 +101,7 @@ public struct KeyboardShortcut: Equatable, Hashable, Sendable {
     }
 }
 
-public enum KeyboardModifier: String, CaseIterable, Sendable {
+public enum KeyboardModifier: String, CaseIterable, Codable, Sendable {
     case command
     case control
     case option

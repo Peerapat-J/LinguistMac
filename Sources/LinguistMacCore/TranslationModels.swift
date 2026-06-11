@@ -1,7 +1,7 @@
 import Foundation
 import NaturalLanguage
 
-public struct TranslationLanguage: Equatable, Hashable, Sendable {
+public struct TranslationLanguage: Codable, Equatable, Hashable, Sendable {
     public let id: String
     public let displayName: String
     public let supportsAutoDetect: Bool
@@ -37,7 +37,7 @@ public extension TranslationLanguage {
     }
 }
 
-public struct TranslationProviderID: RawRepresentable, Equatable, Hashable, Sendable {
+public struct TranslationProviderID: Codable, RawRepresentable, Equatable, Hashable, Sendable {
     public let rawValue: String
 
     public init(rawValue: String) {
@@ -50,24 +50,72 @@ public extension TranslationProviderID {
     static let deepl = TranslationProviderID(rawValue: "deepl")
     static let googleCloud = TranslationProviderID(rawValue: "google-cloud")
     static let microsoftAzure = TranslationProviderID(rawValue: "microsoft-azure")
+
+    static let allKnownProviders: [TranslationProviderID] = [
+        .apple,
+        .deepl,
+        .googleCloud,
+        .microsoftAzure
+    ]
+
+    static let cloudProviders: [TranslationProviderID] = [
+        .deepl,
+        .googleCloud,
+        .microsoftAzure
+    ]
 }
 
 public struct TranslationProviderDescriptor: Equatable, Sendable {
     public let id: TranslationProviderID
     public let displayName: String
+    public let detail: String
     public let requiresAPIKey: Bool
     public let usesNetwork: Bool
+    public let configurationStatus: TranslationProviderConfigurationStatus
+    public let privacySummary: String
 
     public init(
         id: TranslationProviderID,
         displayName: String,
         requiresAPIKey: Bool,
-        usesNetwork: Bool
+        usesNetwork: Bool,
+        detail: String = "",
+        configurationStatus: TranslationProviderConfigurationStatus? = nil,
+        privacySummary: String = ""
     ) {
         self.id = id
         self.displayName = displayName
+        self.detail = detail
         self.requiresAPIKey = requiresAPIKey
         self.usesNetwork = usesNetwork
+        self.configurationStatus = configurationStatus ?? (requiresAPIKey ? .needsAPIKey : .ready)
+        self.privacySummary = privacySummary
+    }
+
+    public var isConfigured: Bool {
+        switch configurationStatus {
+        case .ready:
+            true
+        case .needsAPIKey, .unavailable:
+            false
+        }
+    }
+}
+
+public enum TranslationProviderConfigurationStatus: Equatable, Sendable {
+    case ready
+    case needsAPIKey
+    case unavailable(String)
+
+    public var displayText: String {
+        switch self {
+        case .ready:
+            "Ready"
+        case .needsAPIKey:
+            "API key required"
+        case let .unavailable(reason):
+            reason
+        }
     }
 }
 
