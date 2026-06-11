@@ -40,6 +40,7 @@ public protocol TranslationHistoryStoring: Sendable {
 
 public protocol PermissionChecking: Sendable {
     func status(for kind: PermissionKind) async -> PermissionStatus
+    func request(for kind: PermissionKind) async -> PermissionStatus
 }
 
 public protocol ClipboardServicing: Sendable {

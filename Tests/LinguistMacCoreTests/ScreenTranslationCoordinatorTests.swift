@@ -70,6 +70,7 @@ final class ScreenTranslationCoordinatorTests: XCTestCase {
     func testCoordinatorFailsWhenScreenRecordingPermissionIsMissing() async {
         let services = makeServices(
             permissionStatus: .notDetermined,
+            requestPermissionStatus: .denied,
             captureResult: .success(CapturedScreenRegion(imageData: Data([1]))),
             ocrResult: .success(RecognizedText(text: "hello"))
         )
@@ -87,6 +88,25 @@ final class ScreenTranslationCoordinatorTests: XCTestCase {
                 .failed(.permissionDenied(.screenRecording))
             ]
         )
+    }
+
+    func testCoordinatorRequestsScreenRecordingPermissionBeforeCapture() async {
+        let services = makeServices(
+            permissionStatus: .notDetermined,
+            requestPermissionStatus: .granted,
+            captureResult: .success(CapturedScreenRegion(imageData: Data([1]))),
+            ocrResult: .success(RecognizedText(text: "hello", language: .english))
+        )
+        let coordinator = ScreenTranslationCoordinator(services: services)
+
+        let finalState = await coordinator.translateScreenSelection(settings: AppSettings(targetLanguage: .thai))
+
+        guard case .completed = finalState else {
+            return XCTFail("Expected completed state after permission request, got \(finalState)")
+        }
+        let states = await coordinator.states()
+        XCTAssertEqual(states[1], .requestingPermission(.screenRecording))
+        XCTAssertEqual(states[2], .capturing)
     }
 
     func testCoordinatorFailsWhenOCRFindsNoText() async {
@@ -116,6 +136,7 @@ final class ScreenTranslationCoordinatorTests: XCTestCase {
 
     private func makeServices(
         permissionStatus: PermissionStatus = .granted,
+        requestPermissionStatus: PermissionStatus? = nil,
         captureResult: Result<CapturedScreenRegion, TranslationFailure>,
         ocrResult: Result<RecognizedText, TranslationFailure>,
         readiness: LanguagePackReadiness = .ready,
@@ -138,7 +159,10 @@ final class ScreenTranslationCoordinatorTests: XCTestCase {
             languageAvailability: StubLanguageAvailabilityChecker(readiness: readiness),
             settingsStore: InMemoryAppSettingsStore(),
             historyStore: historyStore,
-            permissionChecker: StubPermissionChecker(statuses: [.screenRecording: permissionStatus]),
+            permissionChecker: StubPermissionChecker(
+                statuses: [.screenRecording: permissionStatus],
+                requestStatuses: [.screenRecording: requestPermissionStatus ?? permissionStatus]
+            ),
             clipboard: clipboard,
             shortcutRegistry: RecordingShortcutRegistry()
         )

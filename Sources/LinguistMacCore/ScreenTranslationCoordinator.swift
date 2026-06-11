@@ -17,9 +17,7 @@ public actor ScreenTranslationCoordinator {
 
     @discardableResult
     public func translateScreenSelection(settings: AppSettings) async -> TranslationSessionState {
-        let permissionStatus = await services.permissionChecker.status(for: .screenRecording)
-        guard permissionStatus == .granted else {
-            setState(.requestingPermission(.screenRecording))
+        guard await screenRecordingPermissionStatus() == .granted else {
             return fail(with: .permissionDenied(.screenRecording))
         }
 
@@ -74,6 +72,16 @@ public actor ScreenTranslationCoordinator {
         } catch {
             return fail(with: failure(from: error))
         }
+    }
+
+    private func screenRecordingPermissionStatus() async -> PermissionStatus {
+        let permissionStatus = await services.permissionChecker.status(for: .screenRecording)
+        guard permissionStatus != .granted else {
+            return permissionStatus
+        }
+
+        setState(.requestingPermission(.screenRecording))
+        return await services.permissionChecker.request(for: .screenRecording)
     }
 
     private func resolvedSourceLanguage(

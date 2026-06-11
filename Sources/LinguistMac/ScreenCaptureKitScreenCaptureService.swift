@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 
 struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
     func captureSelection() async throws -> CapturedScreenRegion {
-        guard CGPreflightScreenCaptureAccess() else {
+        guard CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess() else {
             throw TranslationFailure.permissionDenied(.screenRecording)
         }
 

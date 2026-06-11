@@ -122,9 +122,14 @@ struct FailingTranslationHistoryStore: TranslationHistoryStoring {
 
 struct StubPermissionChecker: PermissionChecking {
     var statuses: [PermissionKind: PermissionStatus]
+    var requestStatuses: [PermissionKind: PermissionStatus] = [:]
 
     func status(for kind: PermissionKind) async -> PermissionStatus {
         statuses[kind] ?? .notDetermined
+    }
+
+    func request(for kind: PermissionKind) async -> PermissionStatus {
+        requestStatuses[kind] ?? statuses[kind] ?? .notDetermined
     }
 }
 

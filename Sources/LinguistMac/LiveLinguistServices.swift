@@ -33,6 +33,17 @@ struct SystemPermissionChecker: PermissionChecking {
             .notDetermined
         }
     }
+
+    func request(for kind: PermissionKind) async -> PermissionStatus {
+        switch kind {
+        case .screenRecording:
+            CGRequestScreenCaptureAccess() ? .granted : .denied
+        case .accessibility:
+            AXIsProcessTrusted() ? .granted : .notDetermined
+        case .keychain, .network:
+            .notDetermined
+        }
+    }
 }
 
 actor UserDefaultsAppSettingsStore: AppSettingsStoring {
