@@ -3,6 +3,7 @@ import LinguistMacCore
 import SwiftUI
 
 struct MenuBarMenuView: View {
+    @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: AppShellModel
 
@@ -19,9 +20,12 @@ struct MenuBarMenuView: View {
             Divider()
 
             Button {
-                model.presentScreenTranslationPreview()
-                openWindow(id: AppWindow.translationPopup.rawValue)
-                activateApp()
+                dismissWindow(id: AppWindow.translationPopup.rawValue)
+                Task {
+                    await model.runScreenTranslation()
+                    openWindow(id: AppWindow.translationPopup.rawValue)
+                    activateApp()
+                }
             } label: {
                 Label("Screen Translate", systemImage: "viewfinder")
             }
@@ -95,6 +99,9 @@ struct MenuBarMenuView: View {
             }
         }
         .frame(minWidth: 240, alignment: .leading)
+        .task {
+            await model.refreshReadiness()
+        }
     }
 
     private func summary(for result: TranslationResult) -> String {

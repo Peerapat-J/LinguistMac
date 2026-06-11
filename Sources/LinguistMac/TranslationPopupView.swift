@@ -135,6 +135,8 @@ extension TranslationFailure {
             "Enter text before translating."
         case .unsupportedLanguagePair:
             "This language pair is not available yet."
+        case let .missingLanguagePack(providerID):
+            "Language pack required for \(providerID.rawValue)."
         case let .providerUnavailable(providerID):
             "Provider is unavailable: \(providerID.rawValue)."
         case let .missingAPIKey(providerID):

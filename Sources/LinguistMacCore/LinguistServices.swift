@@ -2,6 +2,7 @@ public struct LinguistServices: Sendable {
     public let screenCapture: any ScreenCaptureServicing
     public let ocr: any OCRServicing
     public let translatorRegistry: any TranslationProviderRegistry
+    public let languageAvailability: any LanguageAvailabilityChecking
     public let settingsStore: any AppSettingsStoring
     public let historyStore: any TranslationHistoryStoring
     public let permissionChecker: any PermissionChecking
@@ -12,6 +13,7 @@ public struct LinguistServices: Sendable {
         screenCapture: any ScreenCaptureServicing,
         ocr: any OCRServicing,
         translatorRegistry: any TranslationProviderRegistry,
+        languageAvailability: any LanguageAvailabilityChecking,
         settingsStore: any AppSettingsStoring,
         historyStore: any TranslationHistoryStoring,
         permissionChecker: any PermissionChecking,
@@ -21,6 +23,7 @@ public struct LinguistServices: Sendable {
         self.screenCapture = screenCapture
         self.ocr = ocr
         self.translatorRegistry = translatorRegistry
+        self.languageAvailability = languageAvailability
         self.settingsStore = settingsStore
         self.historyStore = historyStore
         self.permissionChecker = permissionChecker

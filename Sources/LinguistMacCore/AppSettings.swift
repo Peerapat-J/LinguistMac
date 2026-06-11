@@ -41,6 +41,20 @@ public struct AppSettings: Equatable, Sendable {
     }
 }
 
+public extension AppSettings {
+    func selectingAvailableProvider(from providers: [TranslationProviderDescriptor]) -> AppSettings {
+        guard !providers.contains(where: { $0.id == selectedProviderID }),
+              let fallbackProvider = providers.first
+        else {
+            return self
+        }
+
+        var settings = self
+        settings.selectedProviderID = fallbackProvider.id
+        return settings
+    }
+}
+
 public struct KeyboardShortcut: Equatable, Hashable, Sendable {
     public var key: String
     public var modifiers: Set<KeyboardModifier>

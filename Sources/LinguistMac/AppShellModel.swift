@@ -23,66 +23,43 @@ enum AppShellCommand: Equatable {
 
 @MainActor
 final class AppShellModel: ObservableObject {
-    private static let onboardingCompletedKey = "LinguistMac.hasCompletedOnboarding"
+    @Published var settings: AppSettings {
+        didSet {
+            persistSettings()
+        }
+    }
 
-    @Published var settings: AppSettings
     @Published private(set) var recentTranslations: [TranslationResult]
     @Published var popupState: TranslationPopupState
     @Published var quickDraft: QuickTranslateDraft
     @Published var quickSessionState: TranslationSessionState
+    @Published var screenSessionState: TranslationSessionState
     @Published var readiness: OnboardingReadinessSnapshot
     @Published private(set) var lastCommand: AppShellCommand?
 
-    let availableLanguages: [TranslationLanguage] = [
-        .autoDetect,
-        .english,
-        .thai,
-        .japanese,
-        .korean,
-        .simplifiedChinese
-    ]
+    let availableLanguages = TranslationLanguageCatalog.defaultLanguages
+    let availableProviders: [TranslationProviderDescriptor]
 
-    let availableProviders: [TranslationProviderDescriptor] = [
+    private let services: LinguistServices
+
+    private static let liveAvailableProviders: [TranslationProviderDescriptor] = [
         TranslationProviderDescriptor(
             id: .apple,
             displayName: "Apple Translation",
             requiresAPIKey: false,
             usesNetwork: false
-        ),
-        TranslationProviderDescriptor(
-            id: .deepl,
-            displayName: "DeepL",
-            requiresAPIKey: true,
-            usesNetwork: true
-        ),
-        TranslationProviderDescriptor(
-            id: .googleCloud,
-            displayName: "Google Cloud",
-            requiresAPIKey: true,
-            usesNetwork: true
-        ),
-        TranslationProviderDescriptor(
-            id: .microsoftAzure,
-            displayName: "Microsoft Azure",
-            requiresAPIKey: true,
-            usesNetwork: true
         )
     ]
 
-    private let translator: any TranslationProviding
-    private let clipboard: any ClipboardServicing
-
     init(
-        settings: AppSettings = AppSettings(),
+        settings: AppSettings? = nil,
         recentTranslations: [TranslationResult] = [],
-        translator: any TranslationProviding = PreviewTranslationProvider(),
-        clipboard: any ClipboardServicing = SystemClipboardService()
+        services: LinguistServices = LiveLinguistServices.make()
     ) {
-        var initialSettings = settings
-        initialSettings.hasCompletedOnboarding = UserDefaults.standard.bool(
-            forKey: Self.onboardingCompletedKey
-        )
+        let storedSettings = settings ?? UserDefaultsAppSettingsStore.loadInitialSettings()
+        let initialSettings = storedSettings.selectingAvailableProvider(from: Self.liveAvailableProviders)
 
+        availableProviders = Self.liveAvailableProviders
         self.settings = initialSettings
         self.recentTranslations = recentTranslations
         popupState = .empty
@@ -91,14 +68,17 @@ final class AppShellModel: ObservableObject {
             targetLanguage: initialSettings.targetLanguage
         )
         quickSessionState = .idle
+        screenSessionState = .idle
         readiness = OnboardingReadinessSnapshot.make(
             screenRecording: .notDetermined,
             accessibility: .notDetermined,
             appleTranslation: .unknown,
             cloudProviderConfigured: false
         )
-        self.translator = translator
-        self.clipboard = clipboard
+        self.services = services
+        if initialSettings != storedSettings {
+            persistSettings()
+        }
     }
 
     var recentMenuItems: [TranslationResult] {
@@ -116,35 +96,66 @@ final class AppShellModel: ObservableObject {
         quickSessionState = .idle
     }
 
-    func presentScreenTranslationPreview() {
+    func runScreenTranslation() async {
         record(.screenTranslate)
 
-        let request = TranslationRequest(
-            text: "Captured screen text preview",
+        let loadingRequest = TranslationRequest(
+            text: "",
             sourceLanguage: settings.sourceLanguage,
             targetLanguage: settings.targetLanguage,
             inputMode: .screenSelection,
             providerID: settings.selectedProviderID
         )
-        let result = TranslationResult(
-            request: request,
-            translatedText: "Preview translation for the selected screen text."
-        )
-        popupState = .success(result, showsOriginal: false)
-        saveRecent(result)
+        screenSessionState = .capturing
+
+        let coordinator = ScreenTranslationCoordinator(services: services)
+        let finalState = await coordinator.translateScreenSelection(settings: settings)
+        screenSessionState = finalState
+
+        switch finalState {
+        case let .completed(result):
+            popupState = .success(result, showsOriginal: false)
+            saveRecent(result)
+        case let .failed(failure):
+            popupState = .failed(failure, originalText: nil)
+        case let .translating(request):
+            popupState = .loading(request)
+        case .idle, .requestingPermission, .capturing, .recognizing:
+            popupState = .loading(loadingRequest)
+        }
     }
 
     func runQuickTranslate() async {
         do {
-            let request = try quickDraft.makeRequest(providerID: settings.selectedProviderID)
+            let request = try quickDraft
+                .makeRequest(providerID: settings.selectedProviderID)
+                .resolvingAutoDetectedSource()
             quickSessionState = .translating(request)
+            popupState = .loading(request)
+
+            let readiness = await services.languageAvailability.readiness(
+                from: request.sourceLanguage,
+                to: request.targetLanguage,
+                sampleText: request.text
+            )
+            switch readiness {
+            case .ready, .unknown:
+                break
+            case .needsDownload:
+                throw TranslationFailure.missingLanguagePack(request.providerID)
+            case .unavailable:
+                throw TranslationFailure.unsupportedLanguagePair
+            }
+
+            let translator = try await services.translatorRegistry.provider(for: request.providerID)
             let result = try await translator.translate(request)
             quickSessionState = .completed(result)
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
+            try? await services.historyStore.save(result)
 
             if settings.autoCopyEnabled {
-                await clipboard.writeText(result.translatedText)
+                await services.clipboard.writeText(result.translatedText)
             }
         } catch let failure as TranslationFailure {
             quickSessionState = .failed(failure)
@@ -160,13 +171,23 @@ final class AppShellModel: ObservableObject {
         popupState = popupState.toggledOriginalVisibility()
     }
 
+    func swapQuickDraftLanguages() {
+        var selection = LanguageSelection(
+            source: quickDraft.sourceLanguage,
+            target: quickDraft.targetLanguage
+        )
+        selection.swap()
+        quickDraft.sourceLanguage = selection.source
+        quickDraft.targetLanguage = selection.target
+    }
+
     func copyPopupText() async {
         guard let text = popupState.copyableText else {
             return
         }
 
         record(.copyTranslation)
-        await clipboard.writeText(text)
+        await services.clipboard.writeText(text)
     }
 
     func markOnboardingComplete() {
@@ -175,11 +196,27 @@ final class AppShellModel: ObservableObject {
 
     func setOnboardingCompleted(_ isCompleted: Bool) {
         settings.hasCompletedOnboarding = isCompleted
-        UserDefaults.standard.set(isCompleted, forKey: Self.onboardingCompletedKey)
     }
 
     func reopenOnboarding() {
         record(.onboarding)
+    }
+
+    func refreshReadiness() async {
+        let screenRecording = await services.permissionChecker.status(for: .screenRecording)
+        let accessibility = await services.permissionChecker.status(for: .accessibility)
+        let appleTranslation = await services.languageAvailability.readiness(
+            from: settings.sourceLanguage,
+            to: settings.targetLanguage,
+            sampleText: nil
+        )
+
+        readiness = OnboardingReadinessSnapshot.make(
+            screenRecording: screenRecording,
+            accessibility: accessibility,
+            appleTranslation: appleTranslation,
+            cloudProviderConfigured: false
+        )
     }
 
     func openSettingsWindow() {
@@ -202,6 +239,14 @@ final class AppShellModel: ObservableObject {
         recentTranslations = Array(recentTranslations.prefix(10))
     }
 
+    private func persistSettings() {
+        let settings = settings
+        let store = services.settingsStore
+        Task {
+            try? await store.saveSettings(settings)
+        }
+    }
+
     private func systemSettingsURL(for kind: PermissionKind) -> URL? {
         switch kind {
         case .screenRecording:
@@ -211,25 +256,6 @@ final class AppShellModel: ObservableObject {
         case .keychain, .network:
             URL(string: "x-apple.systempreferences:com.apple.preference.security")
         }
-    }
-}
-
-struct PreviewTranslationProvider: TranslationProviding {
-    let id: TranslationProviderID = .apple
-    let displayName = "Apple Translation Preview"
-    let requiresAPIKey = false
-    let usesNetwork = false
-
-    func translate(_ request: TranslationRequest) async throws -> TranslationResult {
-        let text = request.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else {
-            throw TranslationFailure.emptyInput
-        }
-
-        return TranslationResult(
-            request: request,
-            translatedText: "Preview translation: \(text)"
-        )
     }
 }
 

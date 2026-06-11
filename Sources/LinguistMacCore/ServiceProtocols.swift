@@ -20,6 +20,14 @@ public protocol TranslationProviderRegistry: Sendable {
     func availableProviders() async -> [TranslationProviderDescriptor]
 }
 
+public protocol LanguageAvailabilityChecking: Sendable {
+    func readiness(
+        from source: TranslationLanguage,
+        to target: TranslationLanguage,
+        sampleText: String?
+    ) async -> LanguagePackReadiness
+}
+
 public protocol AppSettingsStoring: Sendable {
     func loadSettings() async throws -> AppSettings
     func saveSettings(_ settings: AppSettings) async throws
@@ -32,6 +40,7 @@ public protocol TranslationHistoryStoring: Sendable {
 
 public protocol PermissionChecking: Sendable {
     func status(for kind: PermissionKind) async -> PermissionStatus
+    func request(for kind: PermissionKind) async -> PermissionStatus
 }
 
 public protocol ClipboardServicing: Sendable {

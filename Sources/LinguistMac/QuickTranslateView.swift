@@ -39,11 +39,14 @@ struct QuickTranslateView: View {
 
             HStack {
                 Button {
-                    swapLanguages()
+                    model.swapQuickDraftLanguages()
                 } label: {
                     Label("Swap", systemImage: "arrow.left.arrow.right")
                 }
-                .disabled(model.quickDraft.sourceLanguage.supportsAutoDetect)
+                .disabled(!LanguageSelection(
+                    source: model.quickDraft.sourceLanguage,
+                    target: model.quickDraft.targetLanguage
+                ).canSwap)
 
                 Spacer()
 
@@ -79,7 +82,7 @@ struct QuickTranslateView: View {
                 .foregroundStyle(.secondary)
 
             Picker("Target", selection: $model.quickDraft.targetLanguage) {
-                ForEach(model.availableLanguages.filter { !$0.supportsAutoDetect }, id: \.id) { language in
+                ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
                     Text(language.displayName)
                         .tag(language)
                 }
@@ -126,11 +129,5 @@ struct QuickTranslateView: View {
                 .padding(12)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
         }
-    }
-
-    private func swapLanguages() {
-        let oldSource = model.quickDraft.sourceLanguage
-        model.quickDraft.sourceLanguage = model.quickDraft.targetLanguage
-        model.quickDraft.targetLanguage = oldSource
     }
 }

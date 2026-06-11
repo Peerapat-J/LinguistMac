@@ -47,4 +47,20 @@ final class TranslationModelsTests: XCTestCase {
 
         XCTAssertNotEqual(permissionState, providerState)
     }
+
+    func testTranslationRequestResolvesAutoDetectedSourceFromText() {
+        let request = TranslationRequest(
+            text: "This is a simple English sentence for language detection.",
+            sourceLanguage: .autoDetect,
+            targetLanguage: .thai,
+            inputMode: .quickTranslate,
+            providerID: .apple
+        )
+
+        let resolvedRequest = request.resolvingAutoDetectedSource()
+
+        XCTAssertEqual(resolvedRequest.sourceLanguage, .english)
+        XCTAssertEqual(resolvedRequest.targetLanguage, .thai)
+        XCTAssertEqual(resolvedRequest.text, request.text)
+    }
 }

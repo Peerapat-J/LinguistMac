@@ -61,6 +61,21 @@ struct StubTranslationProviderRegistry: TranslationProviderRegistry {
     }
 }
 
+struct StubLanguageAvailabilityChecker: LanguageAvailabilityChecking {
+    var readiness: LanguagePackReadiness
+
+    func readiness(
+        from source: TranslationLanguage,
+        to target: TranslationLanguage,
+        sampleText: String?
+    ) async -> LanguagePackReadiness {
+        _ = source
+        _ = target
+        _ = sampleText
+        return readiness
+    }
+}
+
 actor InMemoryAppSettingsStore: AppSettingsStoring {
     private var settings: AppSettings
 
@@ -93,11 +108,28 @@ actor InMemoryTranslationHistoryStore: TranslationHistoryStoring {
     }
 }
 
+struct FailingTranslationHistoryStore: TranslationHistoryStoring {
+    func save(_ result: TranslationResult) async throws {
+        _ = result
+        throw TranslationFailure.providerFailed("History save failed.")
+    }
+
+    func recent(limit: Int) async throws -> [TranslationResult] {
+        _ = limit
+        throw TranslationFailure.providerFailed("History load failed.")
+    }
+}
+
 struct StubPermissionChecker: PermissionChecking {
     var statuses: [PermissionKind: PermissionStatus]
+    var requestStatuses: [PermissionKind: PermissionStatus] = [:]
 
     func status(for kind: PermissionKind) async -> PermissionStatus {
         statuses[kind] ?? .notDetermined
+    }
+
+    func request(for kind: PermissionKind) async -> PermissionStatus {
+        requestStatuses[kind] ?? statuses[kind] ?? .notDetermined
     }
 }
 

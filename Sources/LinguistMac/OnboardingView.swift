@@ -73,6 +73,9 @@ struct OnboardingView: View {
         }
         .padding(24)
         .frame(width: 620, height: 560)
+        .task {
+            await model.refreshReadiness()
+        }
     }
 
     private func openSettingsWindow() {

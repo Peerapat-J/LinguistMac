@@ -19,4 +19,18 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.textSelectionShortcut, .textSelectionDefault)
         XCTAssertEqual(settings.quickTranslateShortcut, .quickTranslateDefault)
     }
+
+    func testSettingsFallbackToAvailableProvider() {
+        let appleProvider = TranslationProviderDescriptor(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false
+        )
+        let settings = AppSettings(selectedProviderID: .deepl)
+
+        let sanitizedSettings = settings.selectingAvailableProvider(from: [appleProvider])
+
+        XCTAssertEqual(sanitizedSettings.selectedProviderID, .apple)
+    }
 }

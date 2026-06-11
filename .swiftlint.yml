@@ -9,6 +9,8 @@ excluded:
   - .swiftpm
   - DerivedData
   - dist
+  # CI's SwiftLint analyzer type-checks SDK-gated TranslationSession APIs with the older runner SDK.
+  - Sources/LinguistMac/AppleTranslationSessionAdapter.swift
 
 analyzer_rules:
   - unused_declaration

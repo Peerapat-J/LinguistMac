@@ -11,7 +11,7 @@ struct ContentView: View {
                     .font(.title2)
                     .fontWeight(.semibold)
 
-                Text("Menu bar shell is ready for the next translation pipeline milestones.")
+                Text("Screen translation is wired through capture, OCR, and the default translation provider.")
                     .foregroundStyle(.secondary)
             }
 
@@ -19,15 +19,15 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 Label("Menu bar commands route through app state.", systemImage: "menubar.rectangle")
-                Label("Settings, Quick Translate, and popup surfaces are windowed shells.", systemImage: "macwindow")
-                Label("Recent translations are placeholders until history persistence lands.", systemImage: "clock")
+                Label("Selected-region translation uses ScreenCaptureKit and Vision OCR.", systemImage: "viewfinder")
+                Label("Recent translations stay in memory until history persistence lands.", systemImage: "clock")
             }
 
             if model.recentTranslations.isEmpty {
                 ContentUnavailableView(
                     "No Recent Translations",
                     systemImage: "clock.arrow.circlepath",
-                    description: Text("Run a mock screen or quick translation from the menu bar.")
+                    description: Text("Run Screen Translate or Quick Translate from the menu bar.")
                 )
                 .frame(maxWidth: .infinity, minHeight: 180)
             } else {
