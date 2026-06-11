@@ -11,7 +11,7 @@ struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
             throw TranslationFailure.permissionDenied(.screenRecording)
         }
 
-        let rect = try await RegionSelectionOverlayController.shared.selectRegion()
+        let rect = try await requestRegionSelection()
         guard rect.width >= 4, rect.height >= 4 else {
             throw TranslationFailure.captureCancelled
         }
@@ -63,6 +63,11 @@ struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
 
         return data as Data
     }
+}
+
+@MainActor
+private func requestRegionSelection() async throws -> CGRect {
+    try await RegionSelectionOverlayController.shared.selectRegion()
 }
 
 @MainActor
