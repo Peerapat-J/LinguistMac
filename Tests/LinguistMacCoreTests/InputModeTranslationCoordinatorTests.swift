@@ -115,8 +115,12 @@ final class InputModeTranslationCoordinatorTests: XCTestCase {
         accessibilityStatus: PermissionStatus = .granted,
         requestAccessibilityStatus: PermissionStatus? = nil,
         screenRecordingStatus: PermissionStatus = .granted,
-        captureResult: Result<CapturedScreenRegion, TranslationFailure> = .success(CapturedScreenRegion(imageData: Data([1]))),
-        ocrResult: Result<RecognizedText, TranslationFailure> = .success(RecognizedText(text: "hello", language: .english)),
+        captureResult: Result<CapturedScreenRegion, TranslationFailure> = .success(
+            CapturedScreenRegion(imageData: Data([1]))
+        ),
+        ocrResult: Result<RecognizedText, TranslationFailure> = .success(
+            RecognizedText(text: "hello", language: .english)
+        ),
         selectedText: Result<String, TranslationFailure> = .success("hello"),
         readiness: LanguagePackReadiness = .ready,
         translatedText: String = "translated",
