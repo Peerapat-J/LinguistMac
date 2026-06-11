@@ -5,8 +5,19 @@ import SwiftUI
 struct LinguistMacApp: App {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var model = AppShellModel()
+    @StateObject private var model: AppShellModel
     @State private var keyboardInputMonitor = KeyboardInputMonitor()
+    private let shortcutRegistry: SystemShortcutRegistry
+
+    init() {
+        let shortcutRegistry = SystemShortcutRegistry()
+        self.shortcutRegistry = shortcutRegistry
+        _model = StateObject(
+            wrappedValue: AppShellModel(
+                services: LiveLinguistServices.make(shortcutRegistry: shortcutRegistry)
+            )
+        )
+    }
 
     var body: some Scene {
         MenuBarExtra("LinguistMac", systemImage: "character.book.closed") {
@@ -49,7 +60,7 @@ struct LinguistMacApp: App {
     }
 
     private func startKeyboardInputMonitor() {
-        let didStart = keyboardInputMonitor.start(model: model) { window in
+        let didStart = keyboardInputMonitor.start(model: model, shortcutRegistry: shortcutRegistry) { window in
             openWindow(id: window.rawValue)
             NSApp.activate(ignoringOtherApps: true)
         }

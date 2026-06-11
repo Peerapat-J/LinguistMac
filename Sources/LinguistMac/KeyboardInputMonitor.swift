@@ -9,30 +9,50 @@ final class KeyboardInputMonitor {
     @discardableResult
     func start(
         model: AppShellModel,
+        shortcutRegistry: SystemShortcutRegistry,
         openWindow: @escaping @MainActor (AppWindow) -> Void
     ) -> Bool {
         guard localMonitor == nil, globalMonitor == nil else {
             return false
         }
 
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak model] event in
+        shortcutRegistry.onAction = { [weak model] action in
             Task { @MainActor in
-                await self.handle(event, model: model, openWindow: openWindow)
+                await self.handle(action, model: model, openWindow: openWindow)
             }
+        }
+
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak model] event in
+            self.handleCopyCommand(event, model: model, openWindow: openWindow)
             return event
         }
 
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak model] event in
-            Task { @MainActor in
-                await self.handle(event, model: model, openWindow: openWindow)
-            }
+            self.handleCopyCommand(event, model: model, openWindow: openWindow)
         }
 
         return true
     }
 
-    private func handle(
+    private func handleCopyCommand(
         _ event: NSEvent,
+        model: AppShellModel?,
+        openWindow: @escaping @MainActor (AppWindow) -> Void
+    ) {
+        guard event.isCommandC else {
+            return
+        }
+
+        Task { @MainActor in
+            let didTriggerDoubleCopy = await model?.observeCopyCommand() ?? false
+            if didTriggerDoubleCopy {
+                openWindow(.translationPopup)
+            }
+        }
+    }
+
+    private func handle(
+        _ action: ShortcutAction,
         model: AppShellModel?,
         openWindow: @escaping @MainActor (AppWindow) -> Void
     ) async {
@@ -40,24 +60,18 @@ final class KeyboardInputMonitor {
             return
         }
 
-        if event.isCommandC {
-            let didTriggerDoubleCopy = await model.observeCopyCommand()
-            if didTriggerDoubleCopy {
-                openWindow(.translationPopup)
-                return
-            }
-        }
-
-        let settings = model.settings
-        if event.matches(settings.screenTranslationShortcut) {
+        switch action {
+        case .screenTranslation:
             await model.runScreenTranslation()
             openWindow(.translationPopup)
-        } else if event.matches(settings.textSelectionShortcut) {
+        case .textSelectionTranslation:
             await model.runSelectedTextTranslation()
             openWindow(.translationPopup)
-        } else if event.matches(settings.quickTranslateShortcut) {
+        case .quickTranslate:
             model.prepareQuickTranslate()
             openWindow(.quickTranslate)
+        case .clipboardDoubleCopy, .dragTranslation:
+            break
         }
     }
 }
@@ -65,11 +79,6 @@ final class KeyboardInputMonitor {
 private extension NSEvent {
     var isCommandC: Bool {
         charactersIgnoringModifiers?.uppercased() == "C" && normalizedModifiers == [.command]
-    }
-
-    func matches(_ shortcut: LinguistMacCore.KeyboardShortcut) -> Bool {
-        charactersIgnoringModifiers?.uppercased() == shortcut.key.uppercased()
-            && normalizedModifiers == shortcut.modifiers
     }
 
     var normalizedModifiers: Set<KeyboardModifier> {
