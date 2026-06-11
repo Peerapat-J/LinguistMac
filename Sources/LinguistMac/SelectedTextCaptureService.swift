@@ -12,12 +12,18 @@ actor SystemSelectedTextCaptureService: SelectedTextCapturing {
 
     func captureSelectedText() async throws -> String {
         let originalPasteboard = await pasteboardSnapshot()
+        let originalChangeCount = await pasteboardChangeCount()
 
         await MainActor.run {
             sendCopyCommand()
         }
 
-        try? await Task.sleep(nanoseconds: copyDelayNanoseconds)
+        let didCopySelection = await waitForPasteboardChange(after: originalChangeCount)
+        guard didCopySelection else {
+            await restorePasteboard(originalPasteboard)
+            throw TranslationFailure.emptyInput
+        }
+
         let selectedText = await pasteboardText()
 
         await restorePasteboard(originalPasteboard)
@@ -28,6 +34,33 @@ actor SystemSelectedTextCaptureService: SelectedTextCapturing {
         }
 
         return trimmedText
+    }
+
+    private func waitForPasteboardChange(after changeCount: Int) async -> Bool {
+        let deadline = DispatchTime.now().uptimeNanoseconds + copyDelayNanoseconds
+        let pollIntervalNanoseconds = min(max(copyDelayNanoseconds / 10, 1_000_000), 10_000_000)
+
+        while true {
+            if await pasteboardChangeCount() != changeCount {
+                return true
+            }
+
+            let now = DispatchTime.now().uptimeNanoseconds
+            guard now < deadline else {
+                break
+            }
+
+            let remainingNanoseconds = deadline - now
+            try? await Task.sleep(nanoseconds: min(pollIntervalNanoseconds, remainingNanoseconds))
+        }
+
+        return await pasteboardChangeCount() != changeCount
+    }
+
+    private func pasteboardChangeCount() async -> Int {
+        await MainActor.run {
+            NSPasteboard.general.changeCount
+        }
     }
 
     private func pasteboardSnapshot() async -> PasteboardSnapshot {
