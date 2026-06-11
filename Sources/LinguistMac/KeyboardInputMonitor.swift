@@ -31,18 +31,6 @@ final class KeyboardInputMonitor {
         return true
     }
 
-    func stop() {
-        if let localMonitor {
-            NSEvent.removeMonitor(localMonitor)
-        }
-        if let globalMonitor {
-            NSEvent.removeMonitor(globalMonitor)
-        }
-
-        localMonitor = nil
-        globalMonitor = nil
-    }
-
     private func handle(
         _ event: NSEvent,
         model: AppShellModel?,
