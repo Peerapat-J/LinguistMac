@@ -11,7 +11,7 @@ actor SystemSelectedTextCaptureService: SelectedTextCapturing {
     }
 
     func captureSelectedText() async throws -> String {
-        let originalText = await pasteboardText()
+        let originalPasteboard = await pasteboardSnapshot()
 
         await MainActor.run {
             sendCopyCommand()
@@ -20,7 +20,7 @@ actor SystemSelectedTextCaptureService: SelectedTextCapturing {
         try? await Task.sleep(nanoseconds: copyDelayNanoseconds)
         let selectedText = await pasteboardText()
 
-        await restorePasteboardText(originalText)
+        await restorePasteboard(originalPasteboard)
 
         let trimmedText = selectedText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !trimmedText.isEmpty else {
@@ -30,17 +30,24 @@ actor SystemSelectedTextCaptureService: SelectedTextCapturing {
         return trimmedText
     }
 
+    private func pasteboardSnapshot() async -> PasteboardSnapshot {
+        await MainActor.run {
+            PasteboardSnapshot(items: NSPasteboard.general.pasteboardItems ?? [])
+        }
+    }
+
     private func pasteboardText() async -> String? {
         await MainActor.run {
             NSPasteboard.general.string(forType: .string)
         }
     }
 
-    private func restorePasteboardText(_ text: String?) async {
+    private func restorePasteboard(_ snapshot: PasteboardSnapshot) async {
         await MainActor.run {
             NSPasteboard.general.clearContents()
-            if let text {
-                NSPasteboard.general.setString(text, forType: .string)
+            let restoredItems = snapshot.makePasteboardItems()
+            if !restoredItems.isEmpty {
+                NSPasteboard.general.writeObjects(restoredItems)
             }
         }
     }
@@ -54,5 +61,43 @@ actor SystemSelectedTextCaptureService: SelectedTextCapturing {
         keyUp?.flags = .maskCommand
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
+    }
+}
+
+private struct PasteboardSnapshot {
+    private let items: [PasteboardItemSnapshot]
+
+    init(items: [NSPasteboardItem]) {
+        self.items = items.map(PasteboardItemSnapshot.init)
+    }
+
+    func makePasteboardItems() -> [NSPasteboardItem] {
+        items.compactMap(\.pasteboardItem)
+    }
+}
+
+private struct PasteboardItemSnapshot {
+    private let valuesByType: [(String, Data)]
+
+    init(item: NSPasteboardItem) {
+        valuesByType = item.types.compactMap { type in
+            guard let data = item.data(forType: type) else {
+                return nil
+            }
+
+            return (type.rawValue, data)
+        }
+    }
+
+    var pasteboardItem: NSPasteboardItem? {
+        guard !valuesByType.isEmpty else {
+            return nil
+        }
+
+        let item = NSPasteboardItem()
+        for (rawType, data) in valuesByType {
+            item.setData(data, forType: NSPasteboard.PasteboardType(rawType))
+        }
+        return item
     }
 }
