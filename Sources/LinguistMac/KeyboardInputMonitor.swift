@@ -72,7 +72,8 @@ private final class KeyboardInputMonitor {
         }
 
         if event.isCommandC,
-           await model.observeCopyCommand() {
+           await model.observeCopyCommand()
+        {
             openWindow(.translationPopup)
             return
         }
