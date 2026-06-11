@@ -119,7 +119,6 @@ final class AppShellModel: ObservableObject {
             providerID: settings.selectedProviderID
         )
         screenSessionState = .capturing
-        popupState = .loading(loadingRequest)
 
         let coordinator = ScreenTranslationCoordinator(services: services)
         let finalState = await coordinator.translateScreenSelection(settings: settings)
