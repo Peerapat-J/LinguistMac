@@ -95,7 +95,7 @@ private final class KeyboardInputMonitor {
 
 private extension NSEvent {
     var isCommandC: Bool {
-        keyCode == 8 && normalizedModifiers == [.command]
+        charactersIgnoringModifiers?.uppercased() == "C" && normalizedModifiers == [.command]
     }
 
     func matches(_ shortcut: LinguistMacCore.KeyboardShortcut) -> Bool {
