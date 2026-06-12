@@ -31,7 +31,7 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertTrue(requests.isEmpty)
     }
 
-    func testDeepLProviderBuildsRequestAndDecodesResponse() async throws {
+    func testDeepLProviderBuildsProRequestAndDecodesResponse() async throws {
         let client = StubCloudTranslationClient(response: jsonResponse(#"{"translations":[{"text":"sawasdee"}]}"#))
         let provider = CloudTranslationProvider(
             id: .deepl,
@@ -47,6 +47,27 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertEqual(result.translatedText, "sawasdee")
         XCTAssertEqual(sentRequest.url.absoluteString, "https://api.deepl.com/v2/translate")
         XCTAssertEqual(sentRequest.headers["Authorization"], "DeepL-Auth-Key test-key")
+        XCTAssertEqual(body?["target_lang"] as? String, "TH")
+        XCTAssertEqual(body?["source_lang"] as? String, "EN")
+        XCTAssertEqual(body?["text"] as? [String], ["hello"])
+    }
+
+    func testDeepLProviderUsesFreeEndpointForFreeAPIKeys() async throws {
+        let client = StubCloudTranslationClient(response: jsonResponse(#"{"translations":[{"text":"sawasdee"}]}"#))
+        let provider = CloudTranslationProvider(
+            id: .deepl,
+            apiKeyStore: InMemoryAPIKeyStore(keys: [.deepl: "test-key:fx"]),
+            client: client
+        )
+
+        let result = try await provider.translate(request(providerID: .deepl))
+        let requests = await client.requests
+        let sentRequest = try XCTUnwrap(requests.first)
+        let body = try bodyObject(from: sentRequest) as? [String: Any]
+
+        XCTAssertEqual(result.translatedText, "sawasdee")
+        XCTAssertEqual(sentRequest.url.absoluteString, "https://api-free.deepl.com/v2/translate")
+        XCTAssertEqual(sentRequest.headers["Authorization"], "DeepL-Auth-Key test-key:fx")
         XCTAssertEqual(body?["target_lang"] as? String, "TH")
         XCTAssertEqual(body?["source_lang"] as? String, "EN")
         XCTAssertEqual(body?["text"] as? [String], ["hello"])

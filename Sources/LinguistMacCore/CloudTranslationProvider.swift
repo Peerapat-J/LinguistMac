@@ -237,7 +237,8 @@ public struct CloudTranslationProvider: TranslationProviding {
         text: String,
         apiKey: String
     ) throws -> CloudTranslationHTTPRequest {
-        guard let url = URL(string: "https://api.deepl.com/v2/translate") else {
+        let host = apiKey.isDeepLFreeAPIKey ? "api-free.deepl.com" : "api.deepl.com"
+        guard let url = URL(string: "https://\(host)/v2/translate") else {
             throw TranslationFailure.providerUnavailable(id)
         }
 
@@ -424,5 +425,13 @@ private extension TranslationLanguage {
         default:
             id.uppercased()
         }
+    }
+}
+
+private extension String {
+    var isDeepLFreeAPIKey: Bool {
+        trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .hasSuffix(":fx")
     }
 }
