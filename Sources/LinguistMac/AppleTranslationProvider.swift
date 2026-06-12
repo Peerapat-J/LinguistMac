@@ -11,7 +11,11 @@ struct AppleTranslationProvider: TranslationProviding {
     let privacySummary = "Text stays on device when Apple Translation handles the request."
 
     func isConfigured() async -> Bool {
-        true
+        if #available(macOS 26.0, *) {
+            return true
+        }
+
+        return false
     }
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResult {
