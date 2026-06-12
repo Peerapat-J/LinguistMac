@@ -1,6 +1,12 @@
 import Foundation
 import LinguistMacCore
+import OSLog
 import SwiftData
+
+private let historyStoreLogger = Logger(
+    subsystem: AppIdentity.linguistMac.bundleIdentifier,
+    category: "history"
+)
 
 @Model
 final class TranslationHistoryRecord {
@@ -77,7 +83,7 @@ actor SwiftDataTranslationHistoryStore: TranslationHistoryStoring {
 
     static func make(
         trimLimit: Int = TranslationHistoryPolicy.defaultLimit
-    ) -> any TranslationHistoryStoring {
+    ) throws -> any TranslationHistoryStoring {
         do {
             let configuration = ModelConfiguration(
                 "LinguistMacTranslationHistory",
@@ -89,7 +95,10 @@ actor SwiftDataTranslationHistoryStore: TranslationHistoryStoring {
             )
             return SwiftDataTranslationHistoryStore(container: container, trimLimit: trimLimit)
         } catch {
-            return InMemoryRecentTranslationStore(limit: trimLimit)
+            historyStoreLogger.error(
+                "SwiftData translation history initialization failed: \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
         }
     }
 

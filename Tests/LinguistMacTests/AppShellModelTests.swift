@@ -69,6 +69,23 @@ final class AppShellModelTests: XCTestCase {
         XCTAssertFalse(model.historyLoadError?.diagnosticDescription.contains("database unavailable") == true)
     }
 
+    func testLiveServicesSurfaceHistoryInitializationFailure() async {
+        let services = LiveLinguistServices.make(
+            historyStoreFactory: {
+                throw TestHistoryInitializationError()
+            }
+        )
+        let model = AppShellModel(services: services)
+
+        await model.refreshRecentTranslations()
+
+        XCTAssertEqual(
+            model.historyLoadError?.diagnosticDescription,
+            "Translation history storage is unavailable. disk unavailable"
+        )
+        XCTAssertEqual(model.recentTranslations, [])
+    }
+
     func testTestAPIKeyConfigurationPreservesUnsavedAzureRegionDraft() async {
         let model = AppShellModel(
             services: makeServices(
@@ -310,6 +327,12 @@ private struct FailingTestTranslationHistoryStore: TranslationHistoryStoring {
     func recent(limit: Int) async throws -> [TranslationResult] {
         _ = limit
         throw TranslationFailure.providerFailed("database unavailable")
+    }
+}
+
+private struct TestHistoryInitializationError: LocalizedError {
+    var errorDescription: String? {
+        "disk unavailable"
     }
 }
 

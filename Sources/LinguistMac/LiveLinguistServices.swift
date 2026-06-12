@@ -7,10 +7,16 @@ import LinguistMacCore
 
 enum LiveLinguistServices {
     @MainActor
-    static func make(shortcutRegistry: any ShortcutRegistering = NoOpShortcutRegistry()) -> LinguistServices {
+    static func make(
+        shortcutRegistry: any ShortcutRegistering = NoOpShortcutRegistry(),
+        historyStoreFactory: () throws -> any TranslationHistoryStoring = {
+            try SwiftDataTranslationHistoryStore.make()
+        }
+    ) -> LinguistServices {
         let settingsStore = UserDefaultsAppSettingsStore()
         let apiKeyStore = KeychainAPIKeyStore()
         let cloudClient = URLSessionCloudTranslationClient()
+        let historyStore = makeHistoryStore(factory: historyStoreFactory)
         let translatorRegistry = DefaultTranslationProviderRegistry(
             providers: [
                 AppleTranslationProvider(),
@@ -28,12 +34,52 @@ enum LiveLinguistServices {
             settingsStore: settingsStore,
             apiKeyStore: apiKeyStore,
             launchAtLogin: SystemLaunchAtLoginService(),
-            historyStore: SwiftDataTranslationHistoryStore.make(),
+            historyStore: historyStore,
             permissionChecker: SystemPermissionChecker(),
             clipboard: SystemClipboardService(),
             selectedTextCapture: SystemSelectedTextCaptureService(),
             shortcutRegistry: shortcutRegistry
         )
+    }
+
+    private static func makeHistoryStore(
+        factory: () throws -> any TranslationHistoryStoring
+    ) -> any TranslationHistoryStoring {
+        do {
+            return try factory()
+        } catch {
+            return UnavailableTranslationHistoryStore(initializationError: error)
+        }
+    }
+}
+
+struct TranslationHistoryStoreUnavailableError: LocalizedError {
+    let reason: String
+
+    init(initializationError: Error) {
+        reason = initializationError.localizedDescription
+    }
+
+    var errorDescription: String? {
+        "Translation history storage is unavailable. \(reason)"
+    }
+}
+
+struct UnavailableTranslationHistoryStore: TranslationHistoryStoring {
+    private let error: TranslationHistoryStoreUnavailableError
+
+    init(initializationError: Error) {
+        error = TranslationHistoryStoreUnavailableError(initializationError: initializationError)
+    }
+
+    func save(_ result: TranslationResult) async throws {
+        _ = result
+        throw error
+    }
+
+    func recent(limit: Int) async throws -> [TranslationResult] {
+        _ = limit
+        throw error
     }
 }
 
