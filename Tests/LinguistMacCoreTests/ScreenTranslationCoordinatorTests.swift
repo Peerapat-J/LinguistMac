@@ -67,6 +67,49 @@ final class ScreenTranslationCoordinatorTests: XCTestCase {
         XCTAssertEqual(clipboardText, "sawasdee")
     }
 
+    func testCoordinatorFallsBackWhenSelectedProviderDoesNotSupportLanguagePair() async {
+        let apple = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "sawasdee"
+        )
+        let deepl = StubTranslationProvider(
+            id: .deepl,
+            displayName: "DeepL",
+            requiresAPIKey: true,
+            usesNetwork: true,
+            translatedText: "unused"
+        )
+        let services = LinguistServices(
+            screenCapture: StubScreenCaptureService(
+                result: .success(CapturedScreenRegion(imageData: Data([1])))
+            ),
+            ocr: StubOCRService(result: .success(RecognizedText(text: "hello", language: .english))),
+            translatorRegistry: DefaultTranslationProviderRegistry(providers: [deepl, apple]),
+            languageAvailability: StubLanguageAvailabilityChecker(readiness: .ready),
+            settingsStore: InMemoryAppSettingsStore(),
+            apiKeyStore: InMemoryAPIKeyStore(),
+            launchAtLogin: StubLaunchAtLoginService(),
+            historyStore: InMemoryTranslationHistoryStore(),
+            permissionChecker: StubPermissionChecker(statuses: [.screenRecording: .granted]),
+            clipboard: InMemoryClipboard(),
+            selectedTextCapture: StubSelectedTextCapture(result: .success("hello")),
+            shortcutRegistry: RecordingShortcutRegistry()
+        )
+        let coordinator = ScreenTranslationCoordinator(services: services)
+        let settings = AppSettings(targetLanguage: .thai, selectedProviderID: .deepl)
+
+        let finalState = await coordinator.translateScreenSelection(settings: settings)
+
+        guard case let .completed(result) = finalState else {
+            return XCTFail("Expected completed state, got \(finalState)")
+        }
+        XCTAssertEqual(result.translatedText, "sawasdee")
+        XCTAssertEqual(result.request.providerID, .apple)
+    }
+
     func testCoordinatorFailsWhenScreenRecordingPermissionIsMissing() async {
         let services = makeServices(
             permissionStatus: .notDetermined,

@@ -23,6 +23,25 @@ public protocol TranslationProviderRegistry: Sendable {
     func availableProviders() async -> [TranslationProviderDescriptor]
 }
 
+public extension TranslationProviderRegistry {
+    func supportedProviderID(
+        preferred providerID: TranslationProviderID,
+        sourceLanguage: TranslationLanguage,
+        targetLanguage: TranslationLanguage
+    ) async -> TranslationProviderID {
+        let providers = await availableProviders()
+        let supportedProviders = providers.filter {
+            $0.id.supports(sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
+        }
+
+        if supportedProviders.contains(where: { $0.id == providerID }) {
+            return providerID
+        }
+
+        return supportedProviders.first?.id ?? providerID
+    }
+}
+
 public protocol LanguageAvailabilityChecking: Sendable {
     func readiness(
         from source: TranslationLanguage,

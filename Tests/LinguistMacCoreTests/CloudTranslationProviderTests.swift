@@ -21,7 +21,7 @@ final class CloudTranslationProviderTests: XCTestCase {
         )
 
         do {
-            _ = try await provider.translate(request(providerID: .deepl))
+            _ = try await provider.translate(request(providerID: .deepl, targetLanguage: .japanese))
             XCTFail("Expected missing API key failure.")
         } catch {
             XCTAssertEqual(error as? TranslationFailure, .missingAPIKey(.deepl))
@@ -39,7 +39,7 @@ final class CloudTranslationProviderTests: XCTestCase {
             client: client
         )
 
-        let result = try await provider.translate(request(providerID: .deepl))
+        let result = try await provider.translate(request(providerID: .deepl, targetLanguage: .japanese))
         let requests = await client.requests
         let sentRequest = try XCTUnwrap(requests.first)
         let body = try bodyObject(from: sentRequest) as? [String: Any]
@@ -47,7 +47,7 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertEqual(result.translatedText, "sawasdee")
         XCTAssertEqual(sentRequest.url.absoluteString, "https://api.deepl.com/v2/translate")
         XCTAssertEqual(sentRequest.headers["Authorization"], "DeepL-Auth-Key test-key")
-        XCTAssertEqual(body?["target_lang"] as? String, "TH")
+        XCTAssertEqual(body?["target_lang"] as? String, "JA")
         XCTAssertEqual(body?["source_lang"] as? String, "EN")
         XCTAssertEqual(body?["text"] as? [String], ["hello"])
     }
@@ -60,7 +60,7 @@ final class CloudTranslationProviderTests: XCTestCase {
             client: client
         )
 
-        let result = try await provider.translate(request(providerID: .deepl))
+        let result = try await provider.translate(request(providerID: .deepl, targetLanguage: .japanese))
         let requests = await client.requests
         let sentRequest = try XCTUnwrap(requests.first)
         let body = try bodyObject(from: sentRequest) as? [String: Any]
@@ -68,9 +68,28 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertEqual(result.translatedText, "sawasdee")
         XCTAssertEqual(sentRequest.url.absoluteString, "https://api-free.deepl.com/v2/translate")
         XCTAssertEqual(sentRequest.headers["Authorization"], "DeepL-Auth-Key test-key:fx")
-        XCTAssertEqual(body?["target_lang"] as? String, "TH")
+        XCTAssertEqual(body?["target_lang"] as? String, "JA")
         XCTAssertEqual(body?["source_lang"] as? String, "EN")
         XCTAssertEqual(body?["text"] as? [String], ["hello"])
+    }
+
+    func testDeepLProviderRejectsThaiLanguagePairsBeforeNetworkCall() async throws {
+        let client = StubCloudTranslationClient(response: jsonResponse(#"{"translations":[{"text":"unused"}]}"#))
+        let provider = CloudTranslationProvider(
+            id: .deepl,
+            apiKeyStore: InMemoryAPIKeyStore(keys: [.deepl: "test-key"]),
+            client: client
+        )
+
+        do {
+            _ = try await provider.translate(request(providerID: .deepl, targetLanguage: .thai))
+            XCTFail("Expected unsupported language pair failure.")
+        } catch {
+            XCTAssertEqual(error as? TranslationFailure, .unsupportedLanguagePair)
+        }
+
+        let requests = await client.requests
+        XCTAssertTrue(requests.isEmpty)
     }
 
     func testGoogleCloudProviderBuildsBodyRequestAndDecodesResponse() async throws {
@@ -159,11 +178,15 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertEqual(message, "request failed with key [redacted]")
     }
 
-    private func request(providerID: TranslationProviderID) -> TranslationRequest {
+    private func request(
+        providerID: TranslationProviderID,
+        sourceLanguage: TranslationLanguage = .english,
+        targetLanguage: TranslationLanguage = .thai
+    ) -> TranslationRequest {
         TranslationRequest(
             text: " hello ",
-            sourceLanguage: .english,
-            targetLanguage: .thai,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
             inputMode: .quickTranslate,
             providerID: providerID
         )

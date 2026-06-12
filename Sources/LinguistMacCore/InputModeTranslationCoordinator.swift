@@ -94,16 +94,22 @@ public actor InputModeTranslationCoordinator {
             return fail(with: .emptyInput)
         }
 
+        let sourceLanguage = resolvedSourceLanguage(
+            settingsSource: settings.sourceLanguage,
+            sourceText: sourceText,
+            recognizedLanguage: recognizedLanguage
+        )
+        let providerID = await services.translatorRegistry.supportedProviderID(
+            preferred: settings.selectedProviderID,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: settings.targetLanguage
+        )
         let request = TranslationRequest(
             text: sourceText,
-            sourceLanguage: resolvedSourceLanguage(
-                settingsSource: settings.sourceLanguage,
-                sourceText: sourceText,
-                recognizedLanguage: recognizedLanguage
-            ),
+            sourceLanguage: sourceLanguage,
             targetLanguage: settings.targetLanguage,
             inputMode: inputMode,
-            providerID: settings.selectedProviderID
+            providerID: providerID
         )
 
         do {

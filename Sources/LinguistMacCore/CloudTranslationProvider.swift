@@ -198,6 +198,9 @@ public struct CloudTranslationProvider: TranslationProviding {
         guard let apiKey = try await apiKeyStore.apiKey(for: id), !apiKey.isEmpty else {
             throw TranslationFailure.missingAPIKey(id)
         }
+        guard id.supports(sourceLanguage: request.sourceLanguage, targetLanguage: request.targetLanguage) else {
+            throw TranslationFailure.unsupportedLanguagePair
+        }
         let apiRegion = try await apiKeyStore.apiRegion(for: id)
 
         let httpRequest = try makeHTTPRequest(for: request, text: text, apiKey: apiKey, apiRegion: apiRegion)

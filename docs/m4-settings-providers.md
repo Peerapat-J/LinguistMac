@@ -26,6 +26,8 @@ clamped to the Settings UI ranges during load.
   require a key.
 - DeepL, Google Cloud Translation, and Microsoft Azure Translator are exposed
   as optional cloud engines.
+- DeepL is not offered for translation requests where the selected or resolved
+  source/target language is Thai, because DeepL does not support Thai.
 - Microsoft Azure Translator accepts an optional region value for regional and
   multi-service Azure resources.
 - Cloud engines can be selected in Settings, but translation fails with a

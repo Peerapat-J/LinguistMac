@@ -63,6 +63,18 @@ public extension TranslationProviderID {
         .googleCloud,
         .microsoftAzure
     ]
+
+    func supports(
+        sourceLanguage: TranslationLanguage,
+        targetLanguage: TranslationLanguage
+    ) -> Bool {
+        switch self {
+        case .deepl:
+            sourceLanguage != .thai && targetLanguage != .thai
+        default:
+            true
+        }
+    }
 }
 
 public struct TranslationProviderDescriptor: Equatable, Sendable {
@@ -208,6 +220,16 @@ public enum SourceLanguageResolver {
 }
 
 public extension TranslationRequest {
+    func usingProvider(_ providerID: TranslationProviderID) -> TranslationRequest {
+        TranslationRequest(
+            text: text,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            inputMode: inputMode,
+            providerID: providerID
+        )
+    }
+
     func resolvingAutoDetectedSource() -> TranslationRequest {
         guard sourceLanguage.supportsAutoDetect,
               let detectedLanguage = SourceLanguageResolver.detectedLanguage(in: text)

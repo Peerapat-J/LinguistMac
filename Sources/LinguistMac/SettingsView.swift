@@ -28,14 +28,14 @@ struct SettingsView: View {
     private var generalSettings: some View {
         Form {
             Section("Languages") {
-                Picker("Source", selection: $model.settings.sourceLanguage) {
+                Picker("Source", selection: sourceLanguageBinding) {
                     ForEach(model.availableLanguages, id: \.id) { language in
                         Text(language.displayName)
                             .tag(language)
                     }
                 }
 
-                Picker("Target", selection: $model.settings.targetLanguage) {
+                Picker("Target", selection: targetLanguageBinding) {
                     ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
                         Text(language.displayName)
                             .tag(language)
@@ -52,7 +52,7 @@ struct SettingsView: View {
 
             Section("Translation") {
                 Picker("Engine", selection: $model.settings.selectedProviderID) {
-                    ForEach(model.availableProviders, id: \.id) { provider in
+                    ForEach(model.selectableProviders, id: \.id) { provider in
                         Text(provider.pickerTitle)
                             .tag(provider.id)
                     }
@@ -133,6 +133,22 @@ struct SettingsView: View {
             model.settings.hasCompletedOnboarding
         } set: { isCompleted in
             model.setOnboardingCompleted(isCompleted)
+        }
+    }
+
+    private var sourceLanguageBinding: Binding<TranslationLanguage> {
+        Binding {
+            model.settings.sourceLanguage
+        } set: { language in
+            model.setSourceLanguage(language)
+        }
+    }
+
+    private var targetLanguageBinding: Binding<TranslationLanguage> {
+        Binding {
+            model.settings.targetLanguage
+        } set: { language in
+            model.setTargetLanguage(language)
         }
     }
 

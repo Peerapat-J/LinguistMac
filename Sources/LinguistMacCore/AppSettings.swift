@@ -52,8 +52,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
 public extension AppSettings {
     func selectingAvailableProvider(from providers: [TranslationProviderDescriptor]) -> AppSettings {
-        guard !providers.contains(where: { $0.id == selectedProviderID }),
-              let fallbackProvider = providers.first
+        let supportedProviders = providers.filter {
+            $0.id.supports(sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
+        }
+        guard !supportedProviders.contains(where: { $0.id == selectedProviderID }),
+              let fallbackProvider = supportedProviders.first ?? providers.first
         else {
             return self
         }

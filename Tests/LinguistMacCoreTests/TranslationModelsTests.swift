@@ -52,6 +52,21 @@ final class TranslationModelsTests: XCTestCase {
         XCTAssertTrue(deepl.usesNetwork)
     }
 
+    func testProviderLanguageSupportExcludesDeepLThaiPairs() {
+        XCTAssertFalse(
+            TranslationProviderID.deepl.supports(sourceLanguage: .english, targetLanguage: .thai)
+        )
+        XCTAssertFalse(
+            TranslationProviderID.deepl.supports(sourceLanguage: .thai, targetLanguage: .english)
+        )
+        XCTAssertTrue(
+            TranslationProviderID.deepl.supports(sourceLanguage: .english, targetLanguage: .japanese)
+        )
+        XCTAssertTrue(
+            TranslationProviderID.googleCloud.supports(sourceLanguage: .english, targetLanguage: .thai)
+        )
+    }
+
     func testSessionStateCanRepresentPermissionAndProviderFailures() {
         let permissionState = TranslationSessionState.failed(
             .permissionDenied(.screenRecording)

@@ -108,18 +108,18 @@ final class AppShellModel: ObservableObject {
 
     func runScreenTranslation() async {
         record(.screenTranslate)
-
+        let translationSettings = settingsWithSupportedProvider()
         let loadingRequest = TranslationRequest(
             text: "",
-            sourceLanguage: settings.sourceLanguage,
-            targetLanguage: settings.targetLanguage,
+            sourceLanguage: translationSettings.sourceLanguage,
+            targetLanguage: translationSettings.targetLanguage,
             inputMode: .screenSelection,
-            providerID: settings.selectedProviderID
+            providerID: translationSettings.selectedProviderID
         )
         screenSessionState = .capturing
 
         let coordinator = ScreenTranslationCoordinator(services: services)
-        let finalState = await coordinator.translateScreenSelection(settings: settings)
+        let finalState = await coordinator.translateScreenSelection(settings: translationSettings)
         screenSessionState = finalState
 
         switch finalState {
@@ -137,9 +137,16 @@ final class AppShellModel: ObservableObject {
 
     func runQuickTranslate() async {
         do {
-            let request = try quickDraft
-                .makeRequest(providerID: settings.selectedProviderID)
+            let translationSettings = settingsWithSupportedProvider()
+            var request = try quickDraft
+                .makeRequest(providerID: translationSettings.selectedProviderID)
                 .resolvingAutoDetectedSource()
+            let providerID = await services.translatorRegistry.supportedProviderID(
+                preferred: request.providerID,
+                sourceLanguage: request.sourceLanguage,
+                targetLanguage: request.targetLanguage
+            )
+            request = request.usingProvider(providerID)
             quickSessionState = .translating(request)
             popupState = .loading(request)
 
@@ -165,7 +172,7 @@ final class AppShellModel: ObservableObject {
             saveRecent(result)
             try? await services.historyStore.save(result)
 
-            if settings.autoCopyEnabled {
+            if translationSettings.autoCopyEnabled {
                 await services.clipboard.writeText(result.translatedText)
             }
         } catch let failure as TranslationFailure {
@@ -303,18 +310,19 @@ final class AppShellModel: ObservableObject {
         _ inputMode: TranslationInputMode,
         operation: (InputModeTranslationCoordinator, AppSettings) async -> TranslationSessionState
     ) async {
+        let translationSettings = settingsWithSupportedProvider()
         let loadingRequest = TranslationRequest(
             text: "",
-            sourceLanguage: settings.sourceLanguage,
-            targetLanguage: settings.targetLanguage,
+            sourceLanguage: translationSettings.sourceLanguage,
+            targetLanguage: translationSettings.targetLanguage,
             inputMode: inputMode,
-            providerID: settings.selectedProviderID
+            providerID: translationSettings.selectedProviderID
         )
         inputModeSessionState = .capturing
         popupState = .loading(loadingRequest)
 
         let coordinator = InputModeTranslationCoordinator(services: services)
-        let finalState = await operation(coordinator, settings)
+        let finalState = await operation(coordinator, translationSettings)
         inputModeSessionState = finalState
 
         switch finalState {
@@ -343,6 +351,40 @@ final class AppShellModel: ObservableObject {
 }
 
 extension AppShellModel {
+    var selectableProviders: [TranslationProviderDescriptor] {
+        providersSupportingCurrentLanguages(from: availableProviders)
+    }
+
+    func setSourceLanguage(_ language: TranslationLanguage) {
+        settings.sourceLanguage = language
+        sanitizeSelectedProviderForCurrentLanguages()
+    }
+
+    func setTargetLanguage(_ language: TranslationLanguage) {
+        settings.targetLanguage = language
+        sanitizeSelectedProviderForCurrentLanguages()
+    }
+
+    private func providersSupportingCurrentLanguages(
+        from providers: [TranslationProviderDescriptor]
+    ) -> [TranslationProviderDescriptor] {
+        providers.filter {
+            $0.id.supports(sourceLanguage: settings.sourceLanguage, targetLanguage: settings.targetLanguage)
+        }
+    }
+
+    private func sanitizeSelectedProviderForCurrentLanguages() {
+        let sanitizedSettings = settings.selectingAvailableProvider(from: availableProviders)
+        if sanitizedSettings != settings {
+            settings = sanitizedSettings
+        }
+    }
+
+    private func settingsWithSupportedProvider() -> AppSettings {
+        sanitizeSelectedProviderForCurrentLanguages()
+        return settings
+    }
+
     func refreshProviderDescriptors() async {
         let providers = await services.translatorRegistry.availableProviders()
         availableProviders = providers

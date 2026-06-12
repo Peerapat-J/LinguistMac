@@ -38,6 +38,30 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(sanitizedSettings.selectedProviderID, .apple)
     }
 
+    func testSettingsFallbackWhenSelectedProviderDoesNotSupportLanguagePair() {
+        let appleProvider = TranslationProviderDescriptor(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false
+        )
+        let deeplProvider = TranslationProviderDescriptor(
+            id: .deepl,
+            displayName: "DeepL",
+            requiresAPIKey: true,
+            usesNetwork: true,
+            configurationStatus: .ready
+        )
+        let settings = AppSettings(
+            targetLanguage: .thai,
+            selectedProviderID: .deepl
+        )
+
+        let sanitizedSettings = settings.selectingAvailableProvider(from: [appleProvider, deeplProvider])
+
+        XCTAssertEqual(sanitizedSettings.selectedProviderID, .apple)
+    }
+
     func testSettingsRoundTripCodableSchema() throws {
         var settings = AppSettings(sourceLanguage: .japanese, targetLanguage: .korean)
         settings.selectedProviderID = .deepl

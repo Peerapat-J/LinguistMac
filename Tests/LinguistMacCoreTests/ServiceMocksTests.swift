@@ -111,6 +111,32 @@ final class ServiceMocksTests: XCTestCase {
         }
     }
 
+    func testRegistryFallsBackFromUnsupportedPreferredProvider() async {
+        let apple = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "sawasdee"
+        )
+        let deepl = StubTranslationProvider(
+            id: .deepl,
+            displayName: "DeepL",
+            requiresAPIKey: true,
+            usesNetwork: true,
+            translatedText: "unused"
+        )
+        let registry = DefaultTranslationProviderRegistry(providers: [deepl, apple])
+
+        let providerID = await registry.supportedProviderID(
+            preferred: .deepl,
+            sourceLanguage: .english,
+            targetLanguage: .thai
+        )
+
+        XCTAssertEqual(providerID, .apple)
+    }
+
     func testInMemoryStoresSupportSettingsHistoryClipboardAndShortcuts() async throws {
         let settingsStore = InMemoryAppSettingsStore()
         var settings = try await settingsStore.loadSettings()
