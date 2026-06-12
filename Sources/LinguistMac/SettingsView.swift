@@ -211,7 +211,7 @@ private struct ProviderConfigurationRow: View {
 
                 Label(provider.configurationStatus.displayText, systemImage: provider.statusImage)
                     .font(.caption)
-                    .foregroundStyle(provider.isConfigured ? .green : .orange)
+                    .foregroundStyle(provider.statusTint)
             }
 
             SecureField("API key", text: apiKeyDraftBinding)
@@ -307,6 +307,17 @@ private extension TranslationProviderDescriptor {
             "key.fill"
         case .unavailable:
             "exclamationmark.triangle.fill"
+        }
+    }
+
+    var statusTint: Color {
+        switch configurationStatus {
+        case .ready:
+            .green
+        case .needsAPIKey:
+            .orange
+        case .unavailable:
+            .red
         }
     }
 }
