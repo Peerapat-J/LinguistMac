@@ -71,6 +71,11 @@ if [[ "$MODE" == "signed" ]]; then
     /usr/bin/xcrun stapler staple "$APP_BUNDLE"
     /usr/bin/xcrun stapler validate "$APP_BUNDLE"
     package_artifacts
+    /usr/bin/xcrun notarytool submit "$DMG_PATH" \
+      --keychain-profile "$NOTARY_KEYCHAIN_PROFILE" \
+      --wait
+    /usr/bin/xcrun stapler staple "$DMG_PATH"
+    /usr/bin/xcrun stapler validate "$DMG_PATH"
   fi
 
   /usr/bin/spctl --assess --type execute --verbose "$APP_BUNDLE"
