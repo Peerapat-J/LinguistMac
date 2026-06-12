@@ -130,23 +130,6 @@ struct SystemPermissionChecker: PermissionChecking {
     private static let accessibilityPromptOptionKey = "AXTrustedCheckOptionPrompt"
 }
 
-actor InMemoryRecentTranslationStore: TranslationHistoryStoring {
-    private var results: [TranslationResult] = []
-    private let limit: Int
-
-    init(limit: Int = TranslationHistoryPolicy.defaultLimit) {
-        self.limit = limit
-    }
-
-    func save(_ result: TranslationResult) async throws {
-        results = TranslationHistoryPolicy.inserting(result, into: results, limit: limit)
-    }
-
-    func recent(limit: Int) async throws -> [TranslationResult] {
-        Array(TranslationHistoryPolicy.trimmed(results, limit: limit))
-    }
-}
-
 actor NoOpShortcutRegistry: ShortcutRegistering {
     func register(_ shortcut: KeyboardShortcut, for action: ShortcutAction) async throws {
         _ = shortcut
