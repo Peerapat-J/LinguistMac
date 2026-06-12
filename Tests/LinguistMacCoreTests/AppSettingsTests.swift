@@ -89,4 +89,15 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.popupFontSize, 12)
         XCTAssertEqual(settings.popupWidth, 320)
     }
+
+    func testAppLanguageMapsToLocaleAndAppleLanguagesOverride() {
+        XCTAssertNil(AppLanguage.system.localeIdentifier)
+        XCTAssertNil(AppLanguage.system.appleLanguages)
+        XCTAssertEqual(AppLanguage.english.localeIdentifier, "en")
+        XCTAssertEqual(AppLanguage.english.locale.identifier, "en")
+        XCTAssertEqual(AppLanguage.english.appleLanguages, ["en"])
+        XCTAssertEqual(AppLanguage.korean.localeIdentifier, "ko")
+        XCTAssertEqual(AppLanguage.korean.locale.identifier, "ko")
+        XCTAssertEqual(AppLanguage.korean.appleLanguages, ["ko"])
+    }
 }

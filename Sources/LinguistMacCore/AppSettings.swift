@@ -1,3 +1,5 @@
+import Foundation
+
 public struct AppSettings: Codable, Equatable, Sendable {
     public var sourceLanguage: TranslationLanguage
     public var targetLanguage: TranslationLanguage
@@ -91,6 +93,29 @@ public enum AppLanguage: String, CaseIterable, Codable, Sendable {
         case .korean:
             "Korean"
         }
+    }
+
+    public var localeIdentifier: String? {
+        switch self {
+        case .system:
+            nil
+        case .english:
+            "en"
+        case .korean:
+            "ko"
+        }
+    }
+
+    public var locale: Locale {
+        guard let localeIdentifier else {
+            return .autoupdatingCurrent
+        }
+
+        return Locale(identifier: localeIdentifier)
+    }
+
+    public var appleLanguages: [String]? {
+        localeIdentifier.map { [$0] }
     }
 }
 

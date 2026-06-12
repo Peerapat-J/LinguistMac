@@ -73,7 +73,7 @@ struct QuickTranslateView: View {
         HStack(spacing: 12) {
             Picker("Source", selection: $model.quickDraft.sourceLanguage) {
                 ForEach(model.availableLanguages, id: \.id) { language in
-                    Text(language.displayName)
+                    Text(LocalizedStringKey(language.displayName))
                         .tag(language)
                 }
             }
@@ -83,7 +83,7 @@ struct QuickTranslateView: View {
 
             Picker("Target", selection: $model.quickDraft.targetLanguage) {
                 ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
-                    Text(language.displayName)
+                    Text(LocalizedStringKey(language.displayName))
                         .tag(language)
                 }
             }

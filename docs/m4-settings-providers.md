@@ -20,6 +20,10 @@ private default path.
 Invalid persisted target languages fall back to English. Popup size values are
 clamped to the Settings UI ranges during load.
 
+The app-language picker applies the selected language to SwiftUI views through
+the locale environment and mirrors the choice to the app's AppleLanguages
+override for subsequent launches. Selecting System removes the override.
+
 ## Providers
 
 - Apple Translation uses the system on-device translation APIs and does not

@@ -30,21 +30,21 @@ struct SettingsView: View {
             Section("Languages") {
                 Picker("Source", selection: sourceLanguageBinding) {
                     ForEach(model.availableLanguages, id: \.id) { language in
-                        Text(language.displayName)
+                        Text(LocalizedStringKey(language.displayName))
                             .tag(language)
                     }
                 }
 
                 Picker("Target", selection: targetLanguageBinding) {
                     ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
-                        Text(language.displayName)
+                        Text(LocalizedStringKey(language.displayName))
                             .tag(language)
                     }
                 }
 
-                Picker("App language", selection: $model.settings.appLanguage) {
+                Picker("App language", selection: appLanguageBinding) {
                     ForEach(AppLanguage.allCases, id: \.rawValue) { language in
-                        Text(language.displayName)
+                        Text(LocalizedStringKey(language.displayName))
                             .tag(language)
                     }
                 }
@@ -149,6 +149,15 @@ struct SettingsView: View {
             model.settings.targetLanguage
         } set: { language in
             model.setTargetLanguage(language)
+        }
+    }
+
+    private var appLanguageBinding: Binding<AppLanguage> {
+        Binding {
+            model.settings.appLanguage
+        } set: { language in
+            model.settings.appLanguage = language
+            AppLanguagePreferenceApplier.apply(language)
         }
     }
 

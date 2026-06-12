@@ -12,9 +12,15 @@ struct MenuBarMenuView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("LinguistMac")
                     .font(.headline)
-                Text(model.readiness.isScreenTranslationReady ? "Ready for translation" : "Setup needed")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if model.readiness.isScreenTranslationReady {
+                    Text("Ready for translation")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Setup needed")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Divider()

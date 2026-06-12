@@ -26,6 +26,8 @@
 		B1000000000000000000001F /* KeyboardInputMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000001F /* KeyboardInputMonitor.swift */; };
 		B10000000000000000000022 /* ProviderSupportServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000022 /* ProviderSupportServices.swift */; };
 		B10000000000000000000024 /* UserDefaultsAppSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000024 /* UserDefaultsAppSettingsStore.swift */; };
+		B10000000000000000000025 /* AppLanguagePreferenceApplier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000025 /* AppLanguagePreferenceApplier.swift */; };
+		B10000000000000000000026 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000028 /* Localizable.strings */; };
 		B10000000000000000000010 /* AppFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000010 /* AppFeature.swift */; };
 		B10000000000000000000011 /* AppIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000011 /* AppIdentity.swift */; };
 		B10000000000000000000012 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000012 /* AppSettings.swift */; };
@@ -93,6 +95,9 @@
 		B2000000000000000000001F /* KeyboardInputMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardInputMonitor.swift; sourceTree = "<group>"; };
 		B20000000000000000000022 /* ProviderSupportServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSupportServices.swift; sourceTree = "<group>"; };
 		B20000000000000000000024 /* UserDefaultsAppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsAppSettingsStore.swift; sourceTree = "<group>"; };
+		B20000000000000000000025 /* AppLanguagePreferenceApplier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguagePreferenceApplier.swift; sourceTree = "<group>"; };
+		B20000000000000000000026 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = Resources/en.lproj/Localizable.strings; sourceTree = SOURCE_ROOT; };
+		B20000000000000000000027 /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = Resources/ko.lproj/Localizable.strings; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000010 /* AppFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFeature.swift; sourceTree = "<group>"; };
 		B20000000000000000000011 /* AppIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIdentity.swift; sourceTree = "<group>"; };
 		B20000000000000000000012 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -194,6 +199,8 @@
 				B2000000000000000000001F /* KeyboardInputMonitor.swift */,
 				B20000000000000000000022 /* ProviderSupportServices.swift */,
 				B20000000000000000000024 /* UserDefaultsAppSettingsStore.swift */,
+				B20000000000000000000025 /* AppLanguagePreferenceApplier.swift */,
+				B20000000000000000000028 /* Localizable.strings */,
 				B2000000000000000000000D /* VisionOCRService.swift */,
 				B2000000000000000000000E /* ScreenCaptureKitScreenCaptureService.swift */,
 			);
@@ -354,6 +361,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				ko,
 				Base,
 			);
 			mainGroup = B60000000000000000000001;
@@ -373,6 +381,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B10000000000000000000026 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -405,6 +414,7 @@
 				B1000000000000000000001F /* KeyboardInputMonitor.swift in Sources */,
 				B10000000000000000000022 /* ProviderSupportServices.swift in Sources */,
 				B10000000000000000000024 /* UserDefaultsAppSettingsStore.swift in Sources */,
+				B10000000000000000000025 /* AppLanguagePreferenceApplier.swift in Sources */,
 				B1000000000000000000000D /* VisionOCRService.swift in Sources */,
 				B1000000000000000000000E /* ScreenCaptureKitScreenCaptureService.swift in Sources */,
 			);
@@ -455,6 +465,18 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		B20000000000000000000028 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				B20000000000000000000026 /* en */,
+				B20000000000000000000027 /* ko */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXTargetDependency section */
 		B80000000000000000000001 /* PBXTargetDependency */ = {

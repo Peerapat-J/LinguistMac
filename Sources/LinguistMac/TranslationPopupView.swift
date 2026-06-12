@@ -108,7 +108,11 @@ struct TranslationPopupView: View {
             Button {
                 model.togglePopupOriginal()
             } label: {
-                Label(model.popupState.showsOriginal ? "Hide Original" : "Show Original", systemImage: "text.quote")
+                if model.popupState.showsOriginal {
+                    Label("Hide Original", systemImage: "text.quote")
+                } else {
+                    Label("Show Original", systemImage: "text.quote")
+                }
             }
             .disabled(model.popupState.copyableText == nil)
 
