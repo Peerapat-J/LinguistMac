@@ -69,6 +69,26 @@ final class AppShellModelTests: XCTestCase {
         XCTAssertFalse(model.historyLoadError?.diagnosticDescription.contains("database unavailable") == true)
     }
 
+    func testTestAPIKeyConfigurationPreservesUnsavedAzureRegionDraft() async {
+        let model = AppShellModel(
+            services: makeServices(
+                apiKeyStore: TestAPIKeyStore(
+                    status: .present,
+                    apiRegion: "saved-region"
+                )
+            )
+        )
+        model.providerAPIRegionDrafts[.microsoftAzure] = "unsaved-region"
+
+        await model.testAPIKeyConfiguration(for: .microsoftAzure)
+
+        XCTAssertEqual(model.providerAPIRegionDrafts[.microsoftAzure], "unsaved-region")
+        XCTAssertEqual(
+            model.providerConfigurationMessages[.microsoftAzure],
+            "API key and region are present. Translation requests can use this provider."
+        )
+    }
+
     func testShowHistoryResultReopensSuccessfulPopup() {
         let result = makeResult(text: "from history")
         let model = AppShellModel(services: makeServices())
@@ -96,6 +116,7 @@ final class AppShellModelTests: XCTestCase {
 
     private func makeServices(
         historyStore: any TranslationHistoryStoring = TestTranslationHistoryStore(),
+        apiKeyStore: any APIKeyStoring = TestAPIKeyStore(),
         clipboard: TestClipboard = TestClipboard()
     ) -> LinguistServices {
         LinguistServices(
@@ -104,7 +125,7 @@ final class AppShellModelTests: XCTestCase {
             translatorRegistry: TestTranslationProviderRegistry(),
             languageAvailability: TestLanguageAvailabilityChecker(),
             settingsStore: TestAppSettingsStore(),
-            apiKeyStore: TestAPIKeyStore(),
+            apiKeyStore: apiKeyStore,
             launchAtLogin: TestLaunchAtLoginService(),
             historyStore: historyStore,
             permissionChecker: TestPermissionChecker(),
@@ -213,6 +234,14 @@ private actor TestAppSettingsStore: AppSettingsStoring {
 }
 
 private actor TestAPIKeyStore: APIKeyStoring {
+    private var status: APIKeyStatus
+    private var regions: [TranslationProviderID: String]
+
+    init(status: APIKeyStatus = .missing, apiRegion: String? = nil) {
+        self.status = status
+        regions = apiRegion.map { [.microsoftAzure: $0] } ?? [:]
+    }
+
     func apiKey(for providerID: TranslationProviderID) async throws -> String? {
         _ = providerID
         return nil
@@ -221,29 +250,29 @@ private actor TestAPIKeyStore: APIKeyStoring {
     func saveAPIKey(_ apiKey: String, for providerID: TranslationProviderID) async throws {
         _ = apiKey
         _ = providerID
+        status = .present
     }
 
     func deleteAPIKey(for providerID: TranslationProviderID) async throws {
         _ = providerID
+        status = .missing
     }
 
     func apiKeyStatus(for providerID: TranslationProviderID) async -> APIKeyStatus {
         _ = providerID
-        return .missing
+        return status
     }
 
     func apiRegion(for providerID: TranslationProviderID) async throws -> String? {
-        _ = providerID
-        return nil
+        regions[providerID]
     }
 
     func saveAPIRegion(_ apiRegion: String, for providerID: TranslationProviderID) async throws {
-        _ = apiRegion
-        _ = providerID
+        regions[providerID] = apiRegion
     }
 
     func deleteAPIRegion(for providerID: TranslationProviderID) async throws {
-        _ = providerID
+        regions[providerID] = nil
     }
 }
 

@@ -109,7 +109,6 @@ extension AppShellModel {
         case let .unavailable(reason):
             providerConfigurationMessages[providerID] = "API key status could not be read. \(reason)"
         }
-        await refreshProviderDescriptors()
     }
 
     private func providersSupportingCurrentLanguages(
