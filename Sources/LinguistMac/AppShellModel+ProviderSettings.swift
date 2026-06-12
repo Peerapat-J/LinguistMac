@@ -97,7 +97,7 @@ extension AppShellModel {
     func testAPIKeyConfiguration(for providerID: TranslationProviderID) async {
         switch await services.apiKeyStore.apiKeyStatus(for: providerID) {
         case .present where providerID == .microsoftAzure:
-            let region = await (try? services.apiKeyStore.apiRegion(for: providerID)) ?? ""
+            let region = await savedAPIRegion(for: providerID)
             providerConfigurationMessages[providerID] = region.isEmpty
                 ? "API key is present. Add Azure region if your resource requires it."
                 : "API key and region are present. Translation requests can use this provider."
@@ -132,7 +132,15 @@ extension AppShellModel {
             return
         }
 
-        let region = await (try? services.apiKeyStore.apiRegion(for: .microsoftAzure)) ?? ""
+        let region = await savedAPIRegion(for: .microsoftAzure)
         providerAPIRegionDrafts[.microsoftAzure] = region
+    }
+
+    private func savedAPIRegion(for providerID: TranslationProviderID) async -> String {
+        do {
+            return try await services.apiKeyStore.apiRegion(for: providerID) ?? ""
+        } catch {
+            return ""
+        }
     }
 }
