@@ -64,6 +64,8 @@
 		B1000000000000000000004C /* InputModeTranslationCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004C /* InputModeTranslationCoordinatorTests.swift */; };
 		B1000000000000000000004D /* ShortcutRegistrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004D /* ShortcutRegistrationTests.swift */; };
 		B1000000000000000000004E /* CloudTranslationProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004E /* CloudTranslationProviderTests.swift */; };
+		C10000000000000000000001 /* AppShellModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000001 /* AppShellModelTests.swift */; };
+		C10000000000000000000002 /* libLinguistMacCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B20000000000000000000030 /* libLinguistMacCore.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,6 +77,20 @@
 			remoteInfo = LinguistMacCore;
 		};
 		B30000000000000000000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B90000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B40000000000000000000200;
+			remoteInfo = LinguistMacCore;
+		};
+		C30000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B90000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B40000000000000000000100;
+			remoteInfo = LinguistMac;
+		};
+		C30000000000000000000002 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B90000000000000000000001 /* Project object */;
 			proxyType = 1;
@@ -145,6 +161,8 @@
 		B2000000000000000000004C /* InputModeTranslationCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputModeTranslationCoordinatorTests.swift; sourceTree = "<group>"; };
 		B2000000000000000000004D /* ShortcutRegistrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRegistrationTests.swift; sourceTree = "<group>"; };
 		B2000000000000000000004E /* CloudTranslationProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudTranslationProviderTests.swift; sourceTree = "<group>"; };
+		C20000000000000000000001 /* AppShellModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelTests.swift; sourceTree = "<group>"; };
+		C20000000000000000000002 /* LinguistMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LinguistMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -168,6 +186,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				B10000000000000000000004 /* libLinguistMacCore.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C50000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10000000000000000000002 /* libLinguistMacCore.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -251,6 +277,7 @@
 			isa = PBXGroup;
 			children = (
 				B60000000000000000000006 /* LinguistMacCoreTests */,
+				C60000000000000000000001 /* LinguistMacTests */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -277,6 +304,14 @@
 			path = LinguistMacCoreTests;
 			sourceTree = "<group>";
 		};
+		C60000000000000000000001 /* LinguistMacTests */ = {
+			isa = PBXGroup;
+			children = (
+				C20000000000000000000001 /* AppShellModelTests.swift */,
+			);
+			path = LinguistMacTests;
+			sourceTree = "<group>";
+		};
 		B60000000000000000000007 /* Configuration */ = {
 			isa = PBXGroup;
 			children = (
@@ -292,6 +327,7 @@
 				B20000000000000000000031 /* LinguistMac.app */,
 				B20000000000000000000030 /* libLinguistMacCore.a */,
 				B20000000000000000000032 /* LinguistMacCoreTests.xctest */,
+				C20000000000000000000002 /* LinguistMacTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -351,6 +387,25 @@
 			productReference = B20000000000000000000032 /* LinguistMacCoreTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		C40000000000000000000001 /* LinguistMacTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C70000000000000000000000 /* Build configuration list for PBXNativeTarget "LinguistMacTests" */;
+			buildPhases = (
+				C50000000000000000000001 /* Sources */,
+				C50000000000000000000002 /* Frameworks */,
+				C50000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C80000000000000000000001 /* PBXTargetDependency */,
+				C80000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = LinguistMacTests;
+			productName = LinguistMacTests;
+			productReference = C20000000000000000000002 /* LinguistMacTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -371,6 +426,10 @@
 						CreatedOnToolsVersion = 26.5;
 						TestTargetID = B40000000000000000000200;
 					};
+					C40000000000000000000001 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = B40000000000000000000100;
+					};
 				};
 			};
 			buildConfigurationList = B70000000000000000000001 /* Build configuration list for PBXProject "LinguistMac" */;
@@ -390,6 +449,7 @@
 				B40000000000000000000100 /* LinguistMac */,
 				B40000000000000000000200 /* LinguistMacCore */,
 				B40000000000000000000300 /* LinguistMacCoreTests */,
+				C40000000000000000000001 /* LinguistMacTests */,
 			);
 		};
 /* End PBXProject section */
@@ -404,6 +464,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B50000000000000000000303 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C50000000000000000000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -488,6 +555,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C50000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10000000000000000000001 /* AppShellModelTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
@@ -512,6 +587,16 @@
 			isa = PBXTargetDependency;
 			target = B40000000000000000000200 /* LinguistMacCore */;
 			targetProxy = B30000000000000000000002 /* PBXContainerItemProxy */;
+		};
+		C80000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B40000000000000000000100 /* LinguistMac */;
+			targetProxy = C30000000000000000000001 /* PBXContainerItemProxy */;
+		};
+		C80000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B40000000000000000000200 /* LinguistMacCore */;
+			targetProxy = C30000000000000000000002 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -632,6 +717,32 @@
 			};
 			name = Release;
 		};
+		C70000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @loader_path/../Frameworks @executable_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.peerapatj.LinguistMacTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LinguistMac.app/Contents/MacOS/LinguistMac";
+				TEST_TARGET_NAME = LinguistMac;
+			};
+			name = Debug;
+		};
+		C70000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @loader_path/../Frameworks @executable_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.peerapatj.LinguistMacTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LinguistMac.app/Contents/MacOS/LinguistMac";
+				TEST_TARGET_NAME = LinguistMac;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -667,6 +778,15 @@
 			buildConfigurations = (
 				B70000000000000000000301 /* Debug */,
 				B70000000000000000000302 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C70000000000000000000000 /* Build configuration list for PBXNativeTarget "LinguistMacTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C70000000000000000000001 /* Debug */,
+				C70000000000000000000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
