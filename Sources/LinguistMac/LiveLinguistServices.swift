@@ -9,13 +9,25 @@ enum LiveLinguistServices {
     @MainActor
     static func make(shortcutRegistry: any ShortcutRegistering = NoOpShortcutRegistry()) -> LinguistServices {
         let settingsStore = UserDefaultsAppSettingsStore()
+        let apiKeyStore = KeychainAPIKeyStore()
+        let cloudClient = URLSessionCloudTranslationClient()
+        let translatorRegistry = DefaultTranslationProviderRegistry(
+            providers: [
+                AppleTranslationProvider(),
+                CloudTranslationProvider(id: .deepl, apiKeyStore: apiKeyStore, client: cloudClient),
+                CloudTranslationProvider(id: .googleCloud, apiKeyStore: apiKeyStore, client: cloudClient),
+                CloudTranslationProvider(id: .microsoftAzure, apiKeyStore: apiKeyStore, client: cloudClient)
+            ]
+        )
 
         return LinguistServices(
             screenCapture: ScreenCaptureKitScreenCaptureService(),
             ocr: AppleVisionOCRService(),
-            translatorRegistry: DefaultTranslationProviderRegistry(),
+            translatorRegistry: translatorRegistry,
             languageAvailability: AppleTranslationAvailabilityService(),
             settingsStore: settingsStore,
+            apiKeyStore: apiKeyStore,
+            launchAtLogin: SystemLaunchAtLoginService(),
             historyStore: InMemoryRecentTranslationStore(),
             permissionChecker: SystemPermissionChecker(),
             clipboard: SystemClipboardService(),
@@ -32,7 +44,9 @@ struct SystemPermissionChecker: PermissionChecking {
             CGPreflightScreenCaptureAccess() ? .granted : .notDetermined
         case .accessibility:
             AXIsProcessTrusted() ? .granted : .notDetermined
-        case .keychain, .network:
+        case .keychain:
+            .granted
+        case .network:
             .notDetermined
         }
     }
@@ -43,7 +57,9 @@ struct SystemPermissionChecker: PermissionChecking {
             CGRequestScreenCaptureAccess() ? .granted : .denied
         case .accessibility:
             await requestAccessibilityPermission()
-        case .keychain, .network:
+        case .keychain:
+            .granted
+        case .network:
             .notDetermined
         }
     }
@@ -66,26 +82,6 @@ struct SystemPermissionChecker: PermissionChecking {
     }
 
     private static let accessibilityPromptOptionKey = "AXTrustedCheckOptionPrompt"
-}
-
-actor UserDefaultsAppSettingsStore: AppSettingsStoring {
-    private let defaults: UserDefaults
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
-    func loadSettings() async throws -> AppSettings {
-        Self.loadInitialSettings(from: defaults)
-    }
-
-    func saveSettings(_ settings: AppSettings) async throws {
-        defaults.saveLinguistSettings(settings)
-    }
-
-    static func loadInitialSettings(from defaults: UserDefaults = .standard) -> AppSettings {
-        defaults.loadLinguistSettings()
-    }
 }
 
 actor InMemoryRecentTranslationStore: TranslationHistoryStoring {
@@ -372,66 +368,5 @@ private extension KeyboardShortcut {
             modifiers |= UInt32(shiftKey)
         }
         return modifiers
-    }
-}
-
-private extension UserDefaults {
-    private enum Key {
-        static let sourceLanguageID = "LinguistMac.settings.sourceLanguageID"
-        static let targetLanguageID = "LinguistMac.settings.targetLanguageID"
-        static let selectedProviderID = "LinguistMac.settings.selectedProviderID"
-        static let autoCopyEnabled = "LinguistMac.settings.autoCopyEnabled"
-        static let doubleCopyTranslationEnabled = "LinguistMac.settings.doubleCopyTranslationEnabled"
-        static let dragTranslationEnabled = "LinguistMac.settings.dragTranslationEnabled"
-        static let popupFontSize = "LinguistMac.settings.popupFontSize"
-        static let popupWidth = "LinguistMac.settings.popupWidth"
-        static let matchPopupWidthToSelection = "LinguistMac.settings.matchPopupWidthToSelection"
-        static let hasCompletedOnboarding = "LinguistMac.hasCompletedOnboarding"
-    }
-
-    func loadLinguistSettings() -> AppSettings {
-        let defaults = AppSettings()
-        let source = string(forKey: Key.sourceLanguageID)
-            .flatMap(TranslationLanguageCatalog.language(forID:))
-            ?? defaults.sourceLanguage
-        let target = string(forKey: Key.targetLanguageID)
-            .flatMap(TranslationLanguageCatalog.language(forID:))
-            ?? defaults.targetLanguage
-        let providerID = string(forKey: Key.selectedProviderID)
-            .map(TranslationProviderID.init(rawValue:))
-            ?? defaults.selectedProviderID
-
-        return AppSettings(
-            sourceLanguage: source,
-            targetLanguage: target.canBeTargetLanguage ? target : defaults.targetLanguage,
-            selectedProviderID: providerID,
-            autoCopyEnabled: object(forKey: Key.autoCopyEnabled) as? Bool ?? defaults.autoCopyEnabled,
-            launchAtLoginEnabled: defaults.launchAtLoginEnabled,
-            doubleCopyTranslationEnabled: object(forKey: Key.doubleCopyTranslationEnabled) as? Bool
-                ?? defaults.doubleCopyTranslationEnabled,
-            dragTranslationEnabled: object(forKey: Key.dragTranslationEnabled) as? Bool
-                ?? defaults.dragTranslationEnabled,
-            screenTranslationShortcut: defaults.screenTranslationShortcut,
-            textSelectionShortcut: defaults.textSelectionShortcut,
-            quickTranslateShortcut: defaults.quickTranslateShortcut,
-            popupFontSize: object(forKey: Key.popupFontSize) as? Double ?? defaults.popupFontSize,
-            popupWidth: object(forKey: Key.popupWidth) as? Double ?? defaults.popupWidth,
-            matchPopupWidthToSelection: object(forKey: Key.matchPopupWidthToSelection) as? Bool
-                ?? defaults.matchPopupWidthToSelection,
-            hasCompletedOnboarding: bool(forKey: Key.hasCompletedOnboarding)
-        )
-    }
-
-    func saveLinguistSettings(_ settings: AppSettings) {
-        set(settings.sourceLanguage.id, forKey: Key.sourceLanguageID)
-        set(settings.targetLanguage.id, forKey: Key.targetLanguageID)
-        set(settings.selectedProviderID.rawValue, forKey: Key.selectedProviderID)
-        set(settings.autoCopyEnabled, forKey: Key.autoCopyEnabled)
-        set(settings.doubleCopyTranslationEnabled, forKey: Key.doubleCopyTranslationEnabled)
-        set(settings.dragTranslationEnabled, forKey: Key.dragTranslationEnabled)
-        set(settings.popupFontSize, forKey: Key.popupFontSize)
-        set(settings.popupWidth, forKey: Key.popupWidth)
-        set(settings.matchPopupWidthToSelection, forKey: Key.matchPopupWidthToSelection)
-        set(settings.hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding)
     }
 }

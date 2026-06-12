@@ -141,6 +141,8 @@ final class InputModeTranslationCoordinatorTests: XCTestCase {
             translatorRegistry: StubTranslationProviderRegistry(provider: provider),
             languageAvailability: StubLanguageAvailabilityChecker(readiness: readiness),
             settingsStore: InMemoryAppSettingsStore(),
+            apiKeyStore: InMemoryAPIKeyStore(),
+            launchAtLogin: StubLaunchAtLoginService(),
             historyStore: historyStore,
             permissionChecker: StubPermissionChecker(
                 statuses: [

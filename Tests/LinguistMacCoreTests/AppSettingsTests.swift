@@ -1,3 +1,4 @@
+import Foundation
 @testable import LinguistMacCore
 import XCTest
 
@@ -10,6 +11,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.selectedProviderID, .apple)
         XCTAssertFalse(settings.autoCopyEnabled)
         XCTAssertFalse(settings.launchAtLoginEnabled)
+        XCTAssertEqual(settings.appLanguage, .system)
         XCTAssertFalse(settings.doubleCopyTranslationEnabled)
         XCTAssertFalse(settings.dragTranslationEnabled)
     }
@@ -34,5 +36,68 @@ final class AppSettingsTests: XCTestCase {
         let sanitizedSettings = settings.selectingAvailableProvider(from: [appleProvider])
 
         XCTAssertEqual(sanitizedSettings.selectedProviderID, .apple)
+    }
+
+    func testSettingsFallbackWhenSelectedProviderDoesNotSupportLanguagePair() {
+        let appleProvider = TranslationProviderDescriptor(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false
+        )
+        let deeplProvider = TranslationProviderDescriptor(
+            id: .deepl,
+            displayName: "DeepL",
+            requiresAPIKey: true,
+            usesNetwork: true,
+            configurationStatus: .ready
+        )
+        let settings = AppSettings(
+            targetLanguage: .thai,
+            selectedProviderID: .deepl
+        )
+
+        let sanitizedSettings = settings.selectingAvailableProvider(from: [appleProvider, deeplProvider])
+
+        XCTAssertEqual(sanitizedSettings.selectedProviderID, .apple)
+    }
+
+    func testSettingsRoundTripCodableSchema() throws {
+        var settings = AppSettings(sourceLanguage: .japanese, targetLanguage: .korean)
+        settings.selectedProviderID = .deepl
+        settings.autoCopyEnabled = true
+        settings.launchAtLoginEnabled = true
+        settings.appLanguage = .korean
+        settings.doubleCopyTranslationEnabled = true
+        settings.screenTranslationShortcut = KeyboardShortcut(key: "T", modifiers: [.command, .shift])
+
+        let encoded = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: encoded)
+
+        XCTAssertEqual(decoded, settings)
+    }
+
+    func testSettingsSanitizeMigrationUnsafeValues() {
+        let settings = AppSettings(
+            sourceLanguage: .english,
+            targetLanguage: .autoDetect,
+            popupFontSize: 4,
+            popupWidth: 2
+        ).sanitized()
+
+        XCTAssertEqual(settings.targetLanguage, .english)
+        XCTAssertEqual(settings.popupFontSize, 12)
+        XCTAssertEqual(settings.popupWidth, 320)
+    }
+
+    func testAppLanguageMapsToLocaleAndAppleLanguagesOverride() {
+        XCTAssertNil(AppLanguage.system.localeIdentifier)
+        XCTAssertNil(AppLanguage.system.appleLanguages)
+        XCTAssertEqual(AppLanguage.english.localeIdentifier, "en")
+        XCTAssertEqual(AppLanguage.english.locale.identifier, "en")
+        XCTAssertEqual(AppLanguage.english.appleLanguages, ["en"])
+        XCTAssertEqual(AppLanguage.korean.localeIdentifier, "ko")
+        XCTAssertEqual(AppLanguage.korean.locale.identifier, "ko")
+        XCTAssertEqual(AppLanguage.korean.appleLanguages, ["ko"])
     }
 }

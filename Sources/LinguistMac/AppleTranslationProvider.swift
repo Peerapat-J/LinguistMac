@@ -2,40 +2,21 @@ import Foundation
 import LinguistMacCore
 import Translation
 
-struct DefaultTranslationProviderRegistry: TranslationProviderRegistry {
-    private let providers: [TranslationProviderID: any TranslationProviding]
-
-    init(providers: [any TranslationProviding] = [AppleTranslationProvider()]) {
-        self.providers = Dictionary(uniqueKeysWithValues: providers.map { ($0.id, $0) })
-    }
-
-    func provider(for id: TranslationProviderID) async throws -> any TranslationProviding {
-        guard let provider = providers[id] else {
-            throw TranslationFailure.providerUnavailable(id)
-        }
-
-        return provider
-    }
-
-    func availableProviders() async -> [TranslationProviderDescriptor] {
-        providers.values
-            .map {
-                TranslationProviderDescriptor(
-                    id: $0.id,
-                    displayName: $0.displayName,
-                    requiresAPIKey: $0.requiresAPIKey,
-                    usesNetwork: $0.usesNetwork
-                )
-            }
-            .sorted { $0.displayName < $1.displayName }
-    }
-}
-
 struct AppleTranslationProvider: TranslationProviding {
     let id: TranslationProviderID = .apple
     let displayName = "Apple Translation"
+    let detail = "On-device system translation is the default engine."
     let requiresAPIKey = false
     let usesNetwork = false
+    let privacySummary = "Text stays on device when Apple Translation handles the request."
+
+    func configurationStatus() async -> TranslationProviderConfigurationStatus {
+        if #available(macOS 26.0, *) {
+            return .ready
+        }
+
+        return .unavailable("Apple Translation requires macOS 26.0 or newer.")
+    }
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResult {
         let text = request.text.trimmingCharacters(in: .whitespacesAndNewlines)

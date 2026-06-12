@@ -94,35 +94,43 @@ public actor InputModeTranslationCoordinator {
             return fail(with: .emptyInput)
         }
 
+        let sourceLanguage = resolvedSourceLanguage(
+            settingsSource: settings.sourceLanguage,
+            sourceText: sourceText,
+            recognizedLanguage: recognizedLanguage
+        )
+        let providerID = await services.translatorRegistry.supportedProviderID(
+            preferred: settings.selectedProviderID,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: settings.targetLanguage
+        )
         let request = TranslationRequest(
             text: sourceText,
-            sourceLanguage: resolvedSourceLanguage(
-                settingsSource: settings.sourceLanguage,
-                sourceText: sourceText,
-                recognizedLanguage: recognizedLanguage
-            ),
+            sourceLanguage: sourceLanguage,
             targetLanguage: settings.targetLanguage,
             inputMode: inputMode,
-            providerID: settings.selectedProviderID
+            providerID: providerID
         )
-
-        setState(.translating(request))
-        let readiness = await services.languageAvailability.readiness(
-            from: request.sourceLanguage,
-            to: request.targetLanguage,
-            sampleText: request.text
-        )
-        switch readiness {
-        case .ready, .unknown:
-            break
-        case .needsDownload:
-            return fail(with: .missingLanguagePack(request.providerID))
-        case .unavailable:
-            return fail(with: .unsupportedLanguagePair)
-        }
 
         do {
             let provider = try await services.translatorRegistry.provider(for: request.providerID)
+            setState(.translating(request))
+            if !provider.usesNetwork {
+                let readiness = await services.languageAvailability.readiness(
+                    from: request.sourceLanguage,
+                    to: request.targetLanguage,
+                    sampleText: request.text
+                )
+                switch readiness {
+                case .ready, .unknown:
+                    break
+                case .needsDownload:
+                    return fail(with: .missingLanguagePack(request.providerID))
+                case .unavailable:
+                    return fail(with: .unsupportedLanguagePair)
+                }
+            }
+
             let result = try await provider.translate(request)
             await saveHistoryIfPossible(result)
 

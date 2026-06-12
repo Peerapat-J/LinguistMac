@@ -45,6 +45,8 @@ final class ServiceMocksTests: XCTestCase {
             translatorRegistry: StubTranslationProviderRegistry(provider: provider),
             languageAvailability: StubLanguageAvailabilityChecker(readiness: .ready),
             settingsStore: InMemoryAppSettingsStore(),
+            apiKeyStore: InMemoryAPIKeyStore(),
+            launchAtLogin: StubLaunchAtLoginService(),
             historyStore: InMemoryTranslationHistoryStore(),
             permissionChecker: StubPermissionChecker(statuses: [.screenRecording: .granted]),
             clipboard: InMemoryClipboard(),
@@ -87,6 +89,8 @@ final class ServiceMocksTests: XCTestCase {
             translatorRegistry: StubTranslationProviderRegistry(provider: provider),
             languageAvailability: StubLanguageAvailabilityChecker(readiness: .ready),
             settingsStore: InMemoryAppSettingsStore(),
+            apiKeyStore: InMemoryAPIKeyStore(),
+            launchAtLogin: StubLaunchAtLoginService(),
             historyStore: InMemoryTranslationHistoryStore(),
             permissionChecker: StubPermissionChecker(statuses: [.screenRecording: .granted]),
             clipboard: InMemoryClipboard(),
@@ -105,6 +109,32 @@ final class ServiceMocksTests: XCTestCase {
         } errorHandler: { error in
             XCTAssertEqual(error as? TranslationFailure, expectedFailure)
         }
+    }
+
+    func testRegistryFallsBackFromUnsupportedPreferredProvider() async {
+        let apple = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "sawasdee"
+        )
+        let deepl = StubTranslationProvider(
+            id: .deepl,
+            displayName: "DeepL",
+            requiresAPIKey: true,
+            usesNetwork: true,
+            translatedText: "unused"
+        )
+        let registry = DefaultTranslationProviderRegistry(providers: [deepl, apple])
+
+        let providerID = await registry.supportedProviderID(
+            preferred: .deepl,
+            sourceLanguage: .english,
+            targetLanguage: .thai
+        )
+
+        XCTAssertEqual(providerID, .apple)
     }
 
     func testInMemoryStoresSupportSettingsHistoryClipboardAndShortcuts() async throws {
@@ -130,14 +160,22 @@ final class ServiceMocksTests: XCTestCase {
         let shortcuts = RecordingShortcutRegistry()
         try await shortcuts.register(.quickTranslateDefault, for: .quickTranslate)
 
+        let apiKeyStore = InMemoryAPIKeyStore()
+        try await apiKeyStore.saveAPIKey("test-key", for: .microsoftAzure)
+        try await apiKeyStore.saveAPIRegion("eastus", for: .microsoftAzure)
+
         let savedSettings = try await settingsStore.loadSettings()
         let recentHistory = try await historyStore.recent(limit: 1)
         let clipboardText = await clipboard.readText()
         let registeredShortcut = await shortcuts.registeredShortcut(for: .quickTranslate)
+        let savedAPIKey = try await apiKeyStore.apiKey(for: .microsoftAzure)
+        let savedAPIRegion = try await apiKeyStore.apiRegion(for: .microsoftAzure)
 
         XCTAssertEqual(savedSettings.autoCopyEnabled, true)
         XCTAssertEqual(recentHistory, [result])
         XCTAssertEqual(clipboardText, "sawasdee")
         XCTAssertEqual(registeredShortcut, .quickTranslateDefault)
+        XCTAssertEqual(savedAPIKey, "test-key")
+        XCTAssertEqual(savedAPIRegion, "eastus")
     }
 }

@@ -32,34 +32,17 @@ public actor ScreenTranslationCoordinator {
                 return fail(with: .noTextRecognized)
             }
 
-            let sourceLanguage = resolvedSourceLanguage(
-                settingsSource: settings.sourceLanguage,
-                recognizedLanguage: recognizedText.language
+            let request = await makeTranslationRequest(
+                sourceText: sourceText,
+                recognizedLanguage: recognizedText.language,
+                settings: settings
             )
-            let request = TranslationRequest(
-                text: sourceText,
-                sourceLanguage: sourceLanguage,
-                targetLanguage: settings.targetLanguage,
-                inputMode: .screenSelection,
-                providerID: settings.selectedProviderID
-            )
-
+            let provider = try await services.translatorRegistry.provider(for: request.providerID)
             setState(.translating(request))
-            let readiness = await services.languageAvailability.readiness(
-                from: request.sourceLanguage,
-                to: request.targetLanguage,
-                sampleText: request.text
-            )
-            switch readiness {
-            case .ready, .unknown:
-                break
-            case .needsDownload:
-                return fail(with: .missingLanguagePack(request.providerID))
-            case .unavailable:
-                return fail(with: .unsupportedLanguagePair)
+            if let failure = await readinessFailure(for: request, provider: provider) {
+                return fail(with: failure)
             }
 
-            let provider = try await services.translatorRegistry.provider(for: request.providerID)
             let result = try await provider.translate(request)
             await saveHistoryIfPossible(result)
 
@@ -82,6 +65,53 @@ public actor ScreenTranslationCoordinator {
 
         setState(.requestingPermission(.screenRecording))
         return await services.permissionChecker.request(for: .screenRecording)
+    }
+
+    private func makeTranslationRequest(
+        sourceText: String,
+        recognizedLanguage: TranslationLanguage?,
+        settings: AppSettings
+    ) async -> TranslationRequest {
+        let sourceLanguage = resolvedSourceLanguage(
+            settingsSource: settings.sourceLanguage,
+            recognizedLanguage: recognizedLanguage
+        )
+        let providerID = await services.translatorRegistry.supportedProviderID(
+            preferred: settings.selectedProviderID,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: settings.targetLanguage
+        )
+
+        return TranslationRequest(
+            text: sourceText,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: settings.targetLanguage,
+            inputMode: .screenSelection,
+            providerID: providerID
+        )
+    }
+
+    private func readinessFailure(
+        for request: TranslationRequest,
+        provider: any TranslationProviding
+    ) async -> TranslationFailure? {
+        guard !provider.usesNetwork else {
+            return nil
+        }
+
+        let readiness = await services.languageAvailability.readiness(
+            from: request.sourceLanguage,
+            to: request.targetLanguage,
+            sampleText: request.text
+        )
+        switch readiness {
+        case .ready, .unknown:
+            return nil
+        case .needsDownload:
+            return .missingLanguagePack(request.providerID)
+        case .unavailable:
+            return .unsupportedLanguagePair
+        }
     }
 
     private func resolvedSourceLanguage(

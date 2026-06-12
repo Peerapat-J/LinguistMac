@@ -3,10 +3,7 @@ import Combine
 import LinguistMacCore
 
 enum AppWindow: String {
-    case status
-    case quickTranslate
-    case translationPopup
-    case onboarding
+    case status, quickTranslate, translationPopup, onboarding
 }
 
 enum AppShellCommand: Equatable {
@@ -37,23 +34,18 @@ final class AppShellModel: ObservableObject {
     @Published var inputModeSessionState: TranslationSessionState
     @Published private(set) var shortcutRegistrationResults: [ShortcutRegistrationResult]
     @Published var readiness: OnboardingReadinessSnapshot
+    @Published private(set) var availableProviders: [TranslationProviderDescriptor]
+    @Published var providerAPIKeyDrafts: [TranslationProviderID: String]
+    @Published var providerAPIRegionDrafts: [TranslationProviderID: String]
+    @Published private(set) var providerConfigurationMessages: [TranslationProviderID: String]
+    @Published private(set) var appPreferenceMessage: String?
     @Published private(set) var lastCommand: AppShellCommand?
 
     let availableLanguages = TranslationLanguageCatalog.defaultLanguages
-    let availableProviders: [TranslationProviderDescriptor]
 
     private let services: LinguistServices
     private let shortcutRegistrationCoordinator: ShortcutRegistrationCoordinator
     private var doubleCopyTriggerDetector: DoubleCopyTriggerDetector
-
-    private static let liveAvailableProviders: [TranslationProviderDescriptor] = [
-        TranslationProviderDescriptor(
-            id: .apple,
-            displayName: "Apple Translation",
-            requiresAPIKey: false,
-            usesNetwork: false
-        )
-    ]
 
     init(
         settings: AppSettings? = nil,
@@ -61,9 +53,12 @@ final class AppShellModel: ObservableObject {
         services: LinguistServices = LiveLinguistServices.make()
     ) {
         let storedSettings = settings ?? UserDefaultsAppSettingsStore.loadInitialSettings()
-        let initialSettings = storedSettings.selectingAvailableProvider(from: Self.liveAvailableProviders)
+        let initialProviders = TranslationProviderCatalog.defaultDescriptors()
+        let initialSettings = storedSettings
+            .selectingAvailableProvider(from: initialProviders)
+            .sanitized()
 
-        availableProviders = Self.liveAvailableProviders
+        availableProviders = initialProviders
         self.settings = initialSettings
         self.recentTranslations = recentTranslations
         popupState = .empty
@@ -81,6 +76,10 @@ final class AppShellModel: ObservableObject {
             appleTranslation: .unknown,
             cloudProviderConfigured: false
         )
+        providerAPIKeyDrafts = [:]
+        providerAPIRegionDrafts = [:]
+        providerConfigurationMessages = [:]
+        appPreferenceMessage = nil
         self.services = services
         shortcutRegistrationCoordinator = ShortcutRegistrationCoordinator(registry: services.shortcutRegistry)
         doubleCopyTriggerDetector = DoubleCopyTriggerDetector()
@@ -106,18 +105,18 @@ final class AppShellModel: ObservableObject {
 
     func runScreenTranslation() async {
         record(.screenTranslate)
-
+        let translationSettings = settingsWithSupportedProvider()
         let loadingRequest = TranslationRequest(
             text: "",
-            sourceLanguage: settings.sourceLanguage,
-            targetLanguage: settings.targetLanguage,
+            sourceLanguage: translationSettings.sourceLanguage,
+            targetLanguage: translationSettings.targetLanguage,
             inputMode: .screenSelection,
-            providerID: settings.selectedProviderID
+            providerID: translationSettings.selectedProviderID
         )
         screenSessionState = .capturing
 
         let coordinator = ScreenTranslationCoordinator(services: services)
-        let finalState = await coordinator.translateScreenSelection(settings: settings)
+        let finalState = await coordinator.translateScreenSelection(settings: translationSettings)
         screenSessionState = finalState
 
         switch finalState {
@@ -135,9 +134,16 @@ final class AppShellModel: ObservableObject {
 
     func runQuickTranslate() async {
         do {
-            let request = try quickDraft
-                .makeRequest(providerID: settings.selectedProviderID)
+            let translationSettings = settingsWithSupportedProvider()
+            var request = try quickDraft
+                .makeRequest(providerID: translationSettings.selectedProviderID)
                 .resolvingAutoDetectedSource()
+            let providerID = await services.translatorRegistry.supportedProviderID(
+                preferred: request.providerID,
+                sourceLanguage: request.sourceLanguage,
+                targetLanguage: request.targetLanguage
+            )
+            request = request.usingProvider(providerID)
             quickSessionState = .translating(request)
             popupState = .loading(request)
 
@@ -146,23 +152,24 @@ final class AppShellModel: ObservableObject {
                 to: request.targetLanguage,
                 sampleText: request.text
             )
-            switch readiness {
-            case .ready, .unknown:
-                break
-            case .needsDownload:
-                throw TranslationFailure.missingLanguagePack(request.providerID)
-            case .unavailable:
-                throw TranslationFailure.unsupportedLanguagePair
-            }
-
             let translator = try await services.translatorRegistry.provider(for: request.providerID)
+            if !translator.usesNetwork {
+                switch readiness {
+                case .ready, .unknown:
+                    break
+                case .needsDownload:
+                    throw TranslationFailure.missingLanguagePack(request.providerID)
+                case .unavailable:
+                    throw TranslationFailure.unsupportedLanguagePair
+                }
+            }
             let result = try await translator.translate(request)
             quickSessionState = .completed(result)
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
             try? await services.historyStore.save(result)
 
-            if settings.autoCopyEnabled {
+            if translationSettings.autoCopyEnabled {
                 await services.clipboard.writeText(result.translatedText)
             }
         } catch let failure as TranslationFailure {
@@ -248,12 +255,15 @@ final class AppShellModel: ObservableObject {
             to: settings.targetLanguage,
             sampleText: nil
         )
+        let cloudProviderConfigured = availableProviders.contains {
+            $0.usesNetwork && $0.isConfigured
+        }
 
         readiness = OnboardingReadinessSnapshot.make(
             screenRecording: screenRecording,
             accessibility: accessibility,
             appleTranslation: appleTranslation,
-            cloudProviderConfigured: false
+            cloudProviderConfigured: cloudProviderConfigured
         )
     }
 
@@ -297,18 +307,19 @@ final class AppShellModel: ObservableObject {
         _ inputMode: TranslationInputMode,
         operation: (InputModeTranslationCoordinator, AppSettings) async -> TranslationSessionState
     ) async {
+        let translationSettings = settingsWithSupportedProvider()
         let loadingRequest = TranslationRequest(
             text: "",
-            sourceLanguage: settings.sourceLanguage,
-            targetLanguage: settings.targetLanguage,
+            sourceLanguage: translationSettings.sourceLanguage,
+            targetLanguage: translationSettings.targetLanguage,
             inputMode: inputMode,
-            providerID: settings.selectedProviderID
+            providerID: translationSettings.selectedProviderID
         )
         inputModeSessionState = .capturing
         popupState = .loading(loadingRequest)
 
         let coordinator = InputModeTranslationCoordinator(services: services)
-        let finalState = await operation(coordinator, settings)
+        let finalState = await operation(coordinator, translationSettings)
         inputModeSessionState = finalState
 
         switch finalState {
@@ -333,6 +344,143 @@ final class AppShellModel: ObservableObject {
         case .keychain, .network:
             URL(string: "x-apple.systempreferences:com.apple.preference.security")
         }
+    }
+}
+
+extension AppShellModel {
+    var selectableProviders: [TranslationProviderDescriptor] {
+        providersSupportingCurrentLanguages(from: availableProviders)
+    }
+
+    func setSourceLanguage(_ language: TranslationLanguage) {
+        settings.sourceLanguage = language
+        sanitizeSelectedProviderForCurrentLanguages()
+    }
+
+    func setTargetLanguage(_ language: TranslationLanguage) {
+        settings.targetLanguage = language
+        sanitizeSelectedProviderForCurrentLanguages()
+    }
+
+    private func providersSupportingCurrentLanguages(
+        from providers: [TranslationProviderDescriptor]
+    ) -> [TranslationProviderDescriptor] {
+        providers.filter {
+            $0.id.supports(sourceLanguage: settings.sourceLanguage, targetLanguage: settings.targetLanguage)
+        }
+    }
+
+    private func sanitizeSelectedProviderForCurrentLanguages() {
+        let sanitizedSettings = settings.selectingAvailableProvider(from: availableProviders)
+        if sanitizedSettings != settings {
+            settings = sanitizedSettings
+        }
+    }
+
+    private func settingsWithSupportedProvider() -> AppSettings {
+        sanitizeSelectedProviderForCurrentLanguages()
+        return settings
+    }
+
+    func refreshProviderDescriptors() async {
+        let providers = await services.translatorRegistry.availableProviders()
+        availableProviders = providers
+        await refreshProviderAPIRegionDrafts(for: providers)
+
+        let sanitizedSettings = settings
+            .selectingAvailableProvider(from: providers)
+            .sanitized()
+        if sanitizedSettings != settings {
+            settings = sanitizedSettings
+        }
+
+        await refreshReadiness()
+    }
+
+    private func refreshProviderAPIRegionDrafts(for providers: [TranslationProviderDescriptor]) async {
+        guard providers.contains(where: { $0.id == .microsoftAzure }) else {
+            providerAPIRegionDrafts.removeValue(forKey: .microsoftAzure)
+            return
+        }
+
+        let region = await (try? services.apiKeyStore.apiRegion(for: .microsoftAzure)) ?? ""
+        providerAPIRegionDrafts[.microsoftAzure] = region
+    }
+
+    func refreshAppPreferences() async {
+        settings.launchAtLoginEnabled = await services.launchAtLogin.isEnabled()
+    }
+
+    func setLaunchAtLoginEnabled(_ isEnabled: Bool) async {
+        do {
+            try await services.launchAtLogin.setEnabled(isEnabled)
+            settings.launchAtLoginEnabled = await services.launchAtLogin.isEnabled()
+            appPreferenceMessage = isEnabled ? "Launch at login enabled." : "Launch at login disabled."
+        } catch {
+            settings.launchAtLoginEnabled = await services.launchAtLogin.isEnabled()
+            appPreferenceMessage = "Launch at login could not be updated."
+        }
+    }
+
+    func saveAPIKey(for providerID: TranslationProviderID) async {
+        let trimmedKey = providerAPIKeyDrafts[providerID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedRegion = providerAPIRegionDrafts[providerID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmedKey.isEmpty else {
+            providerConfigurationMessages[providerID] = "Enter an API key before saving."
+            return
+        }
+
+        do {
+            try await services.apiKeyStore.saveAPIKey(trimmedKey, for: providerID)
+            if providerID == .microsoftAzure {
+                if trimmedRegion.isEmpty {
+                    try await services.apiKeyStore.deleteAPIRegion(for: providerID)
+                } else {
+                    try await services.apiKeyStore.saveAPIRegion(trimmedRegion, for: providerID)
+                }
+            }
+            providerAPIKeyDrafts[providerID] = ""
+            if providerID == .microsoftAzure {
+                providerAPIRegionDrafts[providerID] = trimmedRegion
+            }
+            providerConfigurationMessages[providerID] = providerID == .microsoftAzure && !trimmedRegion.isEmpty
+                ? "API key and region saved."
+                : "API key saved."
+            await refreshProviderDescriptors()
+        } catch {
+            providerConfigurationMessages[providerID] = "API key could not be saved."
+        }
+    }
+
+    func clearAPIKey(for providerID: TranslationProviderID) async {
+        do {
+            try await services.apiKeyStore.deleteAPIKey(for: providerID)
+            try await services.apiKeyStore.deleteAPIRegion(for: providerID)
+            providerAPIKeyDrafts[providerID] = ""
+            providerAPIRegionDrafts[providerID] = ""
+            providerConfigurationMessages[providerID] = "API key cleared."
+            await refreshProviderDescriptors()
+        } catch {
+            providerConfigurationMessages[providerID] = "API key could not be cleared."
+        }
+    }
+
+    func testAPIKeyConfiguration(for providerID: TranslationProviderID) async {
+        switch await services.apiKeyStore.apiKeyStatus(for: providerID) {
+        case .present where providerID == .microsoftAzure:
+            let region = await (try? services.apiKeyStore.apiRegion(for: providerID)) ?? ""
+            providerConfigurationMessages[providerID] = region.isEmpty
+                ? "API key is present. Add Azure region if your resource requires it."
+                : "API key and region are present. Translation requests can use this provider."
+        case .present:
+            providerConfigurationMessages[providerID] =
+                "API key is present. Translation requests can use this provider."
+        case .missing:
+            providerConfigurationMessages[providerID] = "No API key is saved for this provider."
+        case let .unavailable(reason):
+            providerConfigurationMessages[providerID] = "API key status could not be read. \(reason)"
+        }
+        await refreshProviderDescriptors()
     }
 }
 
