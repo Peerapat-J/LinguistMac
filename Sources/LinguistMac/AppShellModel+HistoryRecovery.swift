@@ -40,11 +40,12 @@ extension AppShellModel {
     func refreshRecentTranslations(
         limit: Int = TranslationHistoryPolicy.defaultLimit
     ) async {
-        guard let results = try? await services.historyStore.recent(limit: limit) else {
-            return
+        do {
+            recentTranslations = try await services.historyStore.recent(limit: limit)
+            historyLoadError = nil
+        } catch {
+            historyLoadError = historyLoadFailureMessage(for: error)
         }
-
-        recentTranslations = results
     }
 
     func performRecoveryAction(_ action: TranslationRecoveryAction) {
@@ -121,5 +122,20 @@ extension AppShellModel {
         case .keychain, .network:
             URL(string: "x-apple.systempreferences:com.apple.preference.security")
         }
+    }
+
+    private func historyLoadFailureMessage(for error: Error) -> HistoryLoadErrorState {
+        let message = "Translation history could not be loaded. Try again or restart LinguistMac."
+        if let failure = error as? TranslationFailure {
+            return HistoryLoadErrorState(
+                message: message,
+                diagnosticDescription: failure.presentation.message
+            )
+        }
+
+        return HistoryLoadErrorState(
+            message: message,
+            diagnosticDescription: error.localizedDescription
+        )
     }
 }

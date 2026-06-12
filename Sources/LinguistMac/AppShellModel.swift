@@ -21,6 +21,11 @@ enum AppShellCommand: Equatable {
     case openSystemSettings(PermissionKind)
 }
 
+struct HistoryLoadErrorState: Equatable {
+    let message: String
+    let diagnosticDescription: String
+}
+
 @MainActor
 final class AppShellModel: ObservableObject {
     @Published var settings: AppSettings {
@@ -42,6 +47,7 @@ final class AppShellModel: ObservableObject {
     @Published var providerAPIRegionDrafts: [TranslationProviderID: String]
     @Published var providerConfigurationMessages: [TranslationProviderID: String]
     @Published var appPreferenceMessage: String?
+    @Published var historyLoadError: HistoryLoadErrorState?
     @Published private(set) var lastCommand: AppShellCommand?
 
     let availableLanguages = TranslationLanguageCatalog.defaultLanguages
@@ -83,6 +89,7 @@ final class AppShellModel: ObservableObject {
         providerAPIRegionDrafts = [:]
         providerConfigurationMessages = [:]
         appPreferenceMessage = nil
+        historyLoadError = nil
         self.services = services
         shortcutRegistrationCoordinator = ShortcutRegistrationCoordinator(registry: services.shortcutRegistry)
         doubleCopyTriggerDetector = DoubleCopyTriggerDetector()

@@ -37,10 +37,36 @@ final class AppShellModelTests: XCTestCase {
         let second = makeResult(text: "second", createdAt: Date(timeIntervalSince1970: 2))
         let historyStore = TestTranslationHistoryStore(results: [first, second])
         let model = AppShellModel(services: makeServices(historyStore: historyStore))
+        model.historyLoadError = HistoryLoadErrorState(
+            message: "Previous failure",
+            diagnosticDescription: "previous diagnostic"
+        )
 
         await model.refreshRecentTranslations(limit: 1)
 
         XCTAssertEqual(model.recentTranslations.map(\.translatedText), ["second"])
+        XCTAssertNil(model.historyLoadError)
+    }
+
+    func testRefreshRecentTranslationsSurfacesHistoryLoadFailure() async {
+        let existing = makeResult(text: "existing", createdAt: Date(timeIntervalSince1970: 1))
+        let model = AppShellModel(
+            recentTranslations: [existing],
+            services: makeServices(historyStore: FailingTestTranslationHistoryStore())
+        )
+
+        await model.refreshRecentTranslations()
+
+        XCTAssertEqual(model.recentTranslations, [existing])
+        XCTAssertEqual(
+            model.historyLoadError?.message,
+            "Translation history could not be loaded. Try again or restart LinguistMac."
+        )
+        XCTAssertEqual(
+            model.historyLoadError?.diagnosticDescription,
+            "The translation provider could not complete the request. Check configuration or try again."
+        )
+        XCTAssertFalse(model.historyLoadError?.diagnosticDescription.contains("database unavailable") == true)
     }
 
     func testShowHistoryResultReopensSuccessfulPopup() {
@@ -244,6 +270,17 @@ private actor TestTranslationHistoryStore: TranslationHistoryStoring {
 
     func recent(limit: Int) async throws -> [TranslationResult] {
         TranslationHistoryPolicy.trimmed(results, limit: limit)
+    }
+}
+
+private struct FailingTestTranslationHistoryStore: TranslationHistoryStoring {
+    func save(_ result: TranslationResult) async throws {
+        _ = result
+    }
+
+    func recent(limit: Int) async throws -> [TranslationResult] {
+        _ = limit
+        throw TranslationFailure.providerFailed("database unavailable")
     }
 }
 

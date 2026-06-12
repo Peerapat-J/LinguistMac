@@ -25,6 +25,24 @@ struct ContentView: View {
                 Label("Recent translations persist locally and trim to the latest 50 records.", systemImage: "clock")
             }
 
+            if let historyLoadError = model.historyLoadError {
+                HStack(alignment: .top, spacing: 10) {
+                    Label(historyLoadError.message, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer()
+
+                    Button {
+                        Task {
+                            await model.refreshRecentTranslations()
+                        }
+                    } label: {
+                        Label("Retry", systemImage: "arrow.clockwise")
+                    }
+                }
+            }
+
             if model.recentTranslations.isEmpty {
                 ContentUnavailableView(
                     "No Recent Translations",
