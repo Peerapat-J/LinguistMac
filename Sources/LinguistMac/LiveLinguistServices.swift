@@ -28,7 +28,7 @@ enum LiveLinguistServices {
             settingsStore: settingsStore,
             apiKeyStore: apiKeyStore,
             launchAtLogin: SystemLaunchAtLoginService(),
-            historyStore: InMemoryRecentTranslationStore(),
+            historyStore: SwiftDataTranslationHistoryStore.make(),
             permissionChecker: SystemPermissionChecker(),
             clipboard: SystemClipboardService(),
             selectedTextCapture: SystemSelectedTextCaptureService(),
@@ -86,14 +86,18 @@ struct SystemPermissionChecker: PermissionChecking {
 
 actor InMemoryRecentTranslationStore: TranslationHistoryStoring {
     private var results: [TranslationResult] = []
+    private let limit: Int
+
+    init(limit: Int = TranslationHistoryPolicy.defaultLimit) {
+        self.limit = limit
+    }
 
     func save(_ result: TranslationResult) async throws {
-        results.insert(result, at: 0)
-        results = Array(results.prefix(10))
+        results = TranslationHistoryPolicy.inserting(result, into: results, limit: limit)
     }
 
     func recent(limit: Int) async throws -> [TranslationResult] {
-        Array(results.prefix(limit))
+        Array(TranslationHistoryPolicy.trimmed(results, limit: limit))
     }
 }
 

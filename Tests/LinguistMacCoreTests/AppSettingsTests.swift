@@ -70,6 +70,10 @@ final class AppSettingsTests: XCTestCase {
         settings.appLanguage = .korean
         settings.doubleCopyTranslationEnabled = true
         settings.screenTranslationShortcut = KeyboardShortcut(key: "T", modifiers: [.command, .shift])
+        settings.popupFontFamily = "Noto Sans Thai"
+        settings.popupHeight = 480
+        settings.popupOriginX = 120
+        settings.popupOriginY = 240
 
         let encoded = try JSONEncoder().encode(settings)
         let decoded = try JSONDecoder().decode(AppSettings.self, from: encoded)
@@ -82,12 +86,14 @@ final class AppSettingsTests: XCTestCase {
             sourceLanguage: .english,
             targetLanguage: .autoDetect,
             popupFontSize: 4,
-            popupWidth: 2
+            popupWidth: 2,
+            popupHeight: 8
         ).sanitized()
 
         XCTAssertEqual(settings.targetLanguage, .english)
         XCTAssertEqual(settings.popupFontSize, 12)
         XCTAssertEqual(settings.popupWidth, 320)
+        XCTAssertEqual(settings.popupHeight, 240)
     }
 
     func testAppLanguageMapsToLocaleAndAppleLanguagesOverride() {

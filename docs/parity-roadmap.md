@@ -69,6 +69,9 @@ Goal: finish daily-use polish and release posture.
 - `#30` privacy posture and no telemetry/update assumptions.
 - `#31` signing, notarization, and distributable artifact workflow.
 
+Implementation notes and release guardrails live in `docs/privacy.md`,
+`docs/release-checklist.md`, and `docs/ci-cd.md`.
+
 ## M6 Future Differentiation After Parity
 
 Goal: keep non-parity ideas out of the critical path until parity is stable.

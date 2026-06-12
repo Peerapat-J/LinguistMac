@@ -20,7 +20,15 @@ The workflow also builds an ad-hoc-signed `.app` artifact on pushes to `main`
 and manual dispatches so development packages keep the sandbox entitlement. This
 is only a development artifact, not a Developer ID signed or notarized release.
 
-Signed distribution should wait until the app identity, entitlements, Developer ID signing, and notarization flow are defined.
+Use `./script/package_release.sh unsigned` for a reproducible local or CI dry
+run that creates zip and DMG artifacts under `dist/release/`.
+
+The `Release Artifact` workflow can also be run manually. `unsigned` mode works
+without credentials. `signed` mode requires Developer ID and App Store Connect
+notarization secrets described in `docs/release-checklist.md`.
+
+Signed distribution should wait until the app identity, entitlements, Developer
+ID signing, and notarization credentials are configured.
 
 ## Local parity
 
@@ -38,5 +46,6 @@ xcodebuild -project LinguistMac.xcodeproj -scheme LinguistMac -configuration Rel
 xcodebuild -project LinguistMac.xcodeproj -scheme LinguistMac -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/linguistmac-strict CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
 xcodebuild -project LinguistMac.xcodeproj -scheme LinguistMac -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/linguistmac-analyze CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES CLANG_ANALYZER_NONNULL=YES analyze
 ./script/build_and_run.sh --package
+./script/package_release.sh unsigned
 codesign -d --entitlements :- dist/LinguistMac.app
 ```

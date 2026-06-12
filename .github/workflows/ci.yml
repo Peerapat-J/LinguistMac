@@ -157,15 +157,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Build app bundle
-        run: ./script/build_and_run.sh --package
-
-      - name: Archive unsigned app bundle
-        run: ditto -c -k --keepParent dist/LinguistMac.app dist/LinguistMac-unsigned.zip
+      - name: Build unsigned release artifact
+        run: ./script/package_release.sh unsigned
 
       - name: Upload unsigned app artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: LinguistMac-unsigned
-          path: dist/LinguistMac-unsigned.zip
+          path: dist/release/*
           if-no-files-found: error

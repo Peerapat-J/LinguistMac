@@ -129,6 +129,7 @@ struct MenuBarMenuView: View {
         }
         .frame(minWidth: 240, alignment: .leading)
         .task {
+            await model.refreshRecentTranslations()
             await model.refreshReadiness()
             await model.refreshShortcutRegistrations()
         }
