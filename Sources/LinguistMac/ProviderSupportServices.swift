@@ -152,6 +152,12 @@ private enum KeychainAPIKeyStoreError: LocalizedError {
 }
 
 struct URLSessionCloudTranslationClient: CloudTranslationClient {
+    private let session: URLSession
+
+    init(session: URLSession = URLSessionCloudTranslationClient.makeEphemeralSession()) {
+        self.session = session
+    }
+
     func perform(_ request: CloudTranslationHTTPRequest) async throws -> CloudTranslationHTTPResponse {
         var urlRequest = URLRequest(url: request.url)
         urlRequest.httpMethod = request.method
@@ -160,7 +166,7 @@ struct URLSessionCloudTranslationClient: CloudTranslationClient {
             urlRequest.setValue(value, forHTTPHeaderField: header)
         }
 
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        let (data, response) = try await session.data(for: urlRequest)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw TranslationFailure.providerFailed("Provider returned an invalid response.")
         }
@@ -171,6 +177,15 @@ struct URLSessionCloudTranslationClient: CloudTranslationClient {
         }
 
         return CloudTranslationHTTPResponse(statusCode: httpResponse.statusCode, data: data)
+    }
+
+    private static func makeEphemeralSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.urlCache = nil
+        configuration.httpCookieStorage = nil
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 60
+        return URLSession(configuration: configuration)
     }
 }
 
