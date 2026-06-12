@@ -64,6 +64,11 @@ public extension TranslationProviderID {
         .microsoftAzure
     ]
 
+    static func knownProvider(rawValue: String) -> TranslationProviderID? {
+        let providerID = TranslationProviderID(rawValue: rawValue)
+        return allKnownProviders.contains(providerID) ? providerID : nil
+    }
+
     func supports(
         sourceLanguage: TranslationLanguage,
         targetLanguage: TranslationLanguage

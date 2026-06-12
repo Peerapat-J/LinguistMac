@@ -52,7 +52,7 @@ private extension UserDefaults {
             .flatMap(TranslationLanguageCatalog.language(forID:))
             ?? defaults.targetLanguage
         let providerID = string(forKey: Key.selectedProviderID)
-            .map(TranslationProviderID.init(rawValue:))
+            .flatMap(TranslationProviderID.knownProvider(rawValue:))
             ?? defaults.selectedProviderID
         let appLanguage = string(forKey: Key.appLanguage)
             .flatMap(AppLanguage.init(rawValue:))

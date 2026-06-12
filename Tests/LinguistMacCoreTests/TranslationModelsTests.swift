@@ -67,6 +67,11 @@ final class TranslationModelsTests: XCTestCase {
         )
     }
 
+    func testProviderIDKnownProviderRejectsUnknownRawValues() {
+        XCTAssertEqual(TranslationProviderID.knownProvider(rawValue: "deepl"), .deepl)
+        XCTAssertNil(TranslationProviderID.knownProvider(rawValue: "stale-provider"))
+    }
+
     func testSessionStateCanRepresentPermissionAndProviderFailures() {
         let permissionState = TranslationSessionState.failed(
             .permissionDenied(.screenRecording)
