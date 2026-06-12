@@ -79,7 +79,7 @@ public enum TranslationProviderCatalog {
             cloudDescriptor(
                 id: .microsoftAzure,
                 displayName: "Microsoft Azure Translator",
-                detail: "Bring your own Azure Translator key.",
+                detail: "Bring your own Azure Translator key and region.",
                 configurationStatus: configurationStatus
             )
         default:
@@ -198,8 +198,9 @@ public struct CloudTranslationProvider: TranslationProviding {
         guard let apiKey = try await apiKeyStore.apiKey(for: id), !apiKey.isEmpty else {
             throw TranslationFailure.missingAPIKey(id)
         }
+        let apiRegion = try await apiKeyStore.apiRegion(for: id)
 
-        let httpRequest = try makeHTTPRequest(for: request, text: text, apiKey: apiKey)
+        let httpRequest = try makeHTTPRequest(for: request, text: text, apiKey: apiKey, apiRegion: apiRegion)
         let response = try await client.perform(httpRequest)
         let translatedText = try decodeTranslatedText(from: response)
 
@@ -218,7 +219,8 @@ public struct CloudTranslationProvider: TranslationProviding {
     private func makeHTTPRequest(
         for request: TranslationRequest,
         text: String,
-        apiKey: String
+        apiKey: String,
+        apiRegion: String?
     ) throws -> CloudTranslationHTTPRequest {
         switch id {
         case .deepl:
@@ -226,7 +228,7 @@ public struct CloudTranslationProvider: TranslationProviding {
         case .googleCloud:
             return try makeGoogleCloudRequest(for: request, text: text, apiKey: apiKey)
         case .microsoftAzure:
-            return try makeMicrosoftAzureRequest(for: request, text: text, apiKey: apiKey)
+            return try makeMicrosoftAzureRequest(for: request, text: text, apiKey: apiKey, apiRegion: apiRegion)
         default:
             throw TranslationFailure.providerUnavailable(id)
         }
@@ -289,7 +291,8 @@ public struct CloudTranslationProvider: TranslationProviding {
     private func makeMicrosoftAzureRequest(
         for request: TranslationRequest,
         text: String,
-        apiKey: String
+        apiKey: String,
+        apiRegion: String?
     ) throws -> CloudTranslationHTTPRequest {
         var components = URLComponents(string: "https://api.cognitive.microsofttranslator.com/translate")
         var queryItems = [
@@ -306,13 +309,18 @@ public struct CloudTranslationProvider: TranslationProviding {
         }
 
         let body = [MicrosoftAzureTranslateRequest(text: text)]
+        var headers = [
+            "Ocp-Apim-Subscription-Key": apiKey,
+            "Content-Type": "application/json; charset=UTF-8"
+        ]
+        if let apiRegion = apiRegion?.trimmedNonEmpty {
+            headers["Ocp-Apim-Subscription-Region"] = apiRegion
+        }
+
         return try CloudTranslationHTTPRequest(
             providerID: id,
             url: url,
-            headers: [
-                "Ocp-Apim-Subscription-Key": apiKey,
-                "Content-Type": "application/json; charset=UTF-8"
-            ],
+            headers: headers,
             body: JSONEncoder().encode(body)
         )
     }
@@ -430,8 +438,11 @@ private extension TranslationLanguage {
 
 private extension String {
     var isDeepLFreeAPIKey: Bool {
-        trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .hasSuffix(":fx")
+        trimmedNonEmpty?.lowercased().hasSuffix(":fx") == true
+    }
+
+    var trimmedNonEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

@@ -191,6 +191,10 @@ private struct ProviderConfigurationRow: View {
 
             SecureField("API key", text: apiKeyDraftBinding)
 
+            if provider.id == .microsoftAzure {
+                TextField("Region", text: apiRegionDraftBinding)
+            }
+
             HStack {
                 Button("Save") {
                     Task {
@@ -228,6 +232,14 @@ private struct ProviderConfigurationRow: View {
             model.providerAPIKeyDrafts[provider.id, default: ""]
         } set: { value in
             model.providerAPIKeyDrafts[provider.id] = value
+        }
+    }
+
+    private var apiRegionDraftBinding: Binding<String> {
+        Binding {
+            model.providerAPIRegionDrafts[provider.id, default: ""]
+        } set: { value in
+            model.providerAPIRegionDrafts[provider.id] = value
         }
     }
 }

@@ -125,7 +125,29 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertEqual(query["from"], "en")
         XCTAssertEqual(query["to"], "th")
         XCTAssertEqual(sentRequest.headers["Ocp-Apim-Subscription-Key"], "test-key")
+        XCTAssertNil(sentRequest.headers["Ocp-Apim-Subscription-Region"])
         XCTAssertEqual(body?.first?["Text"], "hello")
+    }
+
+    func testMicrosoftAzureProviderSendsRegionHeaderWhenConfigured() async throws {
+        let client = StubCloudTranslationClient(
+            response: jsonResponse(#"[{"translations":[{"text":"sawasdee","to":"th"}]}]"#)
+        )
+        let provider = CloudTranslationProvider(
+            id: .microsoftAzure,
+            apiKeyStore: InMemoryAPIKeyStore(
+                keys: [.microsoftAzure: "test-key"],
+                regions: [.microsoftAzure: "eastus"]
+            ),
+            client: client
+        )
+
+        _ = try await provider.translate(request(providerID: .microsoftAzure))
+        let requests = await client.requests
+        let sentRequest = try XCTUnwrap(requests.first)
+
+        XCTAssertEqual(sentRequest.headers["Ocp-Apim-Subscription-Key"], "test-key")
+        XCTAssertEqual(sentRequest.headers["Ocp-Apim-Subscription-Region"], "eastus")
     }
 
     func testSensitiveValueRedactorRemovesKnownSecrets() {

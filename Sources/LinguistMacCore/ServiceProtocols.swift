@@ -41,6 +41,9 @@ public protocol APIKeyStoring: Sendable {
     func saveAPIKey(_ apiKey: String, for providerID: TranslationProviderID) async throws
     func deleteAPIKey(for providerID: TranslationProviderID) async throws
     func containsAPIKey(for providerID: TranslationProviderID) async -> Bool
+    func apiRegion(for providerID: TranslationProviderID) async throws -> String?
+    func saveAPIRegion(_ apiRegion: String, for providerID: TranslationProviderID) async throws
+    func deleteAPIRegion(for providerID: TranslationProviderID) async throws
 }
 
 public protocol LaunchAtLoginServicing: Sendable {

@@ -103,9 +103,11 @@ actor InMemoryAppSettingsStore: AppSettingsStoring {
 
 actor InMemoryAPIKeyStore: APIKeyStoring {
     private var keys: [TranslationProviderID: String]
+    private var regions: [TranslationProviderID: String]
 
-    init(keys: [TranslationProviderID: String] = [:]) {
+    init(keys: [TranslationProviderID: String] = [:], regions: [TranslationProviderID: String] = [:]) {
         self.keys = keys
+        self.regions = regions
     }
 
     func apiKey(for providerID: TranslationProviderID) async throws -> String? {
@@ -122,6 +124,18 @@ actor InMemoryAPIKeyStore: APIKeyStoring {
 
     func containsAPIKey(for providerID: TranslationProviderID) async -> Bool {
         keys[providerID]?.isEmpty == false
+    }
+
+    func apiRegion(for providerID: TranslationProviderID) async throws -> String? {
+        regions[providerID]
+    }
+
+    func saveAPIRegion(_ apiRegion: String, for providerID: TranslationProviderID) async throws {
+        regions[providerID] = apiRegion
+    }
+
+    func deleteAPIRegion(for providerID: TranslationProviderID) async throws {
+        regions.removeValue(forKey: providerID)
     }
 }
 

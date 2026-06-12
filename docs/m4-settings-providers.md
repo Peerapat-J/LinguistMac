@@ -26,6 +26,8 @@ clamped to the Settings UI ranges during load.
   require a key.
 - DeepL, Google Cloud Translation, and Microsoft Azure Translator are exposed
   as optional cloud engines.
+- Microsoft Azure Translator accepts an optional region value for regional and
+  multi-service Azure resources.
 - Cloud engines can be selected in Settings, but translation fails with a
   missing-key error until a key for that provider is stored.
 - Unit tests use mocked network clients. No test calls a provider endpoint.
@@ -35,12 +37,12 @@ the translation request. Apple Translation remains the default engine.
 
 ## API Keys
 
-Provider keys are stored through the app's `APIKeyStoring` abstraction. The live
-implementation stores each key as a Keychain generic password keyed by provider
-ID under the LinguistMac service namespace.
+Provider keys and Azure region metadata are stored through the app's
+`APIKeyStoring` abstraction. The live implementation stores each value as a
+Keychain generic password under the LinguistMac service namespace.
 
-Settings can save, test presence, and clear provider keys. The test action is a
-local readiness check; it does not send sample text to the provider.
+Settings can save, test presence, and clear provider credentials. The test
+action is a local readiness check; it does not send sample text to the provider.
 
 ## Launch At Login
 

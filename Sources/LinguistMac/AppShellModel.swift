@@ -39,6 +39,7 @@ final class AppShellModel: ObservableObject {
     @Published var readiness: OnboardingReadinessSnapshot
     @Published private(set) var availableProviders: [TranslationProviderDescriptor]
     @Published var providerAPIKeyDrafts: [TranslationProviderID: String]
+    @Published var providerAPIRegionDrafts: [TranslationProviderID: String]
     @Published private(set) var providerConfigurationMessages: [TranslationProviderID: String]
     @Published private(set) var appPreferenceMessage: String?
     @Published private(set) var lastCommand: AppShellCommand?
@@ -79,6 +80,7 @@ final class AppShellModel: ObservableObject {
             cloudProviderConfigured: false
         )
         providerAPIKeyDrafts = [:]
+        providerAPIRegionDrafts = [:]
         providerConfigurationMessages = [:]
         appPreferenceMessage = nil
         self.services = services
@@ -344,6 +346,7 @@ extension AppShellModel {
     func refreshProviderDescriptors() async {
         let providers = await services.translatorRegistry.availableProviders()
         availableProviders = providers
+        await refreshProviderAPIRegionDrafts(for: providers)
 
         let sanitizedSettings = settings
             .selectingAvailableProvider(from: providers)
@@ -353,6 +356,16 @@ extension AppShellModel {
         }
 
         await refreshReadiness()
+    }
+
+    private func refreshProviderAPIRegionDrafts(for providers: [TranslationProviderDescriptor]) async {
+        guard providers.contains(where: { $0.id == .microsoftAzure }) else {
+            providerAPIRegionDrafts.removeValue(forKey: .microsoftAzure)
+            return
+        }
+
+        let region = await (try? services.apiKeyStore.apiRegion(for: .microsoftAzure)) ?? ""
+        providerAPIRegionDrafts[.microsoftAzure] = region
     }
 
     func refreshAppPreferences() async {
@@ -372,6 +385,7 @@ extension AppShellModel {
 
     func saveAPIKey(for providerID: TranslationProviderID) async {
         let trimmedKey = providerAPIKeyDrafts[providerID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedRegion = providerAPIRegionDrafts[providerID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !trimmedKey.isEmpty else {
             providerConfigurationMessages[providerID] = "Enter an API key before saving."
             return
@@ -379,8 +393,20 @@ extension AppShellModel {
 
         do {
             try await services.apiKeyStore.saveAPIKey(trimmedKey, for: providerID)
+            if providerID == .microsoftAzure {
+                if trimmedRegion.isEmpty {
+                    try await services.apiKeyStore.deleteAPIRegion(for: providerID)
+                } else {
+                    try await services.apiKeyStore.saveAPIRegion(trimmedRegion, for: providerID)
+                }
+            }
             providerAPIKeyDrafts[providerID] = ""
-            providerConfigurationMessages[providerID] = "API key saved."
+            if providerID == .microsoftAzure {
+                providerAPIRegionDrafts[providerID] = trimmedRegion
+            }
+            providerConfigurationMessages[providerID] = providerID == .microsoftAzure && !trimmedRegion.isEmpty
+                ? "API key and region saved."
+                : "API key saved."
             await refreshProviderDescriptors()
         } catch {
             providerConfigurationMessages[providerID] = "API key could not be saved."
@@ -390,7 +416,9 @@ extension AppShellModel {
     func clearAPIKey(for providerID: TranslationProviderID) async {
         do {
             try await services.apiKeyStore.deleteAPIKey(for: providerID)
+            try await services.apiKeyStore.deleteAPIRegion(for: providerID)
             providerAPIKeyDrafts[providerID] = ""
+            providerAPIRegionDrafts[providerID] = ""
             providerConfigurationMessages[providerID] = "API key cleared."
             await refreshProviderDescriptors()
         } catch {
@@ -400,9 +428,16 @@ extension AppShellModel {
 
     func testAPIKeyConfiguration(for providerID: TranslationProviderID) async {
         let isConfigured = await services.apiKeyStore.containsAPIKey(for: providerID)
-        providerConfigurationMessages[providerID] = isConfigured
-            ? "API key is present. Translation requests can use this provider."
-            : "No API key is saved for this provider."
+        if providerID == .microsoftAzure, isConfigured {
+            let region = await (try? services.apiKeyStore.apiRegion(for: providerID)) ?? ""
+            providerConfigurationMessages[providerID] = region.isEmpty
+                ? "API key is present. Add Azure region if your resource requires it."
+                : "API key and region are present. Translation requests can use this provider."
+        } else {
+            providerConfigurationMessages[providerID] = isConfigured
+                ? "API key is present. Translation requests can use this provider."
+                : "No API key is saved for this provider."
+        }
         await refreshProviderDescriptors()
     }
 }

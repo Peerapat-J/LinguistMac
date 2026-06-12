@@ -134,14 +134,22 @@ final class ServiceMocksTests: XCTestCase {
         let shortcuts = RecordingShortcutRegistry()
         try await shortcuts.register(.quickTranslateDefault, for: .quickTranslate)
 
+        let apiKeyStore = InMemoryAPIKeyStore()
+        try await apiKeyStore.saveAPIKey("test-key", for: .microsoftAzure)
+        try await apiKeyStore.saveAPIRegion("eastus", for: .microsoftAzure)
+
         let savedSettings = try await settingsStore.loadSettings()
         let recentHistory = try await historyStore.recent(limit: 1)
         let clipboardText = await clipboard.readText()
         let registeredShortcut = await shortcuts.registeredShortcut(for: .quickTranslate)
+        let savedAPIKey = try await apiKeyStore.apiKey(for: .microsoftAzure)
+        let savedAPIRegion = try await apiKeyStore.apiRegion(for: .microsoftAzure)
 
         XCTAssertEqual(savedSettings.autoCopyEnabled, true)
         XCTAssertEqual(recentHistory, [result])
         XCTAssertEqual(clipboardText, "sawasdee")
         XCTAssertEqual(registeredShortcut, .quickTranslateDefault)
+        XCTAssertEqual(savedAPIKey, "test-key")
+        XCTAssertEqual(savedAPIRegion, "eastus")
     }
 }
