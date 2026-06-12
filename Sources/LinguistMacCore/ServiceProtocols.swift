@@ -14,7 +14,7 @@ public protocol TranslationProviding: Sendable {
     var usesNetwork: Bool { get }
     var privacySummary: String { get }
 
-    func isConfigured() async -> Bool
+    func configurationStatus() async -> TranslationProviderConfigurationStatus
     func translate(_ request: TranslationRequest) async throws -> TranslationResult
 }
 
@@ -55,11 +55,17 @@ public protocol AppSettingsStoring: Sendable {
     func saveSettings(_ settings: AppSettings) async throws
 }
 
+public enum APIKeyStatus: Equatable, Sendable {
+    case present
+    case missing
+    case unavailable(String)
+}
+
 public protocol APIKeyStoring: Sendable {
     func apiKey(for providerID: TranslationProviderID) async throws -> String?
     func saveAPIKey(_ apiKey: String, for providerID: TranslationProviderID) async throws
     func deleteAPIKey(for providerID: TranslationProviderID) async throws
-    func containsAPIKey(for providerID: TranslationProviderID) async -> Bool
+    func apiKeyStatus(for providerID: TranslationProviderID) async -> APIKeyStatus
     func apiRegion(for providerID: TranslationProviderID) async throws -> String?
     func saveAPIRegion(_ apiRegion: String, for providerID: TranslationProviderID) async throws
     func deleteAPIRegion(for providerID: TranslationProviderID) async throws

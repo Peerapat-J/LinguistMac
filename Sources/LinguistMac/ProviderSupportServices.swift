@@ -18,8 +18,16 @@ actor KeychainAPIKeyStore: APIKeyStoring {
         try deleteCredential(for: providerID, field: .apiKey)
     }
 
-    func containsAPIKey(for providerID: TranslationProviderID) async -> Bool {
-        await (try? apiKey(for: providerID))?.isEmpty == false
+    func apiKeyStatus(for providerID: TranslationProviderID) async -> APIKeyStatus {
+        do {
+            guard let apiKey = try credential(for: providerID, field: .apiKey), !apiKey.isEmpty else {
+                return .missing
+            }
+
+            return .present
+        } catch {
+            return .unavailable(error.localizedDescription)
+        }
     }
 
     func apiRegion(for providerID: TranslationProviderID) async throws -> String? {

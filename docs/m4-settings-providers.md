@@ -49,6 +49,8 @@ Keychain generic password under the LinguistMac service namespace.
 
 Settings can save, test presence, and clear provider credentials. The test
 action is a local readiness check; it does not send sample text to the provider.
+If secure storage cannot be read, provider readiness is reported as unavailable
+instead of as a missing key.
 
 ## Launch At Login
 

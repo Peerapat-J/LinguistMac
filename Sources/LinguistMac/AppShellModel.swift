@@ -3,10 +3,7 @@ import Combine
 import LinguistMacCore
 
 enum AppWindow: String {
-    case status
-    case quickTranslate
-    case translationPopup
-    case onboarding
+    case status, quickTranslate, translationPopup, onboarding
 }
 
 enum AppShellCommand: Equatable {
@@ -469,16 +466,19 @@ extension AppShellModel {
     }
 
     func testAPIKeyConfiguration(for providerID: TranslationProviderID) async {
-        let isConfigured = await services.apiKeyStore.containsAPIKey(for: providerID)
-        if providerID == .microsoftAzure, isConfigured {
+        switch await services.apiKeyStore.apiKeyStatus(for: providerID) {
+        case .present where providerID == .microsoftAzure:
             let region = await (try? services.apiKeyStore.apiRegion(for: providerID)) ?? ""
             providerConfigurationMessages[providerID] = region.isEmpty
                 ? "API key is present. Add Azure region if your resource requires it."
                 : "API key and region are present. Translation requests can use this provider."
-        } else {
-            providerConfigurationMessages[providerID] = isConfigured
-                ? "API key is present. Translation requests can use this provider."
-                : "No API key is saved for this provider."
+        case .present:
+            providerConfigurationMessages[providerID] =
+                "API key is present. Translation requests can use this provider."
+        case .missing:
+            providerConfigurationMessages[providerID] = "No API key is saved for this provider."
+        case let .unavailable(reason):
+            providerConfigurationMessages[providerID] = "API key status could not be read. \(reason)"
         }
         await refreshProviderDescriptors()
     }

@@ -28,8 +28,15 @@ struct StubTranslationProvider: TranslationProviding {
     var translatedText: String
     var failure: TranslationFailure?
 
-    func isConfigured() async -> Bool {
-        failure != .missingAPIKey(id)
+    func configurationStatus() async -> TranslationProviderConfigurationStatus {
+        switch failure {
+        case let .missingAPIKey(providerID) where providerID == id:
+            .needsAPIKey
+        case let .providerUnavailable(providerID) where providerID == id:
+            .unavailable("Unavailable")
+        default:
+            .ready
+        }
     }
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResult {
@@ -56,14 +63,15 @@ struct StubTranslationProviderRegistry: TranslationProviderRegistry {
     }
 
     func availableProviders() async -> [TranslationProviderDescriptor] {
-        await [
+        let status = await provider.configurationStatus()
+        return [
             TranslationProviderDescriptor(
                 id: provider.id,
                 displayName: provider.displayName,
                 requiresAPIKey: provider.requiresAPIKey,
                 usesNetwork: provider.usesNetwork,
                 detail: provider.detail,
-                configurationStatus: provider.isConfigured() ? .ready : .needsAPIKey,
+                configurationStatus: status,
                 privacySummary: provider.privacySummary
             )
         ]
@@ -122,8 +130,8 @@ actor InMemoryAPIKeyStore: APIKeyStoring {
         keys.removeValue(forKey: providerID)
     }
 
-    func containsAPIKey(for providerID: TranslationProviderID) async -> Bool {
-        keys[providerID]?.isEmpty == false
+    func apiKeyStatus(for providerID: TranslationProviderID) async -> APIKeyStatus {
+        keys[providerID]?.isEmpty == false ? .present : .missing
     }
 
     func apiRegion(for providerID: TranslationProviderID) async throws -> String? {

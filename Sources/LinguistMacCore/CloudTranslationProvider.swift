@@ -132,12 +132,7 @@ public struct DefaultTranslationProviderRegistry: TranslationProviderRegistry {
     public func availableProviders() async -> [TranslationProviderDescriptor] {
         var descriptors: [TranslationProviderDescriptor] = []
         for provider in providers.values {
-            let status: TranslationProviderConfigurationStatus = if provider.requiresAPIKey {
-                await provider.isConfigured() ? .ready : .needsAPIKey
-            } else {
-                await provider.isConfigured() ? .ready : .unavailable("Unavailable")
-            }
-
+            let status = await provider.configurationStatus()
             descriptors.append(
                 TranslationProviderDescriptor(
                     id: provider.id,
@@ -186,8 +181,15 @@ public struct CloudTranslationProvider: TranslationProviding {
         self.client = client
     }
 
-    public func isConfigured() async -> Bool {
-        await apiKeyStore.containsAPIKey(for: id)
+    public func configurationStatus() async -> TranslationProviderConfigurationStatus {
+        switch await apiKeyStore.apiKeyStatus(for: id) {
+        case .present:
+            .ready
+        case .missing:
+            .needsAPIKey
+        case let .unavailable(reason):
+            .unavailable(reason)
+        }
     }
 
     public func translate(_ request: TranslationRequest) async throws -> TranslationResult {

@@ -31,6 +31,21 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertTrue(requests.isEmpty)
     }
 
+    func testCloudProviderReportsUnavailableWhenAPIKeyStoreCannotBeRead() async throws {
+        let provider = CloudTranslationProvider(
+            id: .deepl,
+            apiKeyStore: UnavailableAPIKeyStore(message: "Secure store unavailable."),
+            client: StubCloudTranslationClient(response: jsonResponse(#"{"translations":[{"text":"unused"}]}"#))
+        )
+        let registry = DefaultTranslationProviderRegistry(providers: [provider])
+
+        let descriptors = await registry.availableProviders()
+        let deepl = try XCTUnwrap(descriptors.first { $0.id == .deepl })
+
+        XCTAssertEqual(deepl.configurationStatus, .unavailable("Secure store unavailable."))
+        XCTAssertFalse(deepl.isConfigured)
+    }
+
     func testDeepLProviderBuildsProRequestAndDecodesResponse() async throws {
         let client = StubCloudTranslationClient(response: jsonResponse(#"{"translations":[{"text":"sawasdee"}]}"#))
         let provider = CloudTranslationProvider(
@@ -210,5 +225,46 @@ final class CloudTranslationProviderTests: XCTestCase {
 
     private func bodyObject(from request: CloudTranslationHTTPRequest) throws -> Any {
         try JSONSerialization.jsonObject(with: XCTUnwrap(request.body))
+    }
+}
+
+private struct UnavailableAPIKeyStore: APIKeyStoring {
+    let message: String
+
+    func apiKey(for providerID: TranslationProviderID) async throws -> String? {
+        _ = providerID
+        throw TranslationFailure.providerFailed(message)
+    }
+
+    func saveAPIKey(_ apiKey: String, for providerID: TranslationProviderID) async throws {
+        _ = apiKey
+        _ = providerID
+        throw TranslationFailure.providerFailed(message)
+    }
+
+    func deleteAPIKey(for providerID: TranslationProviderID) async throws {
+        _ = providerID
+        throw TranslationFailure.providerFailed(message)
+    }
+
+    func apiKeyStatus(for providerID: TranslationProviderID) async -> APIKeyStatus {
+        _ = providerID
+        return .unavailable(message)
+    }
+
+    func apiRegion(for providerID: TranslationProviderID) async throws -> String? {
+        _ = providerID
+        throw TranslationFailure.providerFailed(message)
+    }
+
+    func saveAPIRegion(_ apiRegion: String, for providerID: TranslationProviderID) async throws {
+        _ = apiRegion
+        _ = providerID
+        throw TranslationFailure.providerFailed(message)
+    }
+
+    func deleteAPIRegion(for providerID: TranslationProviderID) async throws {
+        _ = providerID
+        throw TranslationFailure.providerFailed(message)
     }
 }

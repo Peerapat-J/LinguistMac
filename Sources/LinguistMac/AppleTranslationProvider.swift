@@ -10,12 +10,12 @@ struct AppleTranslationProvider: TranslationProviding {
     let usesNetwork = false
     let privacySummary = "Text stays on device when Apple Translation handles the request."
 
-    func isConfigured() async -> Bool {
+    func configurationStatus() async -> TranslationProviderConfigurationStatus {
         if #available(macOS 26.0, *) {
-            return true
+            return .ready
         }
 
-        return false
+        return .unavailable("Apple Translation requires macOS 26.0 or newer.")
     }
 
     func translate(_ request: TranslationRequest) async throws -> TranslationResult {
