@@ -48,6 +48,14 @@ extension AppShellModel {
         }
     }
 
+    func handleHistoryPersistenceFailure(_ error: Error) {
+        NSLog("Translation history persistence failed: %@", error.localizedDescription)
+        historyLoadError = HistoryLoadErrorState(
+            message: "Translation history could not be saved. Recent translations may be missing after relaunch.",
+            diagnosticDescription: historyDiagnosticDescription(for: error)
+        )
+    }
+
     func performRecoveryAction(_ action: TranslationRecoveryAction) {
         switch action {
         case let .openSystemSettings(kind):
@@ -126,16 +134,17 @@ extension AppShellModel {
 
     private func historyLoadFailureMessage(for error: Error) -> HistoryLoadErrorState {
         let message = "Translation history could not be loaded. Try again or restart LinguistMac."
-        if let failure = error as? TranslationFailure {
-            return HistoryLoadErrorState(
-                message: message,
-                diagnosticDescription: failure.presentation.message
-            )
-        }
-
         return HistoryLoadErrorState(
             message: message,
-            diagnosticDescription: error.localizedDescription
+            diagnosticDescription: historyDiagnosticDescription(for: error)
         )
+    }
+
+    private func historyDiagnosticDescription(for error: Error) -> String {
+        if let failure = error as? TranslationFailure {
+            return failure.presentation.message
+        }
+
+        return error.localizedDescription
     }
 }

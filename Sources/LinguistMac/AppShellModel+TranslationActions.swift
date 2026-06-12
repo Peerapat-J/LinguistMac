@@ -68,7 +68,7 @@ extension AppShellModel {
             quickSessionState = .completed(result)
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
-            try? await services.historyStore.save(result)
+            await persistRecentTranslation(result)
 
             if translationSettings.autoCopyEnabled {
                 await services.clipboard.writeText(result.translatedText)
@@ -126,6 +126,15 @@ extension AppShellModel {
             into: recentTranslations,
             limit: TranslationHistoryPolicy.defaultLimit
         )
+    }
+
+    private func persistRecentTranslation(_ result: TranslationResult) async {
+        do {
+            try await services.historyStore.save(result)
+            historyLoadError = nil
+        } catch {
+            handleHistoryPersistenceFailure(error)
+        }
     }
 
     private func runInputModeTranslation(

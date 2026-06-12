@@ -30,6 +30,24 @@ final class AppShellModelTests: XCTestCase {
         let savedResults = try await historyStore.recent(limit: 10)
         XCTAssertEqual(savedResults.map(\.translatedText), ["สวัสดี"])
         XCTAssertEqual(savedResults.first?.request.text, "hello")
+        XCTAssertNil(model.historyLoadError)
+    }
+
+    func testQuickTranslateSurfacesHistorySaveFailure() async {
+        let model = AppShellModel(
+            services: makeServices(historyStore: FailingSaveTestTranslationHistoryStore())
+        )
+        model.quickDraft.sourceText = "hello"
+
+        await model.runQuickTranslate()
+
+        XCTAssertEqual(model.recentTranslations.map(\.translatedText), ["สวัสดี"])
+        XCTAssertEqual(model.popupState.copyableText, "สวัสดี")
+        XCTAssertEqual(
+            model.historyLoadError?.message,
+            "Translation history could not be saved. Recent translations may be missing after relaunch."
+        )
+        XCTAssertEqual(model.historyLoadError?.diagnosticDescription, "disk write failed")
     }
 
     func testRefreshRecentTranslationsUsesHistoryStoreLimit() async {
@@ -330,9 +348,27 @@ private struct FailingTestTranslationHistoryStore: TranslationHistoryStoring {
     }
 }
 
+private struct FailingSaveTestTranslationHistoryStore: TranslationHistoryStoring {
+    func save(_ result: TranslationResult) async throws {
+        _ = result
+        throw TestHistorySaveError()
+    }
+
+    func recent(limit: Int) async throws -> [TranslationResult] {
+        _ = limit
+        return []
+    }
+}
+
 private struct TestHistoryInitializationError: LocalizedError {
     var errorDescription: String? {
         "disk unavailable"
+    }
+}
+
+private struct TestHistorySaveError: LocalizedError {
+    var errorDescription: String? {
+        "disk write failed"
     }
 }
 
