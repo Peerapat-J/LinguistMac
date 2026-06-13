@@ -7,6 +7,7 @@ final class TranslationHistoryRecord {
     var id: UUID
     var originalText: String
     var translatedText: String
+    var wordTranslationsJSON: String?
     var sourceLanguageID: String
     var sourceLanguageDisplayName: String
     var sourceLanguageSupportsAutoDetect: Bool
@@ -21,6 +22,7 @@ final class TranslationHistoryRecord {
         id = result.id
         originalText = result.originalText
         translatedText = result.translatedText
+        wordTranslationsJSON = Self.encodedWordTranslations(result.wordTranslations)
         sourceLanguageID = result.request.sourceLanguage.id
         sourceLanguageDisplayName = result.request.sourceLanguage.displayName
         sourceLanguageSupportsAutoDetect = result.request.sourceLanguage.supportsAutoDetect
@@ -35,6 +37,7 @@ final class TranslationHistoryRecord {
     func update(with result: TranslationResult) {
         originalText = result.originalText
         translatedText = result.translatedText
+        wordTranslationsJSON = Self.encodedWordTranslations(result.wordTranslations)
         sourceLanguageID = result.request.sourceLanguage.id
         sourceLanguageDisplayName = result.request.sourceLanguage.displayName
         sourceLanguageSupportsAutoDetect = result.request.sourceLanguage.supportsAutoDetect
@@ -72,8 +75,30 @@ final class TranslationHistoryRecord {
             request: request,
             translatedText: translatedText,
             originalText: originalText,
+            wordTranslations: Self.decodedWordTranslations(from: wordTranslationsJSON),
             createdAt: createdAt
         )
+    }
+
+    private static func encodedWordTranslations(_ wordTranslations: [WordTranslation]) -> String? {
+        guard !wordTranslations.isEmpty,
+              let data = try? JSONEncoder().encode(wordTranslations)
+        else {
+            return nil
+        }
+
+        return String(data: data, encoding: .utf8)
+    }
+
+    private static func decodedWordTranslations(from json: String?) -> [WordTranslation] {
+        guard let json,
+              let data = json.data(using: .utf8),
+              let wordTranslations = try? JSONDecoder().decode([WordTranslation].self, from: data)
+        else {
+            return []
+        }
+
+        return wordTranslations
     }
 }
 

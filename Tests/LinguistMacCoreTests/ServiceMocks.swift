@@ -25,6 +25,7 @@ struct StubTranslationProvider: TranslationProviding {
     var usesNetwork: Bool
     var privacySummary: String = "Stub privacy"
     var translatedText: String
+    var translatedTextsBySource: [String: String] = [:]
     var failure: TranslationFailure?
 
     func configurationStatus() async -> TranslationProviderConfigurationStatus {
@@ -45,7 +46,7 @@ struct StubTranslationProvider: TranslationProviding {
 
         return TranslationResult(
             request: request,
-            translatedText: translatedText
+            translatedText: translatedTextsBySource[request.text] ?? translatedText
         )
     }
 }

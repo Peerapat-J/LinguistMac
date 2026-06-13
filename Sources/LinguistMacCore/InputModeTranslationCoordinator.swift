@@ -1,6 +1,8 @@
 import Foundation
 
 public actor InputModeTranslationCoordinator {
+    private static let maximumWordTranslationCount = 32
+
     public private(set) var state: TranslationSessionState
     private var stateHistory: [TranslationSessionState]
     private let services: LinguistServices
@@ -115,34 +117,121 @@ public actor InputModeTranslationCoordinator {
         do {
             let provider = try await services.translatorRegistry.provider(for: request.providerID)
             setState(.translating(request))
-            if !provider.usesNetwork {
-                let readiness = await services.languageAvailability.readiness(
-                    from: request.sourceLanguage,
-                    to: request.targetLanguage,
-                    sampleText: request.text
-                )
-                switch readiness {
-                case .ready, .unknown:
-                    break
-                case .needsDownload:
-                    return fail(with: .missingLanguagePack(request.providerID))
-                case .unavailable:
-                    return fail(with: .unsupportedLanguagePair)
-                }
+            if let readinessFailure = await languageReadinessFailure(
+                for: request,
+                provider: provider
+            ) {
+                return fail(with: readinessFailure)
             }
 
             let result = try await provider.translate(request)
-            await saveHistoryIfPossible(result)
+            let completedResult = await resultWithWordTranslationsIfNeeded(
+                result,
+                provider: provider
+            )
+            await saveHistoryIfPossible(completedResult)
 
             if settings.autoCopyEnabled {
-                await services.clipboard.writeText(result.translatedText)
+                await services.clipboard.writeText(completedResult.translatedText)
             }
 
-            setState(.completed(result))
+            setState(.completed(completedResult))
             return state
         } catch {
             return fail(with: failure(from: error))
         }
+    }
+
+    private func languageReadinessFailure(
+        for request: TranslationRequest,
+        provider: any TranslationProviding
+    ) async -> TranslationFailure? {
+        guard !provider.usesNetwork else {
+            return nil
+        }
+
+        let readiness = await services.languageAvailability.readiness(
+            from: request.sourceLanguage,
+            to: request.targetLanguage,
+            sampleText: request.text
+        )
+        switch readiness {
+        case .ready, .unknown:
+            return nil
+        case .needsDownload:
+            return .missingLanguagePack(request.providerID)
+        case .unavailable:
+            return .unsupportedLanguagePair
+        }
+    }
+
+    private func resultWithWordTranslationsIfNeeded(
+        _ result: TranslationResult,
+        provider: any TranslationProviding
+    ) async -> TranslationResult {
+        guard result.request.inputMode == .selectedText else {
+            return result
+        }
+
+        let sourceWords = WordTranslationTokenizer.words(in: result.originalText)
+        guard sourceWords.count > 1,
+              sourceWords.count <= Self.maximumWordTranslationCount
+        else {
+            return result
+        }
+
+        // The sentence translation is still the primary result if additive word lookups fail.
+        guard let wordTranslations = try? await wordTranslations(
+            for: sourceWords,
+            request: result.request,
+            provider: provider
+        ) else {
+            return result
+        }
+
+        return TranslationResult(
+            id: result.id,
+            request: result.request,
+            translatedText: result.translatedText,
+            originalText: result.originalText,
+            wordTranslations: wordTranslations,
+            createdAt: result.createdAt
+        )
+    }
+
+    private func wordTranslations(
+        for sourceWords: [String],
+        request: TranslationRequest,
+        provider: any TranslationProviding
+    ) async throws -> [WordTranslation] {
+        var translatedBySource: [String: String] = [:]
+        var translations: [WordTranslation] = []
+
+        for sourceWord in sourceWords {
+            let translatedText: String
+            if let cachedTranslation = translatedBySource[sourceWord] {
+                translatedText = cachedTranslation
+            } else {
+                let wordRequest = TranslationRequest(
+                    text: sourceWord,
+                    sourceLanguage: request.sourceLanguage,
+                    targetLanguage: request.targetLanguage,
+                    inputMode: request.inputMode,
+                    providerID: request.providerID
+                )
+                translatedText = try await provider.translate(wordRequest).translatedText
+                translatedBySource[sourceWord] = translatedText
+            }
+
+            translations.append(
+                WordTranslation(
+                    sourceText: sourceWord,
+                    translatedText: translatedText
+                )
+            )
+        }
+
+        return translations
     }
 
     private func requestPermissionIfNeeded(_ kind: PermissionKind) async -> PermissionStatus {

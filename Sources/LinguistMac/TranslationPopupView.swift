@@ -71,6 +71,11 @@ struct TranslationPopupView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
+                    if !result.wordTranslations.isEmpty {
+                        Divider()
+                        wordTranslationList(result.wordTranslations)
+                    }
+
                     if showsOriginal {
                         Divider()
                         Text("Original")
@@ -107,6 +112,34 @@ struct TranslationPopupView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func wordTranslationList(_ wordTranslations: [WordTranslation]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Words")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(wordTranslations.enumerated()), id: \.offset) { _, wordTranslation in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(wordTranslation.sourceText)
+                            .font(.callout)
+                            .textSelection(.enabled)
+                            .frame(minWidth: 88, alignment: .leading)
+
+                        Image(systemName: "arrow.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+
+                        Text(wordTranslation.translatedText)
+                            .font(.callout)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
         }
     }
 
