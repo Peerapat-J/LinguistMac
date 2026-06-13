@@ -82,6 +82,22 @@ final class AppShellModelTests: XCTestCase {
         XCTAssertEqual(model.historyLoadError?.diagnosticDescription, "disk write failed")
     }
 
+    func testScreenTranslateSurfacesHistorySaveFailure() async {
+        let model = AppShellModel(
+            services: makeServices(historyStore: FailingSaveTestTranslationHistoryStore())
+        )
+
+        await model.runScreenTranslation()
+
+        XCTAssertEqual(model.recentTranslations.map(\.translatedText), ["สวัสดี"])
+        XCTAssertEqual(model.popupState.copyableText, "สวัสดี")
+        XCTAssertEqual(
+            model.historyLoadError?.message,
+            "Translation history could not be saved. Recent translations may be missing after relaunch."
+        )
+        XCTAssertEqual(model.historyLoadError?.diagnosticDescription, "disk write failed")
+    }
+
     func testRefreshRecentTranslationsUsesHistoryStoreLimit() async {
         let first = makeResult(text: "first", createdAt: Date(timeIntervalSince1970: 1))
         let second = makeResult(text: "second", createdAt: Date(timeIntervalSince1970: 2))

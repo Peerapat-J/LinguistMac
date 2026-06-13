@@ -23,6 +23,7 @@ extension AppShellModel {
         case let .completed(result):
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
+            await persistRecentTranslation(result)
         case let .failed(failure):
             popupState = .failed(failure, originalText: nil)
         case let .translating(request):
