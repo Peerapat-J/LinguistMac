@@ -212,6 +212,20 @@ public struct TranslationRequest: Equatable, Sendable {
 }
 
 public enum SourceLanguageResolver {
+    public static func resolvedSourceLanguage(
+        settingsSource: TranslationLanguage,
+        sourceText: String,
+        recognizedLanguage: TranslationLanguage? = nil
+    ) -> TranslationLanguage {
+        guard settingsSource.supportsAutoDetect else {
+            return settingsSource
+        }
+
+        return recognizedLanguage
+            ?? detectedLanguage(in: sourceText)
+            ?? settingsSource
+    }
+
     public static func detectedLanguage(in text: String) -> TranslationLanguage? {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty,

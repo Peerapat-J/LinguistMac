@@ -94,7 +94,7 @@ public actor InputModeTranslationCoordinator {
             return fail(with: .emptyInput)
         }
 
-        let sourceLanguage = resolvedSourceLanguage(
+        let sourceLanguage = SourceLanguageResolver.resolvedSourceLanguage(
             settingsSource: settings.sourceLanguage,
             sourceText: sourceText,
             recognizedLanguage: recognizedLanguage
@@ -153,20 +153,6 @@ public actor InputModeTranslationCoordinator {
 
         setState(.requestingPermission(kind))
         return await services.permissionChecker.request(for: kind)
-    }
-
-    private func resolvedSourceLanguage(
-        settingsSource: TranslationLanguage,
-        sourceText: String,
-        recognizedLanguage: TranslationLanguage?
-    ) -> TranslationLanguage {
-        guard settingsSource.supportsAutoDetect else {
-            return settingsSource
-        }
-
-        return recognizedLanguage
-            ?? SourceLanguageResolver.detectedLanguage(in: sourceText)
-            ?? settingsSource
     }
 
     private func saveHistoryIfPossible(_ result: TranslationResult) async {

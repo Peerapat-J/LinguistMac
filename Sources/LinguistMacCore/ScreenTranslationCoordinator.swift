@@ -72,8 +72,9 @@ public actor ScreenTranslationCoordinator {
         recognizedLanguage: TranslationLanguage?,
         settings: AppSettings
     ) async -> TranslationRequest {
-        let sourceLanguage = resolvedSourceLanguage(
+        let sourceLanguage = SourceLanguageResolver.resolvedSourceLanguage(
             settingsSource: settings.sourceLanguage,
+            sourceText: sourceText,
             recognizedLanguage: recognizedLanguage
         )
         let providerID = await services.translatorRegistry.supportedProviderID(
@@ -112,17 +113,6 @@ public actor ScreenTranslationCoordinator {
         case .unavailable:
             return .unsupportedLanguagePair
         }
-    }
-
-    private func resolvedSourceLanguage(
-        settingsSource: TranslationLanguage,
-        recognizedLanguage: TranslationLanguage?
-    ) -> TranslationLanguage {
-        guard settingsSource.supportsAutoDetect else {
-            return settingsSource
-        }
-
-        return recognizedLanguage ?? settingsSource
     }
 
     private func saveHistoryIfPossible(_ result: TranslationResult) async {
