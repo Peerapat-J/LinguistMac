@@ -30,6 +30,75 @@ final class InputModeTranslationCoordinatorTests: XCTestCase {
         XCTAssertEqual(clipboardText, "sawasdee")
     }
 
+    func testSelectedTextTranslationAutoDetectsSourceLanguageAndKeepsTargetSetting() async {
+        let services = makeServices(
+            selectedText: .success("This is a simple English sentence for language detection."),
+            translatedText: "sawasdee"
+        )
+        let settings = AppSettings(sourceLanguage: .autoDetect, targetLanguage: .thai)
+        let coordinator = InputModeTranslationCoordinator(services: services)
+
+        let finalState = await coordinator.translateSelectedText(settings: settings)
+
+        guard case let .completed(result) = finalState else {
+            return XCTFail("Expected completed state, got \(finalState)")
+        }
+        XCTAssertEqual(result.request.sourceLanguage, .english)
+        XCTAssertEqual(result.request.targetLanguage, .thai)
+        XCTAssertEqual(result.request.inputMode, .selectedText)
+    }
+
+    func testSelectedTextTranslationFallsBackWhenPreferredProviderCannotTranslateDetectedLanguage() async {
+        let apple = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "thai"
+        )
+        let deepl = StubTranslationProvider(
+            id: .deepl,
+            displayName: "DeepL",
+            requiresAPIKey: true,
+            usesNetwork: true,
+            translatedText: "unused"
+        )
+        let services = makeServices(
+            selectedText: .success("ภาษาไทยสำหรับการตรวจจับภาษาในข้อความที่เลือก"),
+            translatorRegistry: DefaultTranslationProviderRegistry(providers: [deepl, apple]),
+            translatedText: "unused"
+        )
+        let settings = AppSettings(
+            sourceLanguage: .autoDetect,
+            targetLanguage: .english,
+            selectedProviderID: .deepl
+        )
+        let coordinator = InputModeTranslationCoordinator(services: services)
+
+        let finalState = await coordinator.translateSelectedText(settings: settings)
+
+        guard case let .completed(result) = finalState else {
+            return XCTFail("Expected completed state, got \(finalState)")
+        }
+        XCTAssertEqual(result.request.sourceLanguage, .thai)
+        XCTAssertEqual(result.request.targetLanguage, .english)
+        XCTAssertEqual(result.request.providerID, .apple)
+        XCTAssertEqual(result.translatedText, "thai")
+    }
+
+    func testSelectedTextTranslationReportsMissingPackForDetectedLanguage() async {
+        let services = makeServices(
+            selectedText: .success("This is a simple English sentence for language detection."),
+            readiness: .needsDownload
+        )
+        let settings = AppSettings(sourceLanguage: .autoDetect, targetLanguage: .thai)
+        let coordinator = InputModeTranslationCoordinator(services: services)
+
+        let finalState = await coordinator.translateSelectedText(settings: settings)
+
+        XCTAssertEqual(finalState, .failed(.missingLanguagePack(.apple)))
+    }
+
     func testSelectedTextTranslationRequestsAccessibilityPermission() async {
         let services = makeServices(
             accessibilityStatus: .notDetermined,
@@ -122,6 +191,7 @@ final class InputModeTranslationCoordinatorTests: XCTestCase {
             RecognizedText(text: "hello", language: .english)
         ),
         selectedText: Result<String, TranslationFailure> = .success("hello"),
+        translatorRegistry: (any TranslationProviderRegistry)? = nil,
         readiness: LanguagePackReadiness = .ready,
         translatedText: String = "translated",
         historyStore: any TranslationHistoryStoring = InMemoryTranslationHistoryStore(),
@@ -138,7 +208,7 @@ final class InputModeTranslationCoordinatorTests: XCTestCase {
         return LinguistServices(
             screenCapture: StubScreenCaptureService(result: captureResult),
             ocr: StubOCRService(result: ocrResult),
-            translatorRegistry: StubTranslationProviderRegistry(provider: provider),
+            translatorRegistry: translatorRegistry ?? StubTranslationProviderRegistry(provider: provider),
             languageAvailability: StubLanguageAvailabilityChecker(readiness: readiness),
             settingsStore: InMemoryAppSettingsStore(),
             apiKeyStore: InMemoryAPIKeyStore(),

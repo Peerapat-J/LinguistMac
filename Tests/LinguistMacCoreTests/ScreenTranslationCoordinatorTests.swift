@@ -67,6 +67,29 @@ final class ScreenTranslationCoordinatorTests: XCTestCase {
         XCTAssertEqual(clipboardText, "sawasdee")
     }
 
+    func testCoordinatorFallsBackToTextDetectionWhenOCRLanguageIsMissing() async {
+        let services = makeServices(
+            captureResult: .success(CapturedScreenRegion(imageData: Data([1]))),
+            ocrResult: .success(
+                RecognizedText(
+                    text: "This is a simple English sentence for language detection.",
+                    language: nil
+                )
+            ),
+            translatedText: "sawasdee"
+        )
+        let coordinator = ScreenTranslationCoordinator(services: services)
+        let settings = AppSettings(sourceLanguage: .autoDetect, targetLanguage: .thai)
+
+        let finalState = await coordinator.translateScreenSelection(settings: settings)
+
+        guard case let .completed(result) = finalState else {
+            return XCTFail("Expected completed state, got \(finalState)")
+        }
+        XCTAssertEqual(result.request.sourceLanguage, .english)
+        XCTAssertEqual(result.request.targetLanguage, .thai)
+    }
+
     func testCoordinatorFallsBackWhenSelectedProviderDoesNotSupportLanguagePair() async {
         let apple = StubTranslationProvider(
             id: .apple,

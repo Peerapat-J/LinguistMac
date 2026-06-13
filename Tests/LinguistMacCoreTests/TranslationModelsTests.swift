@@ -98,4 +98,24 @@ final class TranslationModelsTests: XCTestCase {
         XCTAssertEqual(resolvedRequest.targetLanguage, .thai)
         XCTAssertEqual(resolvedRequest.text, request.text)
     }
+
+    func testSourceLanguageResolverUsesRecognizedLanguageBeforeTextDetection() {
+        let resolvedLanguage = SourceLanguageResolver.resolvedSourceLanguage(
+            settingsSource: .autoDetect,
+            sourceText: "This English text should not override OCR metadata.",
+            recognizedLanguage: .japanese
+        )
+
+        XCTAssertEqual(resolvedLanguage, .japanese)
+    }
+
+    func testSourceLanguageResolverKeepsManualSourceLanguage() {
+        let resolvedLanguage = SourceLanguageResolver.resolvedSourceLanguage(
+            settingsSource: .thai,
+            sourceText: "This is a simple English sentence for language detection.",
+            recognizedLanguage: .english
+        )
+
+        XCTAssertEqual(resolvedLanguage, .thai)
+    }
 }
