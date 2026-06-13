@@ -35,6 +35,20 @@
                ReferencedContainer = "container:LinguistMac.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C40000000000000000000001"
+               BuildableName = "LinguistMacTests.xctest"
+               BlueprintName = "LinguistMacTests"
+               ReferencedContainer = "container:LinguistMac.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -52,6 +66,17 @@
                BlueprintIdentifier = "B40000000000000000000300"
                BuildableName = "LinguistMacCoreTests.xctest"
                BlueprintName = "LinguistMacCoreTests"
+               ReferencedContainer = "container:LinguistMac.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C40000000000000000000001"
+               BuildableName = "LinguistMacTests.xctest"
+               BlueprintName = "LinguistMacTests"
                ReferencedContainer = "container:LinguistMac.xcodeproj">
             </BuildableReference>
          </TestableReference>

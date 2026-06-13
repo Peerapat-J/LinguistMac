@@ -13,8 +13,12 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var textSelectionShortcut: KeyboardShortcut
     public var quickTranslateShortcut: KeyboardShortcut
     public var popupFontSize: Double
+    public var popupFontFamily: String
     public var popupWidth: Double
+    public var popupHeight: Double
     public var matchPopupWidthToSelection: Bool
+    public var popupOriginX: Double?
+    public var popupOriginY: Double?
     public var hasCompletedOnboarding: Bool
 
     public init(
@@ -30,8 +34,12 @@ public struct AppSettings: Codable, Equatable, Sendable {
         textSelectionShortcut: KeyboardShortcut = .textSelectionDefault,
         quickTranslateShortcut: KeyboardShortcut = .quickTranslateDefault,
         popupFontSize: Double = 15,
+        popupFontFamily: String = "",
         popupWidth: Double = 420,
+        popupHeight: Double = 320,
         matchPopupWidthToSelection: Bool = true,
+        popupOriginX: Double? = nil,
+        popupOriginY: Double? = nil,
         hasCompletedOnboarding: Bool = false
     ) {
         self.sourceLanguage = sourceLanguage
@@ -46,8 +54,12 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.textSelectionShortcut = textSelectionShortcut
         self.quickTranslateShortcut = quickTranslateShortcut
         self.popupFontSize = popupFontSize
+        self.popupFontFamily = popupFontFamily
         self.popupWidth = popupWidth
+        self.popupHeight = popupHeight
         self.matchPopupWidthToSelection = matchPopupWidthToSelection
+        self.popupOriginX = popupOriginX
+        self.popupOriginY = popupOriginY
         self.hasCompletedOnboarding = hasCompletedOnboarding
     }
 }
@@ -75,6 +87,7 @@ public extension AppSettings {
         }
         settings.popupFontSize = min(max(settings.popupFontSize, 12), 22)
         settings.popupWidth = min(max(settings.popupWidth, 320), 720)
+        settings.popupHeight = min(max(settings.popupHeight, 240), 640)
         return settings
     }
 }

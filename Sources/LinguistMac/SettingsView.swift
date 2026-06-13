@@ -94,9 +94,21 @@ struct SettingsView: View {
                     step: 1
                 )
 
+                Picker("Font", selection: $model.settings.popupFontFamily) {
+                    ForEach(PopupFontOption.allCases) { option in
+                        Text(option.displayName)
+                            .tag(option.fontFamily)
+                    }
+                }
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Width: \(Int(model.settings.popupWidth)) px")
                     Slider(value: $model.settings.popupWidth, in: 320 ... 720, step: 20)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Height: \(Int(model.settings.popupHeight)) px")
+                    Slider(value: $model.settings.popupHeight, in: 240 ... 640, step: 20)
                 }
 
                 Toggle("Match selection width", isOn: $model.settings.matchPopupWidthToSelection)
@@ -189,6 +201,58 @@ struct SettingsView: View {
                 }
                 .font(.caption)
             }
+        }
+    }
+}
+
+private enum PopupFontOption: String, CaseIterable, Identifiable {
+    case system
+    case notoSans
+    case notoSansThai
+    case notoSansCJK
+    case thonburi
+    case hiragino
+    case pingFang
+
+    var id: String {
+        rawValue
+    }
+
+    var displayName: String {
+        switch self {
+        case .system:
+            "System"
+        case .notoSans:
+            "Noto Sans"
+        case .notoSansThai:
+            "Noto Sans Thai"
+        case .notoSansCJK:
+            "Noto Sans CJK"
+        case .thonburi:
+            "Thonburi"
+        case .hiragino:
+            "Hiragino Sans"
+        case .pingFang:
+            "PingFang SC"
+        }
+    }
+
+    var fontFamily: String {
+        switch self {
+        case .system:
+            ""
+        case .notoSans:
+            "Noto Sans"
+        case .notoSansThai:
+            "Noto Sans Thai"
+        case .notoSansCJK:
+            "Noto Sans CJK KR"
+        case .thonburi:
+            "Thonburi"
+        case .hiragino:
+            "Hiragino Sans"
+        case .pingFang:
+            "PingFang SC"
         }
     }
 }

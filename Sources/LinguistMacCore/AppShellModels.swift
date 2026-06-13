@@ -34,6 +34,120 @@ public enum TranslationPopupState: Equatable, Sendable {
     }
 }
 
+public enum TranslationRecoveryAction: Equatable, Sendable {
+    case openSystemSettings(PermissionKind)
+    case openSettings
+    case retry
+}
+
+public struct TranslationFailurePresentation: Equatable, Sendable {
+    public let title: String
+    public let message: String
+    public let recoveryAction: TranslationRecoveryAction?
+
+    public init(
+        title: String,
+        message: String,
+        recoveryAction: TranslationRecoveryAction? = nil
+    ) {
+        self.title = title
+        self.message = message
+        self.recoveryAction = recoveryAction
+    }
+}
+
+public extension TranslationFailure {
+    var presentation: TranslationFailurePresentation {
+        switch self {
+        case let .permissionDenied(kind):
+            TranslationFailurePresentation(
+                title: "Permission Required",
+                message: "\(kind.displayName) permission is needed before this workflow can run.",
+                recoveryAction: .openSystemSettings(kind)
+            )
+        case .captureCancelled:
+            TranslationFailurePresentation(
+                title: "Capture Cancelled",
+                message: "The screen capture was cancelled before text could be translated.",
+                recoveryAction: .retry
+            )
+        case .noTextRecognized:
+            TranslationFailurePresentation(
+                title: "No Text Found",
+                message: "No readable text was found in the selected area.",
+                recoveryAction: .retry
+            )
+        case .emptyInput:
+            TranslationFailurePresentation(
+                title: "No Text To Translate",
+                message: "Enter or select text before starting translation."
+            )
+        case .unsupportedLanguagePair:
+            TranslationFailurePresentation(
+                title: "Language Pair Unavailable",
+                message: "The selected source and target languages are not available for this provider.",
+                recoveryAction: .openSettings
+            )
+        case let .missingLanguagePack(providerID):
+            TranslationFailurePresentation(
+                title: "Language Pack Needed",
+                message: "\(providerID.displayName) needs the required language pack before translating offline.",
+                recoveryAction: .openSettings
+            )
+        case let .providerUnavailable(providerID):
+            TranslationFailurePresentation(
+                title: "Provider Unavailable",
+                message: "\(providerID.displayName) is not available with the current configuration.",
+                recoveryAction: .openSettings
+            )
+        case let .missingAPIKey(providerID):
+            TranslationFailurePresentation(
+                title: "API Key Required",
+                message: "Add an API key for \(providerID.displayName) before using this cloud provider.",
+                recoveryAction: .openSettings
+            )
+        case let .inputModeDisabled(inputMode):
+            TranslationFailurePresentation(
+                title: "Input Mode Disabled",
+                message: "Enable \(inputMode.displayName) in Settings before using this workflow.",
+                recoveryAction: .openSettings
+            )
+        case .providerFailed:
+            TranslationFailurePresentation(
+                title: "Translation Failed",
+                message: "The translation provider could not complete the request. Check configuration or try again.",
+                recoveryAction: .openSettings
+            )
+        }
+    }
+}
+
+public enum TranslationHistoryPolicy {
+    public static let defaultLimit = 50
+
+    public static func trimmed(
+        _ results: [TranslationResult],
+        limit: Int = defaultLimit
+    ) -> [TranslationResult] {
+        guard limit > 0 else {
+            return []
+        }
+
+        return Array(results
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(limit))
+    }
+
+    public static func inserting(
+        _ result: TranslationResult,
+        into results: [TranslationResult],
+        limit: Int = defaultLimit
+    ) -> [TranslationResult] {
+        let withoutDuplicate = results.filter { $0.id != result.id }
+        return trimmed([result] + withoutDuplicate, limit: limit)
+    }
+}
+
 public struct QuickTranslateDraft: Equatable, Sendable {
     public var sourceText: String
     public var sourceLanguage: TranslationLanguage
@@ -69,6 +183,38 @@ public struct QuickTranslateDraft: Equatable, Sendable {
             inputMode: .quickTranslate,
             providerID: providerID
         )
+    }
+}
+
+public extension TranslationProviderID {
+    var displayName: String {
+        switch self {
+        case .apple:
+            "Apple Translation"
+        case .deepl:
+            "DeepL"
+        case .googleCloud:
+            "Google Cloud Translation"
+        case .microsoftAzure:
+            "Microsoft Azure Translator"
+        default:
+            rawValue
+        }
+    }
+}
+
+public extension PermissionKind {
+    var displayName: String {
+        switch self {
+        case .screenRecording:
+            "Screen Recording"
+        case .accessibility:
+            "Accessibility"
+        case .keychain:
+            "Keychain"
+        case .network:
+            "Network"
+        }
     }
 }
 

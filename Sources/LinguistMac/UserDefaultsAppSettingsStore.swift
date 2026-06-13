@@ -38,8 +38,12 @@ private extension UserDefaults {
         static let quickTranslateShortcutKey = "LinguistMac.settings.quickTranslateShortcut.key"
         static let quickTranslateShortcutModifiers = "LinguistMac.settings.quickTranslateShortcut.modifiers"
         static let popupFontSize = "LinguistMac.settings.popupFontSize"
+        static let popupFontFamily = "LinguistMac.settings.popupFontFamily"
         static let popupWidth = "LinguistMac.settings.popupWidth"
+        static let popupHeight = "LinguistMac.settings.popupHeight"
         static let matchPopupWidthToSelection = "LinguistMac.settings.matchPopupWidthToSelection"
+        static let popupOriginX = "LinguistMac.settings.popupOriginX"
+        static let popupOriginY = "LinguistMac.settings.popupOriginY"
         static let hasCompletedOnboarding = "LinguistMac.hasCompletedOnboarding"
     }
 
@@ -86,9 +90,13 @@ private extension UserDefaults {
                 defaultShortcut: defaults.quickTranslateShortcut
             ),
             popupFontSize: object(forKey: Key.popupFontSize) as? Double ?? defaults.popupFontSize,
+            popupFontFamily: string(forKey: Key.popupFontFamily) ?? defaults.popupFontFamily,
             popupWidth: object(forKey: Key.popupWidth) as? Double ?? defaults.popupWidth,
+            popupHeight: object(forKey: Key.popupHeight) as? Double ?? defaults.popupHeight,
             matchPopupWidthToSelection: object(forKey: Key.matchPopupWidthToSelection) as? Bool
                 ?? defaults.matchPopupWidthToSelection,
+            popupOriginX: object(forKey: Key.popupOriginX) as? Double,
+            popupOriginY: object(forKey: Key.popupOriginY) as? Double,
             hasCompletedOnboarding: bool(forKey: Key.hasCompletedOnboarding)
         ).sanitized()
     }
@@ -118,8 +126,20 @@ private extension UserDefaults {
             modifiersName: Key.quickTranslateShortcutModifiers
         )
         set(settings.popupFontSize, forKey: Key.popupFontSize)
+        set(settings.popupFontFamily, forKey: Key.popupFontFamily)
         set(settings.popupWidth, forKey: Key.popupWidth)
+        set(settings.popupHeight, forKey: Key.popupHeight)
         set(settings.matchPopupWidthToSelection, forKey: Key.matchPopupWidthToSelection)
+        if let popupOriginX = settings.popupOriginX {
+            set(popupOriginX, forKey: Key.popupOriginX)
+        } else {
+            removeObject(forKey: Key.popupOriginX)
+        }
+        if let popupOriginY = settings.popupOriginY {
+            set(popupOriginY, forKey: Key.popupOriginY)
+        } else {
+            removeObject(forKey: Key.popupOriginY)
+        }
         set(settings.hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding)
     }
 

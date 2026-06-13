@@ -165,17 +165,22 @@ actor StubLaunchAtLoginService: LaunchAtLoginServicing {
 
 actor InMemoryTranslationHistoryStore: TranslationHistoryStoring {
     private var results: [TranslationResult]
+    private let limit: Int
 
-    init(results: [TranslationResult] = []) {
+    init(
+        results: [TranslationResult] = [],
+        limit: Int = TranslationHistoryPolicy.defaultLimit
+    ) {
         self.results = results
+        self.limit = limit
     }
 
     func save(_ result: TranslationResult) async throws {
-        results.insert(result, at: 0)
+        results = TranslationHistoryPolicy.inserting(result, into: results, limit: limit)
     }
 
     func recent(limit: Int) async throws -> [TranslationResult] {
-        Array(results.prefix(limit))
+        TranslationHistoryPolicy.trimmed(results, limit: limit)
     }
 }
 

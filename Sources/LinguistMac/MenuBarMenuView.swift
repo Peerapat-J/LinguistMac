@@ -84,7 +84,18 @@ struct MenuBarMenuView: View {
             Divider()
 
             Menu {
-                if model.recentMenuItems.isEmpty {
+                if model.historyLoadError != nil {
+                    Text("History unavailable")
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        Task {
+                            await model.refreshRecentTranslations()
+                        }
+                    } label: {
+                        Label("Retry", systemImage: "arrow.clockwise")
+                    }
+                } else if model.recentMenuItems.isEmpty {
                     Text("No recent translations")
                         .foregroundStyle(.secondary)
                 } else {
@@ -129,6 +140,7 @@ struct MenuBarMenuView: View {
         }
         .frame(minWidth: 240, alignment: .leading)
         .task {
+            await model.refreshRecentTranslations()
             await model.refreshReadiness()
             await model.refreshShortcutRegistrations()
         }

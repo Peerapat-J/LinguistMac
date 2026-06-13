@@ -3,6 +3,8 @@
 .swiftpm/
 DerivedData/
 dist/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
 *.xcuserdata/
 *.xcuserstate
 *.xcscmblueprint

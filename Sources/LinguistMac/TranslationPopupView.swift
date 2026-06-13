@@ -23,8 +23,15 @@ struct TranslationPopupView: View {
             idealWidth: model.settings.popupWidth,
             maxWidth: 760,
             minHeight: 240,
-            idealHeight: 320
+            idealHeight: model.settings.popupHeight,
+            maxHeight: 680
         )
+        .background {
+            WindowFrameObserver(savedFrame: model.savedPopupWindowFrame) { frame in
+                model.rememberPopupWindowFrame(frame)
+            }
+            .frame(width: 0, height: 0)
+        }
     }
 
     private var header: some View {
@@ -60,7 +67,7 @@ struct TranslationPopupView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(result.translatedText)
-                        .font(.system(size: model.settings.popupFontSize))
+                        .font(popupFont)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -78,10 +85,11 @@ struct TranslationPopupView: View {
                 }
             }
         case let .failed(failure, originalText):
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Translation Failed", systemImage: "exclamationmark.triangle.fill")
+            let presentation = failure.presentation
+            VStack(alignment: .leading, spacing: 10) {
+                Label(presentation.title, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
-                Text(failure.displayText)
+                Text(presentation.message)
                     .foregroundStyle(.secondary)
 
                 if let originalText, !originalText.isEmpty {
@@ -89,13 +97,29 @@ struct TranslationPopupView: View {
                         .font(.callout)
                         .textSelection(.enabled)
                 }
+
+                if let action = presentation.recoveryAction {
+                    Button {
+                        model.performRecoveryAction(action)
+                    } label: {
+                        Label(action.displayTitle, systemImage: action.systemImage)
+                    }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
+    private var popupFont: Font {
+        guard !model.settings.popupFontFamily.isEmpty else {
+            return .system(size: model.settings.popupFontSize)
+        }
+
+        return .custom(model.settings.popupFontFamily, size: model.settings.popupFontSize)
+    }
+
     private var footer: some View {
-        HStack {
+        HStack(alignment: .bottom) {
             Button {
                 Task {
                     await model.copyPopupText()
@@ -122,33 +146,66 @@ struct TranslationPopupView: View {
                 dismiss()
             }
             .keyboardShortcut(.defaultAction)
+
+            PopupResizeGrip { widthDelta, heightDelta in
+                model.resizePopup(widthDelta: widthDelta, heightDelta: heightDelta)
+            }
         }
     }
 }
 
 extension TranslationFailure {
     var displayText: String {
+        presentation.message
+    }
+}
+
+private struct PopupResizeGrip: View {
+    @State private var previousTranslation: CGSize = .zero
+    let onResize: (Double, Double) -> Void
+
+    var body: some View {
+        Image(systemName: "arrow.down.right.and.arrow.up.left")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(width: 22, height: 22)
+            .contentShape(Rectangle())
+            .accessibilityLabel("Resize translation popup")
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { value in
+                        let widthDelta = value.translation.width - previousTranslation.width
+                        let heightDelta = value.translation.height - previousTranslation.height
+                        previousTranslation = value.translation
+                        onResize(widthDelta, heightDelta)
+                    }
+                    .onEnded { _ in
+                        previousTranslation = .zero
+                    }
+            )
+    }
+}
+
+private extension TranslationRecoveryAction {
+    var displayTitle: String {
         switch self {
-        case let .permissionDenied(kind):
-            "Permission required: \(kind.rawValue)."
-        case .captureCancelled:
-            "Screen capture was cancelled."
-        case .noTextRecognized:
-            "No text was recognized."
-        case .emptyInput:
-            "Enter text before translating."
-        case .unsupportedLanguagePair:
-            "This language pair is not available yet."
-        case let .missingLanguagePack(providerID):
-            "Language pack required for \(providerID.rawValue)."
-        case let .providerUnavailable(providerID):
-            "Provider is unavailable: \(providerID.rawValue)."
-        case let .missingAPIKey(providerID):
-            "API key required for \(providerID.rawValue)."
-        case let .inputModeDisabled(inputMode):
-            "\(inputMode.displayName) is disabled in Settings."
-        case let .providerFailed(message):
-            message
+        case .openSystemSettings:
+            "Open System Settings"
+        case .openSettings:
+            "Open Settings"
+        case .retry:
+            "Try Again"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .openSystemSettings:
+            "gearshape"
+        case .openSettings:
+            "slider.horizontal.3"
+        case .retry:
+            "arrow.clockwise"
         }
     }
 }
