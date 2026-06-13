@@ -41,13 +41,12 @@ private final class WindowFrameObserverView: NSView {
 
     override func viewWillMove(toWindow newWindow: NSWindow?) {
         super.viewWillMove(toWindow: newWindow)
-        if newWindow !== observedWindow {
-            didApplySavedFrame = false
+
+        guard newWindow !== observedWindow else {
+            return
         }
-        if newWindow == nil {
-            stopObserving()
-            observedWindow = nil
-        }
+
+        resetObservedWindow()
     }
 
     func applySavedFrameIfNeeded() {
@@ -67,9 +66,8 @@ private final class WindowFrameObserverView: NSView {
             return
         }
 
-        stopObserving()
+        resetObservedWindow()
         observedWindow = window
-        didApplySavedFrame = false
 
         guard let window else {
             return
@@ -94,6 +92,12 @@ private final class WindowFrameObserverView: NSView {
                 self?.publishFrame()
             }
         }
+    }
+
+    private func resetObservedWindow() {
+        stopObserving()
+        observedWindow = nil
+        didApplySavedFrame = false
     }
 
     private func stopObserving() {
