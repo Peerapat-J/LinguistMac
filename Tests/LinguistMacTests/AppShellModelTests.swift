@@ -1,9 +1,53 @@
 @testable import LinguistMac
 @testable import LinguistMacCore
+import SwiftData
 import XCTest
 
 @MainActor
 final class AppShellModelTests: XCTestCase {
+    func testSwiftDataHistoryStoreDeduplicatesSavedResultID() async throws {
+        let configuration = ModelConfiguration(
+            "DeduplicatedHistory-\(UUID().uuidString)",
+            isStoredInMemoryOnly: true
+        )
+        let container = try ModelContainer(
+            for: TranslationHistoryRecord.self,
+            configurations: configuration
+        )
+        let store = SwiftDataTranslationHistoryStore(container: container, trimLimit: 10)
+        let id = UUID()
+        let original = TranslationResult(
+            id: id,
+            request: TranslationRequest(
+                text: "hello",
+                sourceLanguage: .english,
+                targetLanguage: .thai,
+                inputMode: .quickTranslate,
+                providerID: .apple
+            ),
+            translatedText: "สวัสดี",
+            createdAt: Date(timeIntervalSince1970: 1)
+        )
+        let updated = TranslationResult(
+            id: id,
+            request: TranslationRequest(
+                text: "updated",
+                sourceLanguage: .english,
+                targetLanguage: .thai,
+                inputMode: .quickTranslate,
+                providerID: .apple
+            ),
+            translatedText: "อัปเดต",
+            createdAt: Date(timeIntervalSince1970: 2)
+        )
+
+        try await store.save(original)
+        try await store.save(updated)
+
+        let recent = try await store.recent(limit: 10)
+        XCTAssertEqual(recent, [updated])
+    }
+
     func testQuickTranslatePersistsHistoryAndAutocopiesResult() async throws {
         let historyStore = TestTranslationHistoryStore()
         let clipboard = TestClipboard()

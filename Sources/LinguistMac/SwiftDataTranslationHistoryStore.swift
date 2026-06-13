@@ -32,6 +32,20 @@ final class TranslationHistoryRecord {
         createdAt = result.createdAt
     }
 
+    func update(with result: TranslationResult) {
+        originalText = result.originalText
+        translatedText = result.translatedText
+        sourceLanguageID = result.request.sourceLanguage.id
+        sourceLanguageDisplayName = result.request.sourceLanguage.displayName
+        sourceLanguageSupportsAutoDetect = result.request.sourceLanguage.supportsAutoDetect
+        targetLanguageID = result.request.targetLanguage.id
+        targetLanguageDisplayName = result.request.targetLanguage.displayName
+        targetLanguageSupportsAutoDetect = result.request.targetLanguage.supportsAutoDetect
+        inputModeRawValue = result.request.inputMode.rawValue
+        providerIDRawValue = result.request.providerID.rawValue
+        createdAt = result.createdAt
+    }
+
     var result: TranslationResult? {
         guard let inputMode = TranslationInputMode(rawValue: inputModeRawValue) else {
             return nil
@@ -99,7 +113,15 @@ actor SwiftDataTranslationHistoryStore: TranslationHistoryStoring {
 
     func save(_ result: TranslationResult) async throws {
         let context = ModelContext(container)
-        context.insert(TranslationHistoryRecord(result: result))
+        let matchingRecords = try existingRecords(matching: result.id, in: context)
+        if let record = matchingRecords.first {
+            record.update(with: result)
+            for duplicate in matchingRecords.dropFirst() {
+                context.delete(duplicate)
+            }
+        } else {
+            context.insert(TranslationHistoryRecord(result: result))
+        }
         try trim(in: context)
         try context.save()
     }
@@ -115,6 +137,19 @@ actor SwiftDataTranslationHistoryStore: TranslationHistoryStoring {
         )
         descriptor.fetchLimit = limit
         return try context.fetch(descriptor).compactMap(\.result)
+    }
+
+    private func existingRecords(
+        matching id: UUID,
+        in context: ModelContext
+    ) throws -> [TranslationHistoryRecord] {
+        let descriptor = FetchDescriptor<TranslationHistoryRecord>(
+            predicate: #Predicate { record in
+                record.id == id
+            },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        return try context.fetch(descriptor)
     }
 
     private func trim(in context: ModelContext) throws {
