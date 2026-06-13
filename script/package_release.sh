@@ -8,6 +8,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 RELEASE_DIR="$DIST_DIR/release"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
+DMG_SOURCE_DIR="$DIST_DIR/dmg-source"
 ENTITLEMENTS="$ROOT_DIR/Configuration/LinguistMac/LinguistMac.entitlements"
 ZIP_PATH="$RELEASE_DIR/$APP_NAME-$MODE.zip"
 DMG_PATH="$RELEASE_DIR/$APP_NAME-$MODE.dmg"
@@ -53,12 +54,16 @@ esac
 
 package_artifacts() {
   /usr/bin/ditto -c -k --keepParent "$APP_BUNDLE" "$ZIP_PATH"
+  /bin/rm -rf "$DMG_SOURCE_DIR"
+  /bin/mkdir -p "$DMG_SOURCE_DIR"
+  /usr/bin/ditto "$APP_BUNDLE" "$DMG_SOURCE_DIR/$APP_NAME.app"
   /usr/bin/hdiutil create \
     -volname "$APP_NAME" \
-    -srcfolder "$APP_BUNDLE" \
+    -srcfolder "$DMG_SOURCE_DIR" \
     -ov \
     -format UDZO \
     "$DMG_PATH"
+  /bin/rm -rf "$DMG_SOURCE_DIR"
 }
 
 package_artifacts
