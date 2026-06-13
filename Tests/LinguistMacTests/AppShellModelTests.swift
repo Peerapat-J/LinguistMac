@@ -6,46 +6,34 @@ import XCTest
 @MainActor
 final class AppShellModelTests: XCTestCase {
     func testSwiftDataHistoryStoreDeduplicatesSavedResultID() async throws {
-        let configuration = ModelConfiguration(
-            "DeduplicatedHistory-\(UUID().uuidString)",
-            isStoredInMemoryOnly: true
-        )
-        let container = try ModelContainer(
-            for: TranslationHistoryRecord.self,
-            configurations: configuration
-        )
-        let store = SwiftDataTranslationHistoryStore(container: container, trimLimit: 10)
         let id = UUID()
-        let original = TranslationResult(
-            id: id,
-            request: TranslationRequest(
-                text: "hello",
-                sourceLanguage: .english,
-                targetLanguage: .thai,
-                inputMode: .quickTranslate,
-                providerID: .apple
-            ),
-            translatedText: "สวัสดี",
-            createdAt: Date(timeIntervalSince1970: 1)
-        )
-        let updated = TranslationResult(
-            id: id,
-            request: TranslationRequest(
-                text: "updated",
-                sourceLanguage: .english,
-                targetLanguage: .thai,
-                inputMode: .quickTranslate,
-                providerID: .apple
-            ),
-            translatedText: "อัปเดต",
-            createdAt: Date(timeIntervalSince1970: 2)
-        )
+        let (store, _) = try makeSwiftDataHistoryStore(trimLimit: 10)
+        let original = makeResult(id: id, text: "original", createdAt: Date(timeIntervalSince1970: 1))
+        let updated = makeResult(id: id, text: "updated", createdAt: Date(timeIntervalSince1970: 2))
 
         try await store.save(original)
         try await store.save(updated)
 
         let recent = try await store.recent(limit: 10)
         XCTAssertEqual(recent, [updated])
+    }
+
+    func testSwiftDataHistoryStoreTrimsAllOverflowRows() async throws {
+        let (store, container) = try makeSwiftDataHistoryStore(trimLimit: 3)
+        let existing = (0 ..< 40).map { index in
+            makeResult(text: "old-\(index)", createdAt: Date(timeIntervalSince1970: Double(index)))
+        }
+        let context = ModelContext(container)
+        for result in existing {
+            context.insert(TranslationHistoryRecord(result: result))
+        }
+        try context.save()
+        let newest = makeResult(text: "newest", createdAt: Date(timeIntervalSince1970: 100))
+
+        try await store.save(newest)
+
+        let recent = try await store.recent(limit: 100)
+        XCTAssertEqual(recent, [newest, existing[39], existing[38]])
     }
 
     func testQuickTranslatePersistsHistoryAndAutocopiesResult() async throws {
@@ -214,7 +202,25 @@ final class AppShellModelTests: XCTestCase {
         )
     }
 
+    private func makeSwiftDataHistoryStore(
+        trimLimit: Int
+    ) throws -> (SwiftDataTranslationHistoryStore, ModelContainer) {
+        let configuration = ModelConfiguration(
+            "TestHistory-\(UUID().uuidString)",
+            isStoredInMemoryOnly: true
+        )
+        let container = try ModelContainer(
+            for: TranslationHistoryRecord.self,
+            configurations: configuration
+        )
+        return (
+            SwiftDataTranslationHistoryStore(container: container, trimLimit: trimLimit),
+            container
+        )
+    }
+
     private func makeResult(
+        id: UUID = UUID(),
         text: String,
         createdAt: Date = Date(timeIntervalSince1970: 1)
     ) -> TranslationResult {
@@ -226,6 +232,7 @@ final class AppShellModelTests: XCTestCase {
             providerID: .apple
         )
         return TranslationResult(
+            id: id,
             request: request,
             translatedText: text,
             createdAt: createdAt

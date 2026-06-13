@@ -153,10 +153,9 @@ actor SwiftDataTranslationHistoryStore: TranslationHistoryStoring {
     }
 
     private func trim(in context: ModelContext) throws {
-        var descriptor = FetchDescriptor<TranslationHistoryRecord>(
+        let descriptor = FetchDescriptor<TranslationHistoryRecord>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
-        descriptor.fetchLimit = trimLimit + 25
         let records = try context.fetch(descriptor)
         for record in records.dropFirst(trimLimit) {
             context.delete(record)
