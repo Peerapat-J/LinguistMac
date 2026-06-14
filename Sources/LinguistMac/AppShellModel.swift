@@ -55,6 +55,8 @@ final class AppShellModel: ObservableObject {
     let services: LinguistServices
     let shortcutRegistrationCoordinator: ShortcutRegistrationCoordinator
     var doubleCopyTriggerDetector: DoubleCopyTriggerDetector
+    var activePopupWordLookupID: UUID?
+    var activePopupWordLookupTask: Task<WordLookupState, Never>?
 
     init(
         settings: AppSettings? = nil,
@@ -96,6 +98,10 @@ final class AppShellModel: ObservableObject {
         if initialSettings != storedSettings {
             persistSettings()
         }
+    }
+
+    deinit {
+        activePopupWordLookupTask?.cancel()
     }
 
     var recentMenuItems: [TranslationResult] {

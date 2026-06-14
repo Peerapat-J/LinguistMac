@@ -5,6 +5,7 @@ import LinguistMacCore
 extension AppShellModel {
     func runScreenTranslation() async {
         record(.screenTranslate)
+        cancelPopupWordLookup()
         let translationSettings = settingsWithSupportedProvider()
         let loadingRequest = TranslationRequest(
             text: "",
@@ -35,6 +36,7 @@ extension AppShellModel {
 
     func runQuickTranslate() async {
         record(.quickTranslate)
+        cancelPopupWordLookup()
         do {
             let translationSettings = settingsWithSupportedProvider()
             var request = try quickDraft
@@ -121,6 +123,107 @@ extension AppShellModel {
         popupState = popupState.toggledOriginalVisibility()
     }
 
+    func selectPopupWord(_ wordTranslation: WordTranslation, at index: Int? = nil) async {
+        guard case let .success(result, showsOriginal, _) = popupState else {
+            return
+        }
+
+        let request = wordLookupRequest(for: wordTranslation, result: result)
+        let lookupID = UUID()
+        let loadingCard = TranslationPopupWordCardState(
+            wordTranslation: wordTranslation,
+            wordIndex: index,
+            lookupState: .loading(request)
+        )
+
+        activePopupWordLookupTask?.cancel()
+        activePopupWordLookupID = lookupID
+        popupState = .success(result, showsOriginal: showsOriginal, wordCard: loadingCard)
+
+        let provider = services.wordLookupProvider
+        let lookupTask = Task<WordLookupState, Never> {
+            do {
+                if let result = try await provider.lookup(request) {
+                    return .completed(result)
+                }
+
+                return .empty(request)
+            } catch let failure as WordLookupFailure {
+                return .failed(failure)
+            } catch is CancellationError {
+                return .failed(.cancelled)
+            } catch {
+                return .failed(.providerFailed)
+            }
+        }
+        activePopupWordLookupTask = lookupTask
+
+        let lookupState = await lookupTask.value
+        guard activePopupWordLookupID == lookupID else {
+            return
+        }
+
+        activePopupWordLookupID = nil
+        activePopupWordLookupTask = nil
+
+        guard case let .success(currentResult, currentShowsOriginal, _) = popupState,
+              currentResult.id == result.id
+        else {
+            return
+        }
+
+        popupState = completedPopupState(
+            result: currentResult,
+            showsOriginal: currentShowsOriginal,
+            wordTranslation: wordTranslation,
+            wordIndex: index,
+            lookupState: lookupState
+        )
+    }
+
+    func dismissPopupWordCard() {
+        cancelPopupWordLookup()
+        popupState = popupState.updatingWordCard(nil)
+    }
+
+    private func cancelPopupWordLookup() {
+        activePopupWordLookupID = nil
+        activePopupWordLookupTask?.cancel()
+        activePopupWordLookupTask = nil
+    }
+
+    private func wordLookupRequest(
+        for wordTranslation: WordTranslation,
+        result: TranslationResult
+    ) -> WordLookupRequest {
+        WordLookupRequest(
+            sourceText: wordTranslation.sourceText,
+            sentenceContext: result.originalText,
+            sourceLanguage: result.request.sourceLanguage,
+            targetLanguage: result.request.targetLanguage,
+            providerID: result.request.providerID,
+            inputMode: result.request.inputMode
+        )
+    }
+
+    private func completedPopupState(
+        result: TranslationResult,
+        showsOriginal: Bool,
+        wordTranslation: WordTranslation,
+        wordIndex: Int?,
+        lookupState: WordLookupState
+    ) -> TranslationPopupState {
+        .success(
+            result,
+            showsOriginal: showsOriginal,
+            wordCard: TranslationPopupWordCardState(
+                wordTranslation: wordTranslation,
+                wordIndex: wordIndex,
+                lookupState: lookupState
+            )
+        )
+    }
+
     private func saveRecent(_ result: TranslationResult) {
         recentTranslations = TranslationHistoryPolicy.inserting(
             result,
@@ -142,6 +245,7 @@ extension AppShellModel {
         _ inputMode: TranslationInputMode,
         operation: (InputModeTranslationCoordinator, AppSettings) async -> TranslationSessionState
     ) async {
+        cancelPopupWordLookup()
         let translationSettings = settingsWithSupportedProvider()
         let loadingRequest = TranslationRequest(
             text: "",

@@ -3,12 +3,16 @@ import Foundation
 public enum TranslationPopupState: Equatable, Sendable {
     case empty
     case loading(TranslationRequest)
-    case success(TranslationResult, showsOriginal: Bool)
+    case success(
+        TranslationResult,
+        showsOriginal: Bool,
+        wordCard: TranslationPopupWordCardState? = nil
+    )
     case failed(TranslationFailure, originalText: String?)
 
     public var copyableText: String? {
         switch self {
-        case let .success(result, _):
+        case let .success(result, _, _):
             result.translatedText
         case .empty, .loading, .failed:
             nil
@@ -17,20 +21,62 @@ public enum TranslationPopupState: Equatable, Sendable {
 
     public var showsOriginal: Bool {
         switch self {
-        case let .success(_, showsOriginal):
+        case let .success(_, showsOriginal, _):
             showsOriginal
         case .empty, .loading, .failed:
             false
         }
     }
 
+    public var wordCard: TranslationPopupWordCardState? {
+        switch self {
+        case let .success(_, _, wordCard):
+            wordCard
+        case .empty, .loading, .failed:
+            nil
+        }
+    }
+
     public func toggledOriginalVisibility() -> TranslationPopupState {
         switch self {
-        case let .success(result, showsOriginal):
-            .success(result, showsOriginal: !showsOriginal)
+        case let .success(result, showsOriginal, wordCard):
+            .success(result, showsOriginal: !showsOriginal, wordCard: wordCard)
         case .empty, .loading, .failed:
             self
         }
+    }
+
+    public func updatingWordCard(_ wordCard: TranslationPopupWordCardState?) -> TranslationPopupState {
+        switch self {
+        case let .success(result, showsOriginal, _):
+            .success(result, showsOriginal: showsOriginal, wordCard: wordCard)
+        case .empty, .loading, .failed:
+            self
+        }
+    }
+}
+
+public struct TranslationPopupWordCardState: Equatable, Sendable {
+    public let wordTranslation: WordTranslation
+    public let wordIndex: Int?
+    public let lookupState: WordLookupState
+
+    public init(
+        wordTranslation: WordTranslation,
+        wordIndex: Int? = nil,
+        lookupState: WordLookupState
+    ) {
+        self.wordTranslation = wordTranslation
+        self.wordIndex = wordIndex
+        self.lookupState = lookupState
+    }
+
+    public func matches(_ wordTranslation: WordTranslation, at index: Int) -> Bool {
+        if let wordIndex {
+            return wordIndex == index
+        }
+
+        return self.wordTranslation == wordTranslation
     }
 }
 
@@ -116,6 +162,54 @@ public extension TranslationFailure {
             TranslationFailurePresentation(
                 title: "Translation Failed",
                 message: "The translation provider could not complete the request. Check configuration or try again.",
+                recoveryAction: .openSettings
+            )
+        }
+    }
+}
+
+public extension WordLookupFailure {
+    var presentation: TranslationFailurePresentation {
+        switch self {
+        case .emptySourceText:
+            TranslationFailurePresentation(
+                title: "No Word Selected",
+                message: "Choose a word from the translated sentence before opening a word card."
+            )
+        case .cancelled:
+            TranslationFailurePresentation(
+                title: "Lookup Cancelled",
+                message: "The word lookup was cancelled before it completed."
+            )
+        case let .missingAPIKey(providerID):
+            TranslationFailurePresentation(
+                title: "API Key Required",
+                message: "Add an API key for \(providerID.displayName) before using this cloud provider.",
+                recoveryAction: .openSettings
+            )
+        case let .missingLanguagePack(providerID):
+            TranslationFailurePresentation(
+                title: "Language Pack Needed",
+                message: "\(providerID.displayName) needs the required language pack before looking up this word.",
+                recoveryAction: .openSettings
+            )
+        case let .providerUnavailable(providerID):
+            TranslationFailurePresentation(
+                title: "Provider Unavailable",
+                message: "\(providerID.displayName) is not available with the current configuration.",
+                recoveryAction: .openSettings
+            )
+        case .unsupportedLanguagePair:
+            TranslationFailurePresentation(
+                title: "Language Pair Unavailable",
+                message: "The selected source and target languages are not available for this provider.",
+                recoveryAction: .openSettings
+            )
+        case .providerFailed:
+            TranslationFailurePresentation(
+                title: "Word Lookup Failed",
+                message: "The translation provider could not complete the word lookup. "
+                    + "Check configuration or try again.",
                 recoveryAction: .openSettings
             )
         }

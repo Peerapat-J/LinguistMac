@@ -11,11 +11,33 @@ final class AppShellModelsTests: XCTestCase {
             providerID: .apple
         )
         let result = TranslationResult(request: request, translatedText: "sawasdee")
-        let state = TranslationPopupState.success(result, showsOriginal: false)
+        let lookupRequest = WordLookupRequest(
+            sourceText: "hello",
+            sentenceContext: "hello world",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+        let wordCard = TranslationPopupWordCardState(
+            wordTranslation: WordTranslation(sourceText: "hello", translatedText: "sawasdee"),
+            lookupState: .loading(lookupRequest)
+        )
+        let state = TranslationPopupState.success(result, showsOriginal: false, wordCard: wordCard)
 
         XCTAssertEqual(state.copyableText, "sawasdee")
         XCTAssertFalse(state.showsOriginal)
-        XCTAssertTrue(state.toggledOriginalVisibility().showsOriginal)
+        let toggledState = state.toggledOriginalVisibility()
+        XCTAssertTrue(toggledState.showsOriginal)
+        XCTAssertEqual(toggledState.wordCard, wordCard)
+        XCTAssertNil(toggledState.updatingWordCard(nil).wordCard)
+
+        let indexedWordCard = TranslationPopupWordCardState(
+            wordTranslation: wordCard.wordTranslation,
+            wordIndex: 2,
+            lookupState: wordCard.lookupState
+        )
+        XCTAssertTrue(indexedWordCard.matches(wordCard.wordTranslation, at: 2))
+        XCTAssertFalse(indexedWordCard.matches(wordCard.wordTranslation, at: 1))
     }
 
     func testQuickTranslateDraftBuildsTrimmedRequest() throws {
@@ -74,6 +96,18 @@ final class AppShellModelsTests: XCTestCase {
         XCTAssertFalse(providerFailure.presentation.message.contains("secret-token-123"))
         XCTAssertFalse(providerFailure.presentation.message.contains("source text"))
         XCTAssertEqual(providerFailure.presentation.recoveryAction, .openSettings)
+    }
+
+    func testWordLookupFailurePresentationMapsRecoverableFailures() {
+        XCTAssertNil(WordLookupFailure.cancelled.presentation.recoveryAction)
+        XCTAssertEqual(
+            WordLookupFailure.missingLanguagePack(.apple).presentation.recoveryAction,
+            .openSettings
+        )
+        XCTAssertEqual(
+            WordLookupFailure.providerFailed.presentation.message,
+            "The translation provider could not complete the word lookup. Check configuration or try again."
+        )
     }
 
     func testHistoryPolicyTrimsNewestResultsAndDeduplicatesInsertedResult() {
