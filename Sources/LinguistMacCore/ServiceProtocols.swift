@@ -1,3 +1,5 @@
+import Foundation
+
 public protocol ScreenCaptureServicing: Sendable {
     func captureSelection() async throws -> CapturedScreenRegion
 }
