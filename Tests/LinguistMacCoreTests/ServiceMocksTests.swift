@@ -331,3 +331,32 @@ final class ServiceMocksTests: XCTestCase {
         XCTAssertEqual(savedAPIRegion, "eastus")
     }
 }
+
+final class WordLookupFailureMappingTests: XCTestCase {
+    func testProviderBackedWordLookupPreservesMissingLanguagePackFailure() async {
+        let provider = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "unused",
+            failure: .missingLanguagePack(.apple)
+        )
+        let service = ProviderBackedWordLookupService(
+            translatorRegistry: StubTranslationProviderRegistry(provider: provider)
+        )
+        let request = WordLookupRequest(
+            sourceText: "bank",
+            sentenceContext: "The canoe reached the river bank.",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+
+        await XCTAssertThrowsError {
+            _ = try await service.lookup(request)
+        } errorHandler: { error in
+            XCTAssertEqual(error as? WordLookupFailure, .missingLanguagePack(.apple))
+        }
+    }
+}

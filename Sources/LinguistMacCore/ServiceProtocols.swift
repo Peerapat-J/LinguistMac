@@ -137,6 +137,8 @@ public struct ProviderBackedWordLookupService: WordLookupProviding {
             return .cancelled
         case let .missingAPIKey(providerID):
             return .missingAPIKey(providerID)
+        case let .missingLanguagePack(providerID):
+            return .missingLanguagePack(providerID)
         case let .providerUnavailable(providerID):
             return .providerUnavailable(providerID)
         case .unsupportedLanguagePair:

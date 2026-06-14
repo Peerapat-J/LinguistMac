@@ -278,6 +278,7 @@ public enum WordLookupFailure: Error, Equatable, Sendable {
     case emptySourceText
     case cancelled
     case missingAPIKey(TranslationProviderID)
+    case missingLanguagePack(TranslationProviderID)
     case providerUnavailable(TranslationProviderID)
     case unsupportedLanguagePair
     case providerFailed
