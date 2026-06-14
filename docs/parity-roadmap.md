@@ -78,7 +78,8 @@ Goal: keep non-parity ideas out of the critical path until parity is stable.
 
 - `#32` word card and dictionary planning. Requirements and scope live in
   `docs/m6-word-card-dictionary.md`.
-- `#33` speech or voice translation planning.
+- `#33` speech or voice translation planning. Requirements and scope live in
+  `docs/m6-voice-translation.md`.
 
 ## Review Strategy
 
