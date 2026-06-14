@@ -89,14 +89,14 @@ issue because it changes privacy, licensing, settings, and failure modes.
 
 ## Implementation Slices
 
-1. Add a lookup model and provider-facing abstraction for one word in sentence
-   context.
-2. Render the card from the existing popup Words section with loading, success,
-   empty, and error states.
-3. Persist display-ready card content in history only after the card has been
-   shown.
-4. Consider Quick Translate and richer dictionary fields after the popup flow is
-   proven.
+1. `#46` add a lookup model and provider-facing abstraction for one word in
+   sentence context.
+2. `#53` render the card from the existing popup Words section with loading,
+   success, empty, and error states.
+3. `#56` persist display-ready card content in history only after the card has
+   been shown.
+4. `#48` consider Quick Translate and richer dictionary fields after the popup
+   flow is proven.
 
 Each slice should be reviewable without including voice translation work from
 issue `#33`.

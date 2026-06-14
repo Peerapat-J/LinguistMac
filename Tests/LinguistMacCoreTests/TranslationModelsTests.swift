@@ -39,6 +39,47 @@ final class TranslationModelsTests: XCTestCase {
         XCTAssertEqual(words, ["Hello", "world", "123"])
     }
 
+    func testWordLookupResultRoundTripsDisplayReadyContent() throws {
+        let id = try XCTUnwrap(UUID(uuidString: "19F55810-1B34-4E19-8892-BD23E10C6D38"))
+        let request = WordLookupRequest(
+            sourceText: "hello",
+            sentenceContext: "hello world",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+        let result = WordLookupResult(
+            id: id,
+            request: request,
+            translatedText: "สวัสดี",
+            definition: "A greeting.",
+            example: "Hello world.",
+            createdAt: Date(timeIntervalSince1970: 10)
+        )
+
+        let data = try JSONEncoder().encode(result)
+        let decodedResult = try JSONDecoder().decode(WordLookupResult.self, from: data)
+
+        XCTAssertEqual(decodedResult, result)
+        XCTAssertEqual(decodedResult.request.sourceText, "hello")
+        XCTAssertEqual(decodedResult.translatedText, "สวัสดี")
+    }
+
+    func testWordLookupStateRepresentsEmptyAndFailureSeparately() {
+        let request = WordLookupRequest(
+            sourceText: "hello",
+            sentenceContext: "hello world",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+
+        XCTAssertNotEqual(
+            WordLookupState.empty(request),
+            .failed(.providerFailed)
+        )
+    }
+
     func testProviderDescriptorDistinguishesOnDeviceAndCloudProviders() {
         let apple = TranslationProviderDescriptor(
             id: .apple,

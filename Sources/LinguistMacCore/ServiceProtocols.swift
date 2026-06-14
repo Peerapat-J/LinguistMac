@@ -1,3 +1,5 @@
+import Foundation
+
 public protocol ScreenCaptureServicing: Sendable {
     func captureSelection() async throws -> CapturedScreenRegion
 }
@@ -39,6 +41,133 @@ public extension TranslationProviderRegistry {
         }
 
         return supportedProviders.first?.id ?? providerID
+    }
+}
+
+public protocol WordLookupProviding: Sendable {
+    func lookup(_ request: WordLookupRequest) async throws -> WordLookupResult?
+}
+
+public struct ProviderBackedWordLookupService: WordLookupProviding {
+    private let translatorRegistry: any TranslationProviderRegistry
+
+    public init(translatorRegistry: any TranslationProviderRegistry) {
+        self.translatorRegistry = translatorRegistry
+    }
+
+    public func lookup(_ request: WordLookupRequest) async throws -> WordLookupResult? {
+        let normalizedRequest = normalized(request)
+        guard !normalizedRequest.sourceText.isEmpty else {
+            throw WordLookupFailure.emptySourceText
+        }
+
+        do {
+            try Task.checkCancellation()
+            let provider = try await translatorRegistry.provider(for: normalizedRequest.providerID)
+            let translationRequest = TranslationRequest(
+                text: providerLookupText(for: normalizedRequest),
+                sourceLanguage: normalizedRequest.sourceLanguage,
+                targetLanguage: normalizedRequest.targetLanguage,
+                inputMode: normalizedRequest.inputMode,
+                providerID: normalizedRequest.providerID
+            )
+            let result = try await provider.translate(translationRequest)
+            let translatedText = displayText(from: result.translatedText)
+            guard !translatedText.isEmpty else {
+                return nil
+            }
+
+            return WordLookupResult(
+                request: normalizedRequest,
+                translatedText: translatedText
+            )
+        } catch {
+            throw wordLookupFailure(from: error, providerID: normalizedRequest.providerID)
+        }
+    }
+
+    private func normalized(_ request: WordLookupRequest) -> WordLookupRequest {
+        WordLookupRequest(
+            sourceText: request.sourceText.trimmingCharacters(in: .whitespacesAndNewlines),
+            sentenceContext: request.sentenceContext.trimmingCharacters(in: .whitespacesAndNewlines),
+            sourceLanguage: request.sourceLanguage,
+            targetLanguage: request.targetLanguage,
+            providerID: request.providerID,
+            inputMode: request.inputMode
+        )
+    }
+
+    private func providerLookupText(for request: WordLookupRequest) -> String {
+        guard !request.sentenceContext.isEmpty,
+              request.sentenceContext != request.sourceText
+        else {
+            return request.sourceText
+        }
+
+        return "\(request.sourceText)\n\(request.sentenceContext)"
+    }
+
+    private func displayText(from translatedText: String) -> String {
+        let trimmedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let firstLine = trimmedText
+            .components(separatedBy: .newlines)
+            .map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .first(where: { !$0.isEmpty })
+        else {
+            return ""
+        }
+
+        return firstLine
+    }
+
+    private func wordLookupFailure(
+        from error: Error,
+        providerID: TranslationProviderID
+    ) -> WordLookupFailure {
+        if let failure = error as? WordLookupFailure {
+            return failure
+        }
+        if isCancellation(error) {
+            return .cancelled
+        }
+        guard let translationFailure = error as? TranslationFailure else {
+            return .providerFailed
+        }
+
+        switch translationFailure {
+        case .captureCancelled:
+            return .cancelled
+        case let .missingAPIKey(providerID):
+            return .missingAPIKey(providerID)
+        case let .missingLanguagePack(providerID):
+            return .missingLanguagePack(providerID)
+        case let .providerUnavailable(providerID):
+            return .providerUnavailable(providerID)
+        case .unsupportedLanguagePair:
+            return .unsupportedLanguagePair
+        default:
+            return .providerFailed
+        }
+    }
+
+    private func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError {
+            return true
+        }
+        if let urlError = error as? URLError {
+            return urlError.code == .cancelled
+        }
+
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
+    }
+}
+
+public struct UnavailableWordLookupProvider: WordLookupProviding {
+    public init() {}
+
+    public func lookup(_ request: WordLookupRequest) async throws -> WordLookupResult? {
+        throw WordLookupFailure.providerUnavailable(request.providerID)
     }
 }
 
