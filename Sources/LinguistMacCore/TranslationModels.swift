@@ -211,6 +211,48 @@ public struct TranslationRequest: Equatable, Sendable {
     }
 }
 
+public struct WordTranslation: Codable, Equatable, Sendable {
+    public let sourceText: String
+    public let translatedText: String
+
+    public init(
+        sourceText: String,
+        translatedText: String
+    ) {
+        self.sourceText = sourceText
+        self.translatedText = translatedText
+    }
+}
+
+public enum WordTranslationTokenizer {
+    public static func words(in text: String) -> [String] {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else {
+            return []
+        }
+
+        let tokenizer = NLTokenizer(unit: .word)
+        tokenizer.string = trimmedText
+
+        var words: [String] = []
+        tokenizer.enumerateTokens(in: trimmedText.startIndex ..< trimmedText.endIndex) { range, _ in
+            let token = String(trimmedText[range])
+            if containsWordCharacter(token) {
+                words.append(token)
+            }
+            return true
+        }
+
+        return words
+    }
+
+    private static func containsWordCharacter(_ token: String) -> Bool {
+        token.unicodeScalars.contains {
+            CharacterSet.letters.contains($0) || CharacterSet.decimalDigits.contains($0)
+        }
+    }
+}
+
 public enum SourceLanguageResolver {
     public static func resolvedSourceLanguage(
         settingsSource: TranslationLanguage,
@@ -271,6 +313,7 @@ public struct TranslationResult: Identifiable, Equatable, Sendable {
     public let request: TranslationRequest
     public let translatedText: String
     public let originalText: String
+    public let wordTranslations: [WordTranslation]
     public let createdAt: Date
 
     public init(
@@ -278,12 +321,14 @@ public struct TranslationResult: Identifiable, Equatable, Sendable {
         request: TranslationRequest,
         translatedText: String,
         originalText: String? = nil,
+        wordTranslations: [WordTranslation] = [],
         createdAt: Date = Date()
     ) {
         self.id = id
         self.request = request
         self.translatedText = translatedText
         self.originalText = originalText ?? request.text
+        self.wordTranslations = wordTranslations
         self.createdAt = createdAt
     }
 }

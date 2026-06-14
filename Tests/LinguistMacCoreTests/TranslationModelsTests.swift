@@ -30,6 +30,13 @@ final class TranslationModelsTests: XCTestCase {
 
         XCTAssertEqual(result.originalText, "hello")
         XCTAssertEqual(result.request, request)
+        XCTAssertEqual(result.wordTranslations, [])
+    }
+
+    func testWordTranslationTokenizerKeepsWordTokensOnly() {
+        let words = WordTranslationTokenizer.words(in: " Hello, world! 123. ")
+
+        XCTAssertEqual(words, ["Hello", "world", "123"])
     }
 
     func testProviderDescriptorDistinguishesOnDeviceAndCloudProviders() {

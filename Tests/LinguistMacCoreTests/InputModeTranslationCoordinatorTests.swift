@@ -30,6 +30,51 @@ final class InputModeTranslationCoordinatorTests: XCTestCase {
         XCTAssertEqual(clipboardText, "sawasdee")
     }
 
+    func testSelectedTextTranslationAddsWordBreakdownForSentences() async throws {
+        let historyStore = InMemoryTranslationHistoryStore()
+        let clipboard = InMemoryClipboard(text: "original clipboard")
+        let provider = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "unused",
+            translatedTextsBySource: [
+                "hello world": "สวัสดีชาวโลก",
+                "hello": "สวัสดี",
+                "world": "โลก"
+            ]
+        )
+        let services = makeServices(
+            selectedText: .success(" hello world "),
+            translatorRegistry: StubTranslationProviderRegistry(provider: provider),
+            historyStore: historyStore,
+            clipboard: clipboard
+        )
+        var settings = AppSettings(sourceLanguage: .english, targetLanguage: .thai)
+        settings.autoCopyEnabled = true
+        let coordinator = InputModeTranslationCoordinator(services: services)
+
+        let finalState = await coordinator.translateSelectedText(settings: settings)
+
+        guard case let .completed(result) = finalState else {
+            return XCTFail("Expected completed state, got \(finalState)")
+        }
+
+        XCTAssertEqual(result.translatedText, "สวัสดีชาวโลก")
+        XCTAssertEqual(
+            result.wordTranslations,
+            [
+                WordTranslation(sourceText: "hello", translatedText: "สวัสดี"),
+                WordTranslation(sourceText: "world", translatedText: "โลก")
+            ]
+        )
+        let recentHistory = try await historyStore.recent(limit: 1)
+        let clipboardText = await clipboard.readText()
+        XCTAssertEqual(recentHistory, [result])
+        XCTAssertEqual(clipboardText, "สวัสดีชาวโลก")
+    }
+
     func testSelectedTextTranslationAutoDetectsSourceLanguageAndKeepsTargetSetting() async {
         let services = makeServices(
             selectedText: .success("This is a simple English sentence for language detection."),

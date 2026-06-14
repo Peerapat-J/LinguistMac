@@ -9,13 +9,23 @@ final class AppShellModelTests: XCTestCase {
         let id = UUID()
         let (store, _) = try makeSwiftDataHistoryStore(trimLimit: 10)
         let original = makeResult(id: id, text: "original", createdAt: Date(timeIntervalSince1970: 1))
-        let updated = makeResult(id: id, text: "updated", createdAt: Date(timeIntervalSince1970: 2))
+        let wordTranslations = [
+            WordTranslation(sourceText: "hello", translatedText: "สวัสดี"),
+            WordTranslation(sourceText: "world", translatedText: "โลก")
+        ]
+        let updated = makeResult(
+            id: id,
+            text: "updated",
+            wordTranslations: wordTranslations,
+            createdAt: Date(timeIntervalSince1970: 2)
+        )
 
         try await store.save(original)
         try await store.save(updated)
 
         let recent = try await store.recent(limit: 10)
         XCTAssertEqual(recent, [updated])
+        XCTAssertEqual(recent.first?.wordTranslations, wordTranslations)
     }
 
     func testSwiftDataHistoryStoreTrimsAllOverflowRows() async throws {
@@ -238,6 +248,7 @@ final class AppShellModelTests: XCTestCase {
     private func makeResult(
         id: UUID = UUID(),
         text: String,
+        wordTranslations: [WordTranslation] = [],
         createdAt: Date = Date(timeIntervalSince1970: 1)
     ) -> TranslationResult {
         let request = TranslationRequest(
@@ -251,6 +262,7 @@ final class AppShellModelTests: XCTestCase {
             id: id,
             request: request,
             translatedText: text,
+            wordTranslations: wordTranslations,
             createdAt: createdAt
         )
     }
