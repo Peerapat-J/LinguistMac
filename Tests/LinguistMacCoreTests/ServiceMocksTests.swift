@@ -119,15 +119,15 @@ final class ServiceMocksTests: XCTestCase {
             usesNetwork: false,
             translatedText: "unused",
             translatedTextsBySource: [
-                "hello": " สวัสดี "
+                "bank\nThe canoe reached the river bank.": " ฝั่ง \nเรือแคนูไปถึงฝั่งแม่น้ำ"
             ]
         )
         let service = ProviderBackedWordLookupService(
             translatorRegistry: StubTranslationProviderRegistry(provider: provider)
         )
         let request = WordLookupRequest(
-            sourceText: " hello ",
-            sentenceContext: " hello world ",
+            sourceText: " bank ",
+            sentenceContext: " The canoe reached the river bank. ",
             sourceLanguage: .english,
             targetLanguage: .thai,
             providerID: .apple
@@ -135,11 +135,38 @@ final class ServiceMocksTests: XCTestCase {
 
         let result = try await service.lookup(request)
 
-        XCTAssertEqual(result?.request.sourceText, "hello")
-        XCTAssertEqual(result?.request.sentenceContext, "hello world")
-        XCTAssertEqual(result?.translatedText, "สวัสดี")
+        XCTAssertEqual(result?.request.sourceText, "bank")
+        XCTAssertEqual(result?.request.sentenceContext, "The canoe reached the river bank.")
+        XCTAssertEqual(result?.translatedText, "ฝั่ง")
         XCTAssertNil(result?.definition)
         XCTAssertNil(result?.example)
+    }
+
+    func testProviderBackedWordLookupFallsBackToSourceWordWhenContextIsEmpty() async throws {
+        let provider = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "unused",
+            translatedTextsBySource: [
+                "hello": "สวัสดี"
+            ]
+        )
+        let service = ProviderBackedWordLookupService(
+            translatorRegistry: StubTranslationProviderRegistry(provider: provider)
+        )
+        let request = WordLookupRequest(
+            sourceText: "hello",
+            sentenceContext: " ",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+
+        let result = try await service.lookup(request)
+
+        XCTAssertEqual(result?.translatedText, "สวัสดี")
     }
 
     func testProviderBackedWordLookupReturnsEmptyResultForBlankProviderOutput() async throws {

@@ -63,14 +63,14 @@ public struct ProviderBackedWordLookupService: WordLookupProviding {
             try Task.checkCancellation()
             let provider = try await translatorRegistry.provider(for: normalizedRequest.providerID)
             let translationRequest = TranslationRequest(
-                text: normalizedRequest.sourceText,
+                text: providerLookupText(for: normalizedRequest),
                 sourceLanguage: normalizedRequest.sourceLanguage,
                 targetLanguage: normalizedRequest.targetLanguage,
                 inputMode: normalizedRequest.inputMode,
                 providerID: normalizedRequest.providerID
             )
             let result = try await provider.translate(translationRequest)
-            let translatedText = result.translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let translatedText = displayText(from: result.translatedText)
             guard !translatedText.isEmpty else {
                 return nil
             }
@@ -93,6 +93,29 @@ public struct ProviderBackedWordLookupService: WordLookupProviding {
             providerID: request.providerID,
             inputMode: request.inputMode
         )
+    }
+
+    private func providerLookupText(for request: WordLookupRequest) -> String {
+        guard !request.sentenceContext.isEmpty,
+              request.sentenceContext != request.sourceText
+        else {
+            return request.sourceText
+        }
+
+        return "\(request.sourceText)\n\(request.sentenceContext)"
+    }
+
+    private func displayText(from translatedText: String) -> String {
+        let trimmedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let firstLine = trimmedText
+            .components(separatedBy: .newlines)
+            .map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .first(where: { !$0.isEmpty })
+        else {
+            return ""
+        }
+
+        return firstLine
     }
 
     private func wordLookupFailure(
