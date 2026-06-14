@@ -42,6 +42,96 @@ public extension TranslationProviderRegistry {
     }
 }
 
+public protocol WordLookupProviding: Sendable {
+    func lookup(_ request: WordLookupRequest) async throws -> WordLookupResult?
+}
+
+public struct ProviderBackedWordLookupService: WordLookupProviding {
+    private let translatorRegistry: any TranslationProviderRegistry
+
+    public init(translatorRegistry: any TranslationProviderRegistry) {
+        self.translatorRegistry = translatorRegistry
+    }
+
+    public func lookup(_ request: WordLookupRequest) async throws -> WordLookupResult? {
+        let normalizedRequest = normalized(request)
+        guard !normalizedRequest.sourceText.isEmpty else {
+            throw WordLookupFailure.emptySourceText
+        }
+
+        do {
+            try Task.checkCancellation()
+            let provider = try await translatorRegistry.provider(for: normalizedRequest.providerID)
+            let translationRequest = TranslationRequest(
+                text: normalizedRequest.sourceText,
+                sourceLanguage: normalizedRequest.sourceLanguage,
+                targetLanguage: normalizedRequest.targetLanguage,
+                inputMode: normalizedRequest.inputMode,
+                providerID: normalizedRequest.providerID
+            )
+            let result = try await provider.translate(translationRequest)
+            let translatedText = result.translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !translatedText.isEmpty else {
+                return nil
+            }
+
+            return WordLookupResult(
+                request: normalizedRequest,
+                translatedText: translatedText
+            )
+        } catch {
+            throw wordLookupFailure(from: error, providerID: normalizedRequest.providerID)
+        }
+    }
+
+    private func normalized(_ request: WordLookupRequest) -> WordLookupRequest {
+        WordLookupRequest(
+            sourceText: request.sourceText.trimmingCharacters(in: .whitespacesAndNewlines),
+            sentenceContext: request.sentenceContext.trimmingCharacters(in: .whitespacesAndNewlines),
+            sourceLanguage: request.sourceLanguage,
+            targetLanguage: request.targetLanguage,
+            providerID: request.providerID,
+            inputMode: request.inputMode
+        )
+    }
+
+    private func wordLookupFailure(
+        from error: Error,
+        providerID: TranslationProviderID
+    ) -> WordLookupFailure {
+        if let failure = error as? WordLookupFailure {
+            return failure
+        }
+        if error is CancellationError {
+            return .cancelled
+        }
+        guard let translationFailure = error as? TranslationFailure else {
+            return .providerFailed
+        }
+
+        switch translationFailure {
+        case .captureCancelled:
+            return .cancelled
+        case let .missingAPIKey(providerID):
+            return .missingAPIKey(providerID)
+        case let .providerUnavailable(providerID):
+            return .providerUnavailable(providerID)
+        case .unsupportedLanguagePair:
+            return .unsupportedLanguagePair
+        default:
+            return .providerFailed
+        }
+    }
+}
+
+public struct UnavailableWordLookupProvider: WordLookupProviding {
+    public init() {}
+
+    public func lookup(_ request: WordLookupRequest) async throws -> WordLookupResult? {
+        throw WordLookupFailure.providerUnavailable(request.providerID)
+    }
+}
+
 public protocol LanguageAvailabilityChecking: Sendable {
     func readiness(
         from source: TranslationLanguage,

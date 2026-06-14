@@ -78,6 +78,15 @@ struct StubTranslationProviderRegistry: TranslationProviderRegistry {
     }
 }
 
+struct StubWordLookupProvider: WordLookupProviding {
+    var result: Result<WordLookupResult?, WordLookupFailure>
+
+    func lookup(_ request: WordLookupRequest) async throws -> WordLookupResult? {
+        _ = request
+        return try result.get()
+    }
+}
+
 struct StubLanguageAvailabilityChecker: LanguageAvailabilityChecking {
     var readiness: LanguagePackReadiness
 

@@ -136,7 +136,7 @@ public enum TranslationProviderConfigurationStatus: Equatable, Sendable {
     }
 }
 
-public enum TranslationInputMode: String, CaseIterable, Sendable {
+public enum TranslationInputMode: String, CaseIterable, Codable, Sendable {
     case screenSelection
     case selectedText
     case clipboardDoubleCopy
@@ -222,6 +222,73 @@ public struct WordTranslation: Codable, Equatable, Sendable {
         self.sourceText = sourceText
         self.translatedText = translatedText
     }
+}
+
+public struct WordLookupRequest: Codable, Equatable, Sendable {
+    public let sourceText: String
+    public let sentenceContext: String
+    public let sourceLanguage: TranslationLanguage
+    public let targetLanguage: TranslationLanguage
+    public let providerID: TranslationProviderID
+    public let inputMode: TranslationInputMode
+
+    public init(
+        sourceText: String,
+        sentenceContext: String,
+        sourceLanguage: TranslationLanguage,
+        targetLanguage: TranslationLanguage,
+        providerID: TranslationProviderID,
+        inputMode: TranslationInputMode = .selectedText
+    ) {
+        self.sourceText = sourceText
+        self.sentenceContext = sentenceContext
+        self.sourceLanguage = sourceLanguage
+        self.targetLanguage = targetLanguage
+        self.providerID = providerID
+        self.inputMode = inputMode
+    }
+}
+
+public struct WordLookupResult: Codable, Identifiable, Equatable, Sendable {
+    public let id: UUID
+    public let request: WordLookupRequest
+    public let translatedText: String
+    public let definition: String?
+    public let example: String?
+    public let createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        request: WordLookupRequest,
+        translatedText: String,
+        definition: String? = nil,
+        example: String? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.request = request
+        self.translatedText = translatedText
+        self.definition = definition
+        self.example = example
+        self.createdAt = createdAt
+    }
+}
+
+public enum WordLookupFailure: Error, Equatable, Sendable {
+    case emptySourceText
+    case cancelled
+    case missingAPIKey(TranslationProviderID)
+    case providerUnavailable(TranslationProviderID)
+    case unsupportedLanguagePair
+    case providerFailed
+}
+
+public enum WordLookupState: Equatable, Sendable {
+    case idle
+    case loading(WordLookupRequest)
+    case completed(WordLookupResult)
+    case empty(WordLookupRequest)
+    case failed(WordLookupFailure)
 }
 
 public enum WordTranslationTokenizer {

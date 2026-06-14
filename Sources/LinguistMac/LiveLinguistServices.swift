@@ -38,7 +38,8 @@ enum LiveLinguistServices {
             permissionChecker: SystemPermissionChecker(),
             clipboard: SystemClipboardService(),
             selectedTextCapture: SystemSelectedTextCaptureService(),
-            shortcutRegistry: shortcutRegistry
+            shortcutRegistry: shortcutRegistry,
+            wordLookupProvider: ProviderBackedWordLookupService(translatorRegistry: translatorRegistry)
         )
     }
 

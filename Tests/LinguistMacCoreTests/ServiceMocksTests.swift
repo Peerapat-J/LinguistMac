@@ -111,6 +111,131 @@ final class ServiceMocksTests: XCTestCase {
         }
     }
 
+    func testProviderBackedWordLookupTranslatesSingleWordInContext() async throws {
+        let provider = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "unused",
+            translatedTextsBySource: [
+                "hello": " สวัสดี "
+            ]
+        )
+        let service = ProviderBackedWordLookupService(
+            translatorRegistry: StubTranslationProviderRegistry(provider: provider)
+        )
+        let request = WordLookupRequest(
+            sourceText: " hello ",
+            sentenceContext: " hello world ",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+
+        let result = try await service.lookup(request)
+
+        XCTAssertEqual(result?.request.sourceText, "hello")
+        XCTAssertEqual(result?.request.sentenceContext, "hello world")
+        XCTAssertEqual(result?.translatedText, "สวัสดี")
+        XCTAssertNil(result?.definition)
+        XCTAssertNil(result?.example)
+    }
+
+    func testProviderBackedWordLookupReturnsEmptyResultForBlankProviderOutput() async throws {
+        let provider = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "   "
+        )
+        let service = ProviderBackedWordLookupService(
+            translatorRegistry: StubTranslationProviderRegistry(provider: provider)
+        )
+        let request = WordLookupRequest(
+            sourceText: "hello",
+            sentenceContext: "hello world",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+
+        let result = try await service.lookup(request)
+
+        XCTAssertNil(result)
+    }
+
+    func testProviderBackedWordLookupRedactsProviderFailureDetails() async {
+        let provider = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "unused",
+            failure: .providerFailed("raw diagnostic containing source text")
+        )
+        let service = ProviderBackedWordLookupService(
+            translatorRegistry: StubTranslationProviderRegistry(provider: provider)
+        )
+        let request = WordLookupRequest(
+            sourceText: "hello",
+            sentenceContext: "hello world",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+
+        await XCTAssertThrowsError {
+            _ = try await service.lookup(request)
+        } errorHandler: { error in
+            XCTAssertEqual(error as? WordLookupFailure, .providerFailed)
+        }
+    }
+
+    func testProviderBackedWordLookupRejectsEmptySourceText() async {
+        let provider = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "unused"
+        )
+        let service = ProviderBackedWordLookupService(
+            translatorRegistry: StubTranslationProviderRegistry(provider: provider)
+        )
+        let request = WordLookupRequest(
+            sourceText: " ",
+            sentenceContext: "hello world",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+
+        await XCTAssertThrowsError {
+            _ = try await service.lookup(request)
+        } errorHandler: { error in
+            XCTAssertEqual(error as? WordLookupFailure, .emptySourceText)
+        }
+    }
+
+    func testStubWordLookupProviderSupportsCancellationBoundary() async {
+        let service = StubWordLookupProvider(result: .failure(.cancelled))
+        let request = WordLookupRequest(
+            sourceText: "hello",
+            sentenceContext: "hello world",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+
+        await XCTAssertThrowsError {
+            _ = try await service.lookup(request)
+        } errorHandler: { error in
+            XCTAssertEqual(error as? WordLookupFailure, .cancelled)
+        }
+    }
+
     func testRegistryFallsBackFromUnsupportedPreferredProvider() async {
         let apple = StubTranslationProvider(
             id: .apple,
