@@ -248,30 +248,7 @@ struct TranslationPopupView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         case let .failed(failure):
-            let presentation = failure.presentation
-            VStack(alignment: .leading, spacing: 8) {
-                Label(presentation.title, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                Text(presentation.message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if let action = presentation.recoveryAction {
-                    Button {
-                        if .retry == action {
-                            Task {
-                                await model.selectPopupWord(card.wordTranslation, at: card.wordIndex)
-                            }
-                        } else {
-                            model.performRecoveryAction(action)
-                        }
-                    } label: {
-                        Label(action.displayTitle, systemImage: action.systemImage)
-                    }
-                    .controlSize(.small)
-                }
-            }
+            wordLookupFailureContent(failure, card: card)
         }
     }
 
@@ -371,6 +348,37 @@ private extension TranslationRecoveryAction {
             "slider.horizontal.3"
         case .retry:
             "arrow.clockwise"
+        }
+    }
+}
+
+@ViewBuilder
+private func wordLookupFailureContent(
+    _ failure: WordLookupFailure,
+    card: TranslationPopupWordCardState
+) -> some View {
+    let presentation = failure.presentation
+    VStack(alignment: .leading, spacing: 8) {
+        Label(presentation.title, systemImage: "exclamationmark.triangle")
+            .font(.caption)
+            .foregroundStyle(.orange)
+        Text(presentation.message)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+        if let action = presentation.recoveryAction {
+            Button {
+                if .retry == action {
+                    Task {
+                        await model.selectPopupWord(card.wordTranslation, at: card.wordIndex)
+                    }
+                } else {
+                    model.performRecoveryAction(action)
+                }
+            } label: {
+                Label(action.displayTitle, systemImage: action.systemImage)
+            }
+            .controlSize(.small)
         }
     }
 }
