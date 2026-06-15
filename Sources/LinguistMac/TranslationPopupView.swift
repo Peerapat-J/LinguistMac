@@ -208,15 +208,15 @@ struct TranslationPopupView: View {
                 .buttonStyle(.borderless)
             }
 
-            wordLookupContent(card.lookupState)
+            wordLookupContent(card)
         }
         .padding(10)
         .background(.quaternary.opacity(0.55), in: RoundedRectangle(cornerRadius: 8))
     }
 
     @ViewBuilder
-    private func wordLookupContent(_ state: WordLookupState) -> some View {
-        switch state {
+    private func wordLookupContent(_ card: TranslationPopupWordCardState) -> some View {
+        switch card.lookupState {
         case .idle:
             EmptyView()
         case .loading:
@@ -259,7 +259,13 @@ struct TranslationPopupView: View {
 
                 if let action = presentation.recoveryAction {
                     Button {
-                        model.performRecoveryAction(action)
+                        if .retry == action {
+                            Task {
+                                await model.selectPopupWord(card.wordTranslation, at: card.wordIndex)
+                            }
+                        } else {
+                            model.performRecoveryAction(action)
+                        }
                     } label: {
                         Label(action.displayTitle, systemImage: action.systemImage)
                     }
