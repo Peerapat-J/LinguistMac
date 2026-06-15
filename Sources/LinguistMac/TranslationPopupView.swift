@@ -268,7 +268,7 @@ struct TranslationPopupView: View {
 
             if let action = presentation.recoveryAction {
                 Button {
-                    if .retry == action {
+                    if action == .retry {
                         Task {
                             await model.selectPopupWord(card.wordTranslation, at: card.wordIndex)
                         }
