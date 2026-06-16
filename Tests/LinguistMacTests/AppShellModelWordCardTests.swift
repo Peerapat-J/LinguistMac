@@ -49,6 +49,7 @@ final class AppShellModelWordCardTests: XCTestCase {
         await model.selectPopupWord(wordTranslation)
 
         XCTAssertEqual(model.popupState.copyableText, result.translatedText)
+        XCTAssertFalse(model.popupState.showsOriginal)
         XCTAssertEqual(model.popupState.wordCard?.lookupState, .empty(expectedRequest))
     }
 
@@ -62,6 +63,7 @@ final class AppShellModelWordCardTests: XCTestCase {
         await model.selectPopupWord(wordTranslation)
 
         XCTAssertEqual(model.popupState.copyableText, result.translatedText)
+        XCTAssertFalse(model.popupState.showsOriginal)
         XCTAssertEqual(model.popupState.wordCard?.wordTranslation, wordTranslation)
         XCTAssertEqual(model.popupState.wordCard?.lookupState, .failed(.missingLanguagePack(.apple)))
     }
@@ -106,6 +108,7 @@ final class AppShellModelWordCardTests: XCTestCase {
 
     private func makeResult(
         text: String,
+        translatedText: String? = nil,
         wordTranslations: [WordTranslation]
     ) -> TranslationResult {
         let request = TranslationRequest(
@@ -117,7 +120,7 @@ final class AppShellModelWordCardTests: XCTestCase {
         )
         return TranslationResult(
             request: request,
-            translatedText: text,
+            translatedText: translatedText ?? text + " (translated)",
             wordTranslations: wordTranslations,
             createdAt: Date(timeIntervalSince1970: 10)
         )
