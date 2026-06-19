@@ -274,6 +274,13 @@ public struct WordLookupResult: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+public extension WordLookupResult {
+    var sentenceContextDisplayText: String? {
+        let sentenceContext = request.sentenceContext.trimmingCharacters(in: .whitespacesAndNewlines)
+        return sentenceContext.isEmpty ? nil : sentenceContext
+    }
+}
+
 public enum WordLookupFailure: Error, Equatable, Sendable {
     case emptySourceText
     case cancelled

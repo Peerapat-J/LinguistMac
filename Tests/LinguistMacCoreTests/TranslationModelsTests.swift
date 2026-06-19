@@ -65,6 +65,32 @@ final class TranslationModelsTests: XCTestCase {
         XCTAssertEqual(decodedResult.translatedText, "สวัสดี")
     }
 
+    func testWordLookupResultProvidesTrimmedSentenceContextForDisplay() {
+        let request = WordLookupRequest(
+            sourceText: "bank",
+            sentenceContext: "  The canoe reached the river bank.  ",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+        let result = WordLookupResult(request: request, translatedText: "ริมฝั่ง")
+
+        XCTAssertEqual(result.sentenceContextDisplayText, "The canoe reached the river bank.")
+    }
+
+    func testWordLookupResultOmitsBlankSentenceContextForDisplay() {
+        let request = WordLookupRequest(
+            sourceText: "bank",
+            sentenceContext: " ",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .apple
+        )
+        let result = WordLookupResult(request: request, translatedText: "ริมฝั่ง")
+
+        XCTAssertNil(result.sentenceContextDisplayText)
+    }
+
     func testWordLookupStateRepresentsEmptyAndFailureSeparately() {
         let request = WordLookupRequest(
             sourceText: "hello",

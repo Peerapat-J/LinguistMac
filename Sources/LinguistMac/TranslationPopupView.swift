@@ -229,6 +229,19 @@ struct TranslationPopupView: View {
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                if let sentenceContext = result.sentenceContextDisplayText {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Context")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                        Text(sentenceContext)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
                 if let definition = result.definition, !definition.isEmpty {
                     Text(definition)
                         .font(.caption)
