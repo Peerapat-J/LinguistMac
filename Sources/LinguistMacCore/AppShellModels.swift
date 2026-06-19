@@ -210,7 +210,7 @@ public extension WordLookupFailure {
                 title: "Word Lookup Failed",
                 message: "The translation provider could not complete the word lookup. "
                     + "Check configuration or try again.",
-                recoveryAction: .openSettings
+                recoveryAction: .retry
             )
         }
     }

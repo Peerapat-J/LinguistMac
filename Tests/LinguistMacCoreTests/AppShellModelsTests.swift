@@ -108,6 +108,7 @@ final class AppShellModelsTests: XCTestCase {
             WordLookupFailure.providerFailed.presentation.message,
             "The translation provider could not complete the word lookup. Check configuration or try again."
         )
+        XCTAssertEqual(WordLookupFailure.providerFailed.presentation.recoveryAction, .retry)
     }
 
     func testHistoryPolicyTrimsNewestResultsAndDeduplicatesInsertedResult() {
