@@ -165,6 +165,7 @@ extension AppShellModel {
             return false
         }
 
+        cancelPopupWordLookup()
         let updatedResult = result.savingShownWordCard(shownContent)
         popupState = .success(
             updatedResult,

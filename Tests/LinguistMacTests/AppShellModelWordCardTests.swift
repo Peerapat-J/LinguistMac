@@ -212,6 +212,8 @@ final class AppShellModelWordCardTests: XCTestCase {
             )
         )
         model.popupState = .success(result, showsOriginal: true)
+        model.activePopupWordLookupID = UUID()
+        model.activePopupWordLookupTask = Task { .failed(.cancelled) }
 
         await model.selectPopupWord(secondWord, at: 1)
 
@@ -229,6 +231,8 @@ final class AppShellModelWordCardTests: XCTestCase {
         XCTAssertEqual(currentResult.shownWordCards, expectedResult.shownWordCards)
         XCTAssertEqual(wordCard.wordTranslation, secondWord)
         XCTAssertEqual(wordCard.wordIndex, 1)
+        XCTAssertNil(model.activePopupWordLookupID)
+        XCTAssertNil(model.activePopupWordLookupTask)
     }
 
     func testDismissPopupWordCardPreservesTranslationResult() {
