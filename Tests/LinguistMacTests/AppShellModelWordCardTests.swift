@@ -181,6 +181,56 @@ final class AppShellModelWordCardTests: XCTestCase {
         XCTAssertEqual(lookupResult.example, savedContent.example)
     }
 
+    func testSelectPopupWordSavesRestoredCardAsNewestHistoryCard() async throws {
+        let firstWord = WordTranslation(sourceText: "bank", translatedText: "ธนาคาร")
+        let secondWord = WordTranslation(sourceText: "boat", translatedText: "เรือ")
+        let firstContent = ShownWordCardContent(
+            wordTranslation: firstWord,
+            wordIndex: 0,
+            translatedText: "ธนาคาร",
+            sentenceContext: "The boat reached the bank."
+        )
+        let secondContent = ShownWordCardContent(
+            wordTranslation: secondWord,
+            wordIndex: 1,
+            translatedText: "เรือ",
+            sentenceContext: "The boat reached the bank."
+        )
+        let result = makeResult(
+            text: "The boat reached the bank",
+            wordTranslations: [firstWord, secondWord]
+        )
+        .savingShownWordCard(secondContent)
+        .savingShownWordCard(firstContent)
+        let historyStore = WordCardTestTranslationHistoryStore(results: [result])
+        let wordLookupProvider = WordCardTestLookupProvider(response: .failure(.providerFailed))
+        let model = AppShellModel(
+            recentTranslations: [result],
+            services: makeServices(
+                wordLookupProvider: wordLookupProvider,
+                historyStore: historyStore
+            )
+        )
+        model.popupState = .success(result, showsOriginal: true)
+
+        await model.selectPopupWord(secondWord, at: 1)
+
+        let expectedResult = result.savingShownWordCard(secondContent)
+        let requests = await wordLookupProvider.lookupRequests()
+        let savedResults = try await historyStore.recent(limit: 10)
+        XCTAssertEqual(requests, [])
+        XCTAssertEqual(model.recentTranslations.first?.shownWordCards, expectedResult.shownWordCards)
+        XCTAssertEqual(savedResults.first?.shownWordCards, expectedResult.shownWordCards)
+        guard case let .success(currentResult, showsOriginal, wordCard?) = model.popupState else {
+            XCTFail("Expected successful popup with a restored word card.")
+            return
+        }
+        XCTAssertTrue(showsOriginal)
+        XCTAssertEqual(currentResult.shownWordCards, expectedResult.shownWordCards)
+        XCTAssertEqual(wordCard.wordTranslation, secondWord)
+        XCTAssertEqual(wordCard.wordIndex, 1)
+    }
+
     func testDismissPopupWordCardPreservesTranslationResult() {
         let wordTranslation = WordTranslation(sourceText: "hello", translatedText: "สวัสดี")
         let result = makeResult(text: "hello friend", wordTranslations: [wordTranslation])

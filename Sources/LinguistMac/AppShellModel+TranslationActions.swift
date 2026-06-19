@@ -128,7 +128,7 @@ extension AppShellModel {
             return
         }
 
-        if restoreShownPopupWordCard(
+        if await restoreShownPopupWordCard(
             wordTranslation,
             at: index,
             result: result,
@@ -160,16 +160,19 @@ extension AppShellModel {
         at index: Int?,
         result: TranslationResult,
         showsOriginal: Bool
-    ) -> Bool {
+    ) async -> Bool {
         guard let shownContent = result.shownWordCard(matching: wordTranslation, at: index) else {
             return false
         }
 
+        let updatedResult = result.savingShownWordCard(shownContent)
         popupState = .success(
-            result,
+            updatedResult,
             showsOriginal: showsOriginal,
-            wordCard: TranslationPopupWordCardState(shownContent: shownContent, result: result)
+            wordCard: TranslationPopupWordCardState(shownContent: shownContent, result: updatedResult)
         )
+        saveRecent(updatedResult)
+        await persistRecentTranslation(updatedResult)
         return true
     }
 
