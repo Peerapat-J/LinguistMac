@@ -128,6 +128,18 @@ extension AppShellModel {
             return
         }
 
+        if let shownContent = result.shownWordCard(matching: wordTranslation, at: index) {
+            popupState = .success(
+                result,
+                showsOriginal: showsOriginal,
+                wordCard: TranslationPopupWordCardState(
+                    shownContent: shownContent,
+                    result: result
+                )
+            )
+            return
+        }
+
         let request = wordLookupRequest(for: wordTranslation, result: result)
         let lookupID = UUID()
         let loadingCard = TranslationPopupWordCardState(
@@ -172,13 +184,29 @@ extension AppShellModel {
             return
         }
 
-        popupState = completedPopupState(
+        let completedState = completedPopupState(
             result: currentResult,
             showsOriginal: currentShowsOriginal,
             wordTranslation: wordTranslation,
             wordIndex: index,
             lookupState: lookupState
         )
+        popupState = completedState
+
+        guard let shownContent = completedState.wordCard?.shownContent else {
+            return
+        }
+
+        let updatedResult = currentResult.savingShownWordCard(shownContent)
+        popupState = completedPopupState(
+            result: updatedResult,
+            showsOriginal: currentShowsOriginal,
+            wordTranslation: wordTranslation,
+            wordIndex: index,
+            lookupState: lookupState
+        )
+        saveRecent(updatedResult)
+        await persistRecentTranslation(updatedResult)
     }
 
     func dismissPopupWordCard() {

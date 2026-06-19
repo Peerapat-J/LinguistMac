@@ -195,6 +195,7 @@ public actor InputModeTranslationCoordinator {
             translatedText: result.translatedText,
             originalText: result.originalText,
             wordTranslations: wordTranslations,
+            shownWordCards: result.shownWordCards,
             createdAt: result.createdAt
         )
     }

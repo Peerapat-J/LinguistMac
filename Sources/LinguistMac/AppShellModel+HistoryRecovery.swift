@@ -34,7 +34,10 @@ extension AppShellModel {
 
     func showHistoryResult(_ result: TranslationResult) {
         record(.history)
-        popupState = .success(result, showsOriginal: false)
+        let wordCard = result.shownWordCards.first.map {
+            TranslationPopupWordCardState(shownContent: $0, result: result)
+        }
+        popupState = .success(result, showsOriginal: false, wordCard: wordCard)
     }
 
     func refreshRecentTranslations(

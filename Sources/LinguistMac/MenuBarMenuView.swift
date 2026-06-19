@@ -101,7 +101,7 @@ struct MenuBarMenuView: View {
                 } else {
                     ForEach(model.recentMenuItems) { result in
                         Button {
-                            model.popupState = .success(result, showsOriginal: false)
+                            model.showHistoryResult(result)
                             openWindow(id: AppWindow.translationPopup.rawValue)
                             activateApp()
                         } label: {

@@ -28,6 +28,49 @@ final class AppShellModelTests: XCTestCase {
         XCTAssertEqual(recent.first?.wordTranslations, wordTranslations)
     }
 
+    func testSwiftDataHistoryStorePreservesShownWordCards() async throws {
+        let wordTranslation = WordTranslation(sourceText: "bank", translatedText: "ธนาคาร")
+        let shownWordCard = ShownWordCardContent(
+            wordTranslation: wordTranslation,
+            wordIndex: 0,
+            translatedText: "ริมฝั่งแม่น้ำ",
+            sentenceContext: "The boat reached the river bank.",
+            definition: "The side of a river.",
+            example: "The boat reached the bank."
+        )
+        let result = makeResult(
+            text: "The boat reached the river bank.",
+            wordTranslations: [wordTranslation],
+            shownWordCards: [shownWordCard]
+        )
+        let (store, _) = try makeSwiftDataHistoryStore(trimLimit: 10)
+
+        try await store.save(result)
+
+        let recent = try await store.recent(limit: 10)
+        XCTAssertEqual(recent, [result])
+        XCTAssertEqual(recent.first?.shownWordCards, [shownWordCard])
+    }
+
+    func testSwiftDataHistoryStoreFallsBackWhenShownWordCardJSONCannotDecode() async throws {
+        let wordTranslation = WordTranslation(sourceText: "bank", translatedText: "ธนาคาร")
+        let result = makeResult(
+            text: "The boat reached the river bank.",
+            wordTranslations: [wordTranslation]
+        )
+        let (store, container) = try makeSwiftDataHistoryStore(trimLimit: 10)
+        let context = ModelContext(container)
+        let record = TranslationHistoryRecord(result: result)
+        record.shownWordCardsJSON = "{not valid json"
+        context.insert(record)
+        try context.save()
+
+        let recent = try await store.recent(limit: 10)
+        XCTAssertEqual(recent, [result])
+        XCTAssertEqual(recent.first?.wordTranslations, [wordTranslation])
+        XCTAssertEqual(recent.first?.shownWordCards, [])
+    }
+
     func testSwiftDataHistoryStoreTrimsAllOverflowRows() async throws {
         let (store, container) = try makeSwiftDataHistoryStore(trimLimit: 3)
         let existing = (0 ..< 40).map { index in
@@ -192,6 +235,44 @@ final class AppShellModelTests: XCTestCase {
         XCTAssertEqual(model.popupState, .success(result, showsOriginal: false))
     }
 
+    func testShowHistoryResultRestoresShownWordCard() {
+        let wordTranslation = WordTranslation(sourceText: "bank", translatedText: "ธนาคาร")
+        let shownWordCard = ShownWordCardContent(
+            wordTranslation: wordTranslation,
+            wordIndex: 0,
+            translatedText: "ริมฝั่งแม่น้ำ",
+            sentenceContext: "The boat reached the river bank.",
+            definition: "The side of a river.",
+            example: "The boat reached the bank."
+        )
+        let result = makeResult(
+            text: "The boat reached the river bank.",
+            wordTranslations: [wordTranslation],
+            shownWordCards: [shownWordCard]
+        )
+        let model = AppShellModel(services: makeServices())
+
+        model.showHistoryResult(result)
+
+        XCTAssertEqual(model.lastCommand, .history)
+        guard case let .success(currentResult, showsOriginal, wordCard?) = model.popupState else {
+            XCTFail("Expected successful popup with restored word card.")
+            return
+        }
+        XCTAssertEqual(currentResult, result)
+        XCTAssertFalse(showsOriginal)
+        XCTAssertEqual(wordCard.wordTranslation, wordTranslation)
+        XCTAssertEqual(wordCard.wordIndex, 0)
+        guard case let .completed(lookupResult) = wordCard.lookupState else {
+            XCTFail("Expected restored completed lookup state.")
+            return
+        }
+        XCTAssertEqual(lookupResult.translatedText, shownWordCard.translatedText)
+        XCTAssertEqual(lookupResult.sentenceContextDisplayText, shownWordCard.sentenceContext)
+        XCTAssertEqual(lookupResult.definition, shownWordCard.definition)
+        XCTAssertEqual(lookupResult.example, shownWordCard.example)
+    }
+
     func testRememberPopupWindowFrameClampsPersistedSize() {
         let model = AppShellModel(services: makeServices())
 
@@ -249,6 +330,7 @@ final class AppShellModelTests: XCTestCase {
         id: UUID = UUID(),
         text: String,
         wordTranslations: [WordTranslation] = [],
+        shownWordCards: [ShownWordCardContent] = [],
         createdAt: Date = Date(timeIntervalSince1970: 1)
     ) -> TranslationResult {
         let request = TranslationRequest(
@@ -263,6 +345,7 @@ final class AppShellModelTests: XCTestCase {
             request: request,
             translatedText: text,
             wordTranslations: wordTranslations,
+            shownWordCards: shownWordCards,
             createdAt: createdAt
         )
     }
