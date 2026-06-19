@@ -26,8 +26,8 @@ identifier_name:
     error: 1
 
 file_length:
-  warning: 500
-  error: 800
+  warning: 700
+  error: 900
 
 type_body_length:
   warning: 300
