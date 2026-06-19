@@ -65,6 +65,115 @@ final class TranslationModelsTests: XCTestCase {
         XCTAssertEqual(decodedResult.translatedText, "สวัสดี")
     }
 
+    func testShownWordCardContentKeepsOnlyDisplayedLookupFields() throws {
+        let lookupID = try XCTUnwrap(UUID(uuidString: "4BE29B80-B2D4-4BEF-92B8-B0F5A5FF901F"))
+        let wordTranslation = WordTranslation(sourceText: "bank", translatedText: "ธนาคาร")
+        let request = WordLookupRequest(
+            sourceText: "bank",
+            sentenceContext: "  The boat reached the river bank.  ",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            providerID: .deepl,
+            inputMode: .selectedText
+        )
+        let lookupResult = WordLookupResult(
+            id: lookupID,
+            request: request,
+            translatedText: "  ริมฝั่ง  ",
+            definition: "  The side of a river.  ",
+            example: "  The boat reached the bank.  "
+        )
+
+        let content = try XCTUnwrap(
+            ShownWordCardContent(
+                wordTranslation: wordTranslation,
+                wordIndex: 2,
+                lookupResult: lookupResult
+            )
+        )
+
+        XCTAssertEqual(content.wordTranslation, wordTranslation)
+        XCTAssertEqual(content.wordIndex, 2)
+        XCTAssertEqual(content.translatedText, "ริมฝั่ง")
+        XCTAssertEqual(content.sentenceContext, "The boat reached the river bank.")
+        XCTAssertEqual(content.definition, "The side of a river.")
+        XCTAssertEqual(content.example, "The boat reached the bank.")
+
+        let encodedContent = try XCTUnwrap(String(data: JSONEncoder().encode(content), encoding: .utf8))
+        XCTAssertFalse(encodedContent.contains(lookupID.uuidString))
+        XCTAssertFalse(encodedContent.contains("providerID"))
+        XCTAssertFalse(encodedContent.contains("deepl"))
+    }
+
+    func testTranslationResultSavesNewestShownWordCardWithoutDuplicatingWords() {
+        let request = TranslationRequest(
+            text: "hello world",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            inputMode: .selectedText,
+            providerID: .apple
+        )
+        let result = TranslationResult(request: request, translatedText: "สวัสดี โลก")
+        let firstCard = ShownWordCardContent(
+            wordTranslation: WordTranslation(sourceText: "hello", translatedText: "สวัสดี"),
+            wordIndex: 0,
+            translatedText: "คำทักทาย"
+        )
+        let replacementCard = ShownWordCardContent(
+            wordTranslation: WordTranslation(sourceText: "hello", translatedText: "สวัสดี"),
+            wordIndex: 0,
+            translatedText: "ใช้ทักทาย"
+        )
+        let secondCard = ShownWordCardContent(
+            wordTranslation: WordTranslation(sourceText: "world", translatedText: "โลก"),
+            wordIndex: 1,
+            translatedText: "โลก"
+        )
+
+        let updatedResult = result
+            .savingShownWordCard(firstCard)
+            .savingShownWordCard(secondCard)
+            .savingShownWordCard(replacementCard)
+
+        XCTAssertEqual(updatedResult.shownWordCards, [replacementCard, secondCard])
+        XCTAssertEqual(
+            updatedResult.shownWordCard(matching: firstCard.wordTranslation, at: 0),
+            replacementCard
+        )
+    }
+
+    func testShownWordCardMatchingRequiresWordIdentityWhenIndexMatches() {
+        let request = TranslationRequest(
+            text: "hello world",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            inputMode: .selectedText,
+            providerID: .apple
+        )
+        let result = TranslationResult(request: request, translatedText: "สวัสดี โลก")
+        let firstCard = ShownWordCardContent(
+            wordTranslation: WordTranslation(sourceText: "hello", translatedText: "สวัสดี"),
+            wordIndex: 0,
+            translatedText: "คำทักทาย"
+        )
+        let conflictingIndexCard = ShownWordCardContent(
+            wordTranslation: WordTranslation(sourceText: "world", translatedText: "โลก"),
+            wordIndex: 0,
+            translatedText: "ดาวเคราะห์"
+        )
+
+        let updatedResult = result
+            .savingShownWordCard(firstCard)
+            .savingShownWordCard(conflictingIndexCard)
+
+        XCTAssertEqual(updatedResult.shownWordCards, [conflictingIndexCard, firstCard])
+        XCTAssertEqual(updatedResult.shownWordCard(matching: firstCard.wordTranslation, at: 0), firstCard)
+        XCTAssertEqual(
+            updatedResult.shownWordCard(matching: conflictingIndexCard.wordTranslation, at: 0),
+            conflictingIndexCard
+        )
+    }
+
     func testWordLookupResultProvidesTrimmedSentenceContextForDisplay() {
         let request = WordLookupRequest(
             sourceText: "bank",

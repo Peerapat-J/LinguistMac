@@ -8,6 +8,7 @@ final class TranslationHistoryRecord {
     var originalText: String
     var translatedText: String
     var wordTranslationsJSON: String?
+    var shownWordCardsJSON: String?
     var sourceLanguageID: String
     var sourceLanguageDisplayName: String
     var sourceLanguageSupportsAutoDetect: Bool
@@ -23,6 +24,7 @@ final class TranslationHistoryRecord {
         originalText = result.originalText
         translatedText = result.translatedText
         wordTranslationsJSON = Self.encodedWordTranslations(result.wordTranslations)
+        shownWordCardsJSON = Self.encodedShownWordCards(result.shownWordCards)
         sourceLanguageID = result.request.sourceLanguage.id
         sourceLanguageDisplayName = result.request.sourceLanguage.displayName
         sourceLanguageSupportsAutoDetect = result.request.sourceLanguage.supportsAutoDetect
@@ -38,6 +40,7 @@ final class TranslationHistoryRecord {
         originalText = result.originalText
         translatedText = result.translatedText
         wordTranslationsJSON = Self.encodedWordTranslations(result.wordTranslations)
+        shownWordCardsJSON = Self.encodedShownWordCards(result.shownWordCards)
         sourceLanguageID = result.request.sourceLanguage.id
         sourceLanguageDisplayName = result.request.sourceLanguage.displayName
         sourceLanguageSupportsAutoDetect = result.request.sourceLanguage.supportsAutoDetect
@@ -76,6 +79,7 @@ final class TranslationHistoryRecord {
             translatedText: translatedText,
             originalText: originalText,
             wordTranslations: Self.decodedWordTranslations(from: wordTranslationsJSON),
+            shownWordCards: Self.decodedShownWordCards(from: shownWordCardsJSON),
             createdAt: createdAt
         )
     }
@@ -99,6 +103,27 @@ final class TranslationHistoryRecord {
         }
 
         return wordTranslations
+    }
+
+    private static func encodedShownWordCards(_ shownWordCards: [ShownWordCardContent]) -> String? {
+        guard !shownWordCards.isEmpty,
+              let data = try? JSONEncoder().encode(shownWordCards)
+        else {
+            return nil
+        }
+
+        return String(data: data, encoding: .utf8)
+    }
+
+    private static func decodedShownWordCards(from json: String?) -> [ShownWordCardContent] {
+        guard let json,
+              let data = json.data(using: .utf8),
+              let shownWordCards = try? JSONDecoder().decode([ShownWordCardContent].self, from: data)
+        else {
+            return []
+        }
+
+        return shownWordCards
     }
 }
 

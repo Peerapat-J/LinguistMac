@@ -389,6 +389,7 @@ public struct TranslationResult: Identifiable, Equatable, Sendable {
     public let translatedText: String
     public let originalText: String
     public let wordTranslations: [WordTranslation]
+    public let shownWordCards: [ShownWordCardContent]
     public let createdAt: Date
 
     public init(
@@ -397,6 +398,7 @@ public struct TranslationResult: Identifiable, Equatable, Sendable {
         translatedText: String,
         originalText: String? = nil,
         wordTranslations: [WordTranslation] = [],
+        shownWordCards: [ShownWordCardContent] = [],
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -404,7 +406,33 @@ public struct TranslationResult: Identifiable, Equatable, Sendable {
         self.translatedText = translatedText
         self.originalText = originalText ?? request.text
         self.wordTranslations = wordTranslations
+        self.shownWordCards = shownWordCards
         self.createdAt = createdAt
+    }
+}
+
+public extension TranslationResult {
+    func savingShownWordCard(_ content: ShownWordCardContent) -> TranslationResult {
+        let existingCards = shownWordCards.filter {
+            !$0.matches(content.wordTranslation, at: content.wordIndex)
+        }
+        let updatedCards = Array(([content] + existingCards).prefix(32))
+
+        return TranslationResult(
+            id: id,
+            request: request,
+            translatedText: translatedText,
+            originalText: originalText,
+            wordTranslations: wordTranslations,
+            shownWordCards: updatedCards,
+            createdAt: createdAt
+        )
+    }
+
+    func shownWordCard(matching wordTranslation: WordTranslation, at index: Int?) -> ShownWordCardContent? {
+        shownWordCards.first {
+            $0.matches(wordTranslation, at: index)
+        }
     }
 }
 

@@ -71,6 +71,44 @@ public struct TranslationPopupWordCardState: Equatable, Sendable {
         self.lookupState = lookupState
     }
 
+    public init(
+        shownContent: ShownWordCardContent,
+        result: TranslationResult
+    ) {
+        let request = WordLookupRequest(
+            sourceText: shownContent.wordTranslation.sourceText,
+            sentenceContext: shownContent.sentenceContext ?? "",
+            sourceLanguage: result.request.sourceLanguage,
+            targetLanguage: result.request.targetLanguage,
+            providerID: result.request.providerID,
+            inputMode: result.request.inputMode
+        )
+        let lookupResult = WordLookupResult(
+            request: request,
+            translatedText: shownContent.translatedText,
+            definition: shownContent.definition,
+            example: shownContent.example
+        )
+
+        self.init(
+            wordTranslation: shownContent.wordTranslation,
+            wordIndex: shownContent.wordIndex,
+            lookupState: .completed(lookupResult)
+        )
+    }
+
+    public var shownContent: ShownWordCardContent? {
+        guard case let .completed(result) = lookupState else {
+            return nil
+        }
+
+        return ShownWordCardContent(
+            wordTranslation: wordTranslation,
+            wordIndex: wordIndex,
+            lookupResult: result
+        )
+    }
+
     public func matches(_ wordTranslation: WordTranslation, at index: Int) -> Bool {
         if let wordIndex {
             return wordIndex == index

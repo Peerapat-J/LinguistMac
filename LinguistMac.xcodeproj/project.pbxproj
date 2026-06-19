@@ -64,8 +64,10 @@
 		B1000000000000000000004C /* InputModeTranslationCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004C /* InputModeTranslationCoordinatorTests.swift */; };
 		B1000000000000000000004D /* ShortcutRegistrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004D /* ShortcutRegistrationTests.swift */; };
 		B1000000000000000000004E /* CloudTranslationProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004E /* CloudTranslationProviderTests.swift */; };
+		B1000000000000000000004F /* ShownWordCardContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004F /* ShownWordCardContent.swift */; };
 		C10000000000000000000001 /* AppShellModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000001 /* AppShellModelTests.swift */; };
 		C10000000000000000000003 /* AppShellModelWordCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000003 /* AppShellModelWordCardTests.swift */; };
+		C10000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift */; };
 		C10000000000000000000002 /* libLinguistMacCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B20000000000000000000030 /* libLinguistMacCore.a */; };
 /* End PBXBuildFile section */
 
@@ -162,8 +164,10 @@
 		B2000000000000000000004C /* InputModeTranslationCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputModeTranslationCoordinatorTests.swift; sourceTree = "<group>"; };
 		B2000000000000000000004D /* ShortcutRegistrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRegistrationTests.swift; sourceTree = "<group>"; };
 		B2000000000000000000004E /* CloudTranslationProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudTranslationProviderTests.swift; sourceTree = "<group>"; };
+		B2000000000000000000004F /* ShownWordCardContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShownWordCardContent.swift; sourceTree = "<group>"; };
 		C20000000000000000000001 /* AppShellModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000003 /* AppShellModelWordCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelWordCardTests.swift; sourceTree = "<group>"; };
+		C20000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataTranslationHistoryStoreTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000002 /* LinguistMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LinguistMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -263,6 +267,7 @@
 				B20000000000000000000014 /* Permissions.swift */,
 				B20000000000000000000015 /* ServiceProtocols.swift */,
 				B20000000000000000000016 /* TranslationModels.swift */,
+				B2000000000000000000004F /* ShownWordCardContent.swift */,
 				B20000000000000000000017 /* AppShellModels.swift */,
 				B20000000000000000000018 /* LanguageSelection.swift */,
 				B20000000000000000000019 /* OCRTextPreprocessor.swift */,
@@ -311,6 +316,7 @@
 			children = (
 				C20000000000000000000001 /* AppShellModelTests.swift */,
 				C20000000000000000000003 /* AppShellModelWordCardTests.swift */,
+				C20000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift */,
 			);
 			path = LinguistMacTests;
 			sourceTree = "<group>";
@@ -525,6 +531,7 @@
 				B10000000000000000000014 /* Permissions.swift in Sources */,
 				B10000000000000000000015 /* ServiceProtocols.swift in Sources */,
 				B10000000000000000000016 /* TranslationModels.swift in Sources */,
+				B1000000000000000000004F /* ShownWordCardContent.swift in Sources */,
 				B10000000000000000000017 /* AppShellModels.swift in Sources */,
 				B10000000000000000000018 /* LanguageSelection.swift in Sources */,
 				B10000000000000000000019 /* OCRTextPreprocessor.swift in Sources */,
@@ -564,6 +571,7 @@
 			files = (
 				C10000000000000000000001 /* AppShellModelTests.swift in Sources */,
 				C10000000000000000000003 /* AppShellModelWordCardTests.swift in Sources */,
+				C10000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
