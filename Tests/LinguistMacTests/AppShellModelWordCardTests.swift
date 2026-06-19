@@ -149,7 +149,7 @@ final class AppShellModelWordCardTests: XCTestCase {
         XCTAssertEqual(savedResults, [])
     }
 
-    func testSelectPopupWordRestoresSavedCardWithoutRunningLookup() async throws {
+    func testSelectPopupWordRestoresSavedCardWithoutRunningLookup() async {
         let wordTranslation = WordTranslation(sourceText: "bank", translatedText: "ธนาคาร")
         let savedContent = ShownWordCardContent(
             wordTranslation: wordTranslation,
