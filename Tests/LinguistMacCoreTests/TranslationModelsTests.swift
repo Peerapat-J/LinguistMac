@@ -142,6 +142,38 @@ final class TranslationModelsTests: XCTestCase {
         )
     }
 
+    func testShownWordCardMatchingRequiresWordIdentityWhenIndexMatches() {
+        let request = TranslationRequest(
+            text: "hello world",
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            inputMode: .selectedText,
+            providerID: .apple
+        )
+        let result = TranslationResult(request: request, translatedText: "สวัสดี โลก")
+        let firstCard = ShownWordCardContent(
+            wordTranslation: WordTranslation(sourceText: "hello", translatedText: "สวัสดี"),
+            wordIndex: 0,
+            translatedText: "คำทักทาย"
+        )
+        let conflictingIndexCard = ShownWordCardContent(
+            wordTranslation: WordTranslation(sourceText: "world", translatedText: "โลก"),
+            wordIndex: 0,
+            translatedText: "ดาวเคราะห์"
+        )
+
+        let updatedResult = result
+            .savingShownWordCard(firstCard)
+            .savingShownWordCard(conflictingIndexCard)
+
+        XCTAssertEqual(updatedResult.shownWordCards, [conflictingIndexCard, firstCard])
+        XCTAssertEqual(updatedResult.shownWordCard(matching: firstCard.wordTranslation, at: 0), firstCard)
+        XCTAssertEqual(
+            updatedResult.shownWordCard(matching: conflictingIndexCard.wordTranslation, at: 0),
+            conflictingIndexCard
+        )
+    }
+
     func testWordLookupResultProvidesTrimmedSentenceContextForDisplay() {
         let request = WordLookupRequest(
             sourceText: "bank",

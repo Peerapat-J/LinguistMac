@@ -46,10 +46,14 @@ public struct ShownWordCardContent: Codable, Equatable, Sendable {
 
     public func matches(_ wordTranslation: WordTranslation, at index: Int?) -> Bool {
         if let wordIndex, let index {
-            return wordIndex == index
+            return wordIndex == index && self.wordTranslation == wordTranslation
         }
 
-        return self.wordTranslation == wordTranslation
+        if wordIndex == nil, index == nil {
+            return self.wordTranslation == wordTranslation
+        }
+
+        return false
     }
 
     private static func displayText(_ value: String?) -> String? {
