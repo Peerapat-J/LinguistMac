@@ -33,6 +33,41 @@ final class AppShellModelTests: XCTestCase {
         XCTAssertNil(model.historyLoadError)
     }
 
+    func testQuickTranslateAddsWordBreakdownForCompletedSentences() async throws {
+        let historyStore = TestTranslationHistoryStore()
+        let provider = TestTranslationProvider(
+            translatedTextsBySource: [
+                "hello world": "สวัสดีชาวโลก",
+                "hello": "สวัสดี",
+                "world": "โลก"
+            ]
+        )
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
+            services: makeServices(
+                translatorRegistry: TestTranslationProviderRegistry(provider: provider),
+                historyStore: historyStore
+            )
+        )
+        model.quickDraft.sourceText = "  hello world  "
+
+        await model.runQuickTranslate()
+
+        let expectedWords = [
+            WordTranslation(sourceText: "hello", translatedText: "สวัสดี"),
+            WordTranslation(sourceText: "world", translatedText: "โลก")
+        ]
+        guard case let .completed(result) = model.quickSessionState else {
+            return XCTFail("Expected completed quick translate state.")
+        }
+        XCTAssertEqual(result.translatedText, "สวัสดีชาวโลก")
+        XCTAssertEqual(result.wordTranslations, expectedWords)
+        XCTAssertEqual(model.popupState, .success(result, showsOriginal: false))
+
+        let savedResults = try await historyStore.recent(limit: 10)
+        XCTAssertEqual(savedResults.first?.wordTranslations, expectedWords)
+    }
+
     func testQuickTranslateSurfacesHistorySaveFailure() async {
         let model = AppShellModel(
             services: makeServices(historyStore: FailingSaveTestTranslationHistoryStore())
@@ -204,6 +239,7 @@ final class AppShellModelTests: XCTestCase {
     }
 
     private func makeServices(
+        translatorRegistry: (any TranslationProviderRegistry)? = nil,
         historyStore: any TranslationHistoryStoring = TestTranslationHistoryStore(),
         apiKeyStore: any APIKeyStoring = TestAPIKeyStore(),
         clipboard: TestClipboard = TestClipboard()
@@ -211,7 +247,7 @@ final class AppShellModelTests: XCTestCase {
         LinguistServices(
             screenCapture: TestScreenCaptureService(),
             ocr: TestOCRService(),
-            translatorRegistry: TestTranslationProviderRegistry(),
+            translatorRegistry: translatorRegistry ?? TestTranslationProviderRegistry(),
             languageAvailability: TestLanguageAvailabilityChecker(),
             settingsStore: TestAppSettingsStore(),
             apiKeyStore: apiKeyStore,
@@ -269,6 +305,16 @@ private struct TestTranslationProvider: TranslationProviding {
     let requiresAPIKey = false
     let usesNetwork = false
     let privacySummary = "On-device"
+    let translatedText: String
+    let translatedTextsBySource: [String: String]
+
+    init(
+        translatedText: String = "สวัสดี",
+        translatedTextsBySource: [String: String] = [:]
+    ) {
+        self.translatedText = translatedText
+        self.translatedTextsBySource = translatedTextsBySource
+    }
 
     func configurationStatus() async -> TranslationProviderConfigurationStatus {
         .ready
@@ -277,18 +323,24 @@ private struct TestTranslationProvider: TranslationProviding {
     func translate(_ request: TranslationRequest) async throws -> TranslationResult {
         TranslationResult(
             request: request,
-            translatedText: "สวัสดี"
+            translatedText: translatedTextsBySource[request.text] ?? translatedText
         )
     }
 }
 
 private struct TestTranslationProviderRegistry: TranslationProviderRegistry {
+    let provider: TestTranslationProvider
+
+    init(provider: TestTranslationProvider = TestTranslationProvider()) {
+        self.provider = provider
+    }
+
     func provider(for id: TranslationProviderID) async throws -> any TranslationProviding {
         guard id == .apple else {
             throw TranslationFailure.providerUnavailable(id)
         }
 
-        return TestTranslationProvider()
+        return provider
     }
 
     func availableProviders() async -> [TranslationProviderDescriptor] {

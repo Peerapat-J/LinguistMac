@@ -67,7 +67,7 @@ extension AppShellModel {
                     throw TranslationFailure.unsupportedLanguagePair
                 }
             }
-            let result = try await translator.translate(request)
+            let result = try await completedQuickTranslateResult(request, translator: translator)
             quickSessionState = .completed(result)
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
@@ -84,6 +84,18 @@ extension AppShellModel {
             quickSessionState = .failed(failure)
             popupState = .failed(failure, originalText: quickDraft.trimmedText)
         }
+    }
+
+    private func completedQuickTranslateResult(
+        _ request: TranslationRequest,
+        translator: any TranslationProviding
+    ) async throws -> TranslationResult {
+        let translatedResult = try await translator.translate(request)
+        return await WordTranslationAugmenter.resultWithWordTranslationsIfNeeded(
+            translatedResult,
+            provider: translator,
+            eligibleInputModes: [.quickTranslate]
+        )
     }
 
     func runSelectedTextTranslation() async {

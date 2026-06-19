@@ -45,6 +45,29 @@ final class AppShellModelWordCardTests: XCTestCase {
         XCTAssertEqual(wordCard.lookupState, .completed(lookupResult))
     }
 
+    func testQuickTranslateWordLookupKeepsQuickTranslateInputMode() async {
+        let wordTranslation = WordTranslation(sourceText: "world", translatedText: "โลก")
+        let result = makeResult(
+            text: "hello world",
+            wordTranslations: [wordTranslation],
+            inputMode: .quickTranslate
+        )
+        let expectedRequest = makeWordLookupRequest(for: wordTranslation, result: result)
+        let lookupResult = WordLookupResult(
+            request: expectedRequest,
+            translatedText: "โลก"
+        )
+        let wordLookupProvider = WordCardTestLookupProvider(response: .success(lookupResult))
+        let model = AppShellModel(services: makeServices(wordLookupProvider: wordLookupProvider))
+        model.popupState = .success(result, showsOriginal: false)
+
+        await model.selectPopupWord(wordTranslation, at: 0)
+
+        let requests = await wordLookupProvider.lookupRequests()
+        XCTAssertEqual(requests, [expectedRequest])
+        XCTAssertEqual(requests.first?.inputMode, .quickTranslate)
+    }
+
     func testCompletedPopupWordCardPersistsDisplayReadyContentInHistory() async throws {
         let wordTranslation = WordTranslation(sourceText: "bank", translatedText: "ธนาคาร")
         let result = makeResult(
@@ -277,13 +300,14 @@ final class AppShellModelWordCardTests: XCTestCase {
     private func makeResult(
         text: String,
         translatedText: String? = nil,
-        wordTranslations: [WordTranslation]
+        wordTranslations: [WordTranslation],
+        inputMode: TranslationInputMode = .selectedText
     ) -> TranslationResult {
         let request = TranslationRequest(
             text: text,
             sourceLanguage: .english,
             targetLanguage: .thai,
-            inputMode: .selectedText,
+            inputMode: inputMode,
             providerID: .apple
         )
         return TranslationResult(
