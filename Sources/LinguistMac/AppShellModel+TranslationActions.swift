@@ -128,23 +128,62 @@ extension AppShellModel {
             return
         }
 
-        if let shownContent = result.shownWordCard(matching: wordTranslation, at: index) {
-            popupState = .success(
-                result,
-                showsOriginal: showsOriginal,
-                wordCard: TranslationPopupWordCardState(
-                    shownContent: shownContent,
-                    result: result
-                )
-            )
+        if restoreShownPopupWordCard(
+            wordTranslation,
+            at: index,
+            result: result,
+            showsOriginal: showsOriginal
+        ) {
             return
         }
 
         let request = wordLookupRequest(for: wordTranslation, result: result)
+        let (lookupID, lookupTask) = startPopupWordLookup(
+            request: request,
+            wordTranslation: wordTranslation,
+            wordIndex: index,
+            result: result,
+            showsOriginal: showsOriginal
+        )
+        let lookupState = await lookupTask.value
+        await finishPopupWordLookup(
+            lookupID: lookupID,
+            resultID: result.id,
+            wordTranslation: wordTranslation,
+            wordIndex: index,
+            lookupState: lookupState
+        )
+    }
+
+    private func restoreShownPopupWordCard(
+        _ wordTranslation: WordTranslation,
+        at index: Int?,
+        result: TranslationResult,
+        showsOriginal: Bool
+    ) -> Bool {
+        guard let shownContent = result.shownWordCard(matching: wordTranslation, at: index) else {
+            return false
+        }
+
+        popupState = .success(
+            result,
+            showsOriginal: showsOriginal,
+            wordCard: TranslationPopupWordCardState(shownContent: shownContent, result: result)
+        )
+        return true
+    }
+
+    private func startPopupWordLookup(
+        request: WordLookupRequest,
+        wordTranslation: WordTranslation,
+        wordIndex: Int?,
+        result: TranslationResult,
+        showsOriginal: Bool
+    ) -> (UUID, Task<WordLookupState, Never>) {
         let lookupID = UUID()
         let loadingCard = TranslationPopupWordCardState(
             wordTranslation: wordTranslation,
-            wordIndex: index,
+            wordIndex: wordIndex,
             lookupState: .loading(request)
         )
 
@@ -152,8 +191,8 @@ extension AppShellModel {
         activePopupWordLookupID = lookupID
         popupState = .success(result, showsOriginal: showsOriginal, wordCard: loadingCard)
 
-        let provider = services.wordLookupProvider
         let lookupTask = Task<WordLookupState, Never> {
+            let provider = services.wordLookupProvider
             do {
                 if let result = try await provider.lookup(request) {
                     return .completed(result)
@@ -169,8 +208,16 @@ extension AppShellModel {
             }
         }
         activePopupWordLookupTask = lookupTask
+        return (lookupID, lookupTask)
+    }
 
-        let lookupState = await lookupTask.value
+    private func finishPopupWordLookup(
+        lookupID: UUID,
+        resultID: UUID,
+        wordTranslation: WordTranslation,
+        wordIndex: Int?,
+        lookupState: WordLookupState
+    ) async {
         guard activePopupWordLookupID == lookupID else {
             return
         }
@@ -179,7 +226,7 @@ extension AppShellModel {
         activePopupWordLookupTask = nil
 
         guard case let .success(currentResult, currentShowsOriginal, _) = popupState,
-              currentResult.id == result.id
+              currentResult.id == resultID
         else {
             return
         }
@@ -188,7 +235,7 @@ extension AppShellModel {
             result: currentResult,
             showsOriginal: currentShowsOriginal,
             wordTranslation: wordTranslation,
-            wordIndex: index,
+            wordIndex: wordIndex,
             lookupState: lookupState
         )
         popupState = completedState
@@ -202,7 +249,7 @@ extension AppShellModel {
             result: updatedResult,
             showsOriginal: currentShowsOriginal,
             wordTranslation: wordTranslation,
-            wordIndex: index,
+            wordIndex: wordIndex,
             lookupState: lookupState
         )
         saveRecent(updatedResult)

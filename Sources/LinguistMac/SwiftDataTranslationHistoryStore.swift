@@ -8,7 +8,7 @@ final class TranslationHistoryRecord {
     var originalText: String
     var translatedText: String
     var wordTranslationsJSON: String?
-    var shownWordCardsJSON: String? = nil
+    var shownWordCardsJSON: String?
     var sourceLanguageID: String
     var sourceLanguageDisplayName: String
     var sourceLanguageSupportsAutoDetect: Bool
