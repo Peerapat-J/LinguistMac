@@ -101,6 +101,24 @@ issue because it changes privacy, licensing, settings, and failure modes.
 Each slice should be reviewable without including voice translation work from
 issue `#33`.
 
+## Issue #48 Decision
+
+Quick Translate exposes word-card lookup only after a typed translation has
+completed. The editor remains plain while the user is composing text; the
+completed result can then show the same Words section and compact card used by
+the popup flow.
+
+The implementation reuses provider-backed `WordLookupRequest` with
+`inputMode == .quickTranslate`, so no new dictionary data source, network
+destination, API key, privacy copy, or persistence format is introduced in this
+slice.
+
+Richer dictionary fields remain deferred. `WordTranslation` stays limited to
+source word plus short translated text, while definition/example content stays
+on `WordLookupResult` and display-ready `ShownWordCardContent`. External
+dictionary APIs, pronunciation, vocabulary lists, bookmarks, quizzes, and
+spaced repetition still require separate issues before implementation.
+
 ## Test Expectations
 
 - Model tests for card state, serialization, and redaction boundaries.

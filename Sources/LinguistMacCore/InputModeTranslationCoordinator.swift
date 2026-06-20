@@ -1,8 +1,6 @@
 import Foundation
 
 public actor InputModeTranslationCoordinator {
-    private static let maximumWordTranslationCount = 32
-
     public private(set) var state: TranslationSessionState
     private var stateHistory: [TranslationSessionState]
     private let services: LinguistServices
@@ -125,9 +123,10 @@ public actor InputModeTranslationCoordinator {
             }
 
             let result = try await provider.translate(request)
-            let completedResult = await resultWithWordTranslationsIfNeeded(
+            let completedResult = await WordTranslationAugmenter.resultWithWordTranslationsIfNeeded(
                 result,
-                provider: provider
+                provider: provider,
+                eligibleInputModes: [.selectedText]
             )
             await saveHistoryIfPossible(completedResult)
 
@@ -165,76 +164,6 @@ public actor InputModeTranslationCoordinator {
         }
     }
 
-    private func resultWithWordTranslationsIfNeeded(
-        _ result: TranslationResult,
-        provider: any TranslationProviding
-    ) async -> TranslationResult {
-        guard result.request.inputMode == .selectedText else {
-            return result
-        }
-
-        let sourceWords = WordTranslationTokenizer.words(in: result.originalText)
-        guard sourceWords.count > 1,
-              sourceWords.count <= Self.maximumWordTranslationCount
-        else {
-            return result
-        }
-
-        // The sentence translation is still the primary result if additive word lookups fail.
-        guard let wordTranslations = try? await wordTranslations(
-            for: sourceWords,
-            request: result.request,
-            provider: provider
-        ) else {
-            return result
-        }
-
-        return TranslationResult(
-            id: result.id,
-            request: result.request,
-            translatedText: result.translatedText,
-            originalText: result.originalText,
-            wordTranslations: wordTranslations,
-            shownWordCards: result.shownWordCards,
-            createdAt: result.createdAt
-        )
-    }
-
-    private func wordTranslations(
-        for sourceWords: [String],
-        request: TranslationRequest,
-        provider: any TranslationProviding
-    ) async throws -> [WordTranslation] {
-        var translatedBySource: [String: String] = [:]
-        var translations: [WordTranslation] = []
-
-        for sourceWord in sourceWords {
-            let translatedText: String
-            if let cachedTranslation = translatedBySource[sourceWord] {
-                translatedText = cachedTranslation
-            } else {
-                let wordRequest = TranslationRequest(
-                    text: sourceWord,
-                    sourceLanguage: request.sourceLanguage,
-                    targetLanguage: request.targetLanguage,
-                    inputMode: request.inputMode,
-                    providerID: request.providerID
-                )
-                translatedText = try await provider.translate(wordRequest).translatedText
-                translatedBySource[sourceWord] = translatedText
-            }
-
-            translations.append(
-                WordTranslation(
-                    sourceText: sourceWord,
-                    translatedText: translatedText
-                )
-            )
-        }
-
-        return translations
-    }
-
     private func requestPermissionIfNeeded(_ kind: PermissionKind) async -> PermissionStatus {
         let status = await services.permissionChecker.status(for: kind)
         guard status != .granted else {
@@ -269,5 +198,82 @@ public actor InputModeTranslationCoordinator {
     private func setState(_ newState: TranslationSessionState) {
         state = newState
         stateHistory.append(newState)
+    }
+}
+
+public enum WordTranslationAugmenter {
+    public static let maximumWordTranslationCount = 32
+
+    public static func resultWithWordTranslationsIfNeeded(
+        _ result: TranslationResult,
+        provider: any TranslationProviding,
+        eligibleInputModes: [TranslationInputMode]
+    ) async -> TranslationResult {
+        guard eligibleInputModes.contains(result.request.inputMode) else {
+            return result
+        }
+
+        let sourceWords = WordTranslationTokenizer.words(in: result.originalText)
+        guard sourceWords.count > 1,
+              sourceWords.count <= maximumWordTranslationCount
+        else {
+            return result
+        }
+
+        // The sentence translation is still the primary result if additive word lookups fail.
+        guard let wordTranslations = try? await wordTranslations(
+            for: sourceWords,
+            request: result.request,
+            provider: provider
+        ) else {
+            return result
+        }
+
+        return TranslationResult(
+            id: result.id,
+            request: result.request,
+            translatedText: result.translatedText,
+            originalText: result.originalText,
+            wordTranslations: wordTranslations,
+            shownWordCards: result.shownWordCards,
+            createdAt: result.createdAt
+        )
+    }
+
+    private static func wordTranslations(
+        for sourceWords: [String],
+        request: TranslationRequest,
+        provider: any TranslationProviding
+    ) async throws -> [WordTranslation] {
+        var translatedBySource: [String: String] = [:]
+        var translations: [WordTranslation] = []
+
+        for sourceWord in sourceWords {
+            try Task.checkCancellation()
+
+            let translatedText: String
+            if let cachedTranslation = translatedBySource[sourceWord] {
+                translatedText = cachedTranslation
+            } else {
+                let wordRequest = TranslationRequest(
+                    text: sourceWord,
+                    sourceLanguage: request.sourceLanguage,
+                    targetLanguage: request.targetLanguage,
+                    inputMode: request.inputMode,
+                    providerID: request.providerID
+                )
+                translatedText = try await provider.translate(wordRequest).translatedText
+                translatedBySource[sourceWord] = translatedText
+            }
+
+            translations.append(
+                WordTranslation(
+                    sourceText: sourceWord,
+                    translatedText: translatedText
+                )
+            )
+        }
+
+        return translations
     }
 }

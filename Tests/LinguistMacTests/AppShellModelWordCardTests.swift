@@ -45,6 +45,29 @@ final class AppShellModelWordCardTests: XCTestCase {
         XCTAssertEqual(wordCard.lookupState, .completed(lookupResult))
     }
 
+    func testQuickTranslateWordLookupKeepsQuickTranslateInputMode() async {
+        let wordTranslation = WordTranslation(sourceText: "world", translatedText: "โลก")
+        let result = makeResult(
+            text: "hello world",
+            wordTranslations: [wordTranslation],
+            inputMode: .quickTranslate
+        )
+        let expectedRequest = makeWordLookupRequest(for: wordTranslation, result: result)
+        let lookupResult = WordLookupResult(
+            request: expectedRequest,
+            translatedText: "โลก"
+        )
+        let wordLookupProvider = WordCardTestLookupProvider(response: .success(lookupResult))
+        let model = AppShellModel(services: makeServices(wordLookupProvider: wordLookupProvider))
+        model.popupState = .success(result, showsOriginal: false)
+
+        await model.selectPopupWord(wordTranslation, at: 0)
+
+        let requests = await wordLookupProvider.lookupRequests()
+        XCTAssertEqual(requests, [expectedRequest])
+        XCTAssertEqual(requests.first?.inputMode, .quickTranslate)
+    }
+
     func testCompletedPopupWordCardPersistsDisplayReadyContentInHistory() async throws {
         let wordTranslation = WordTranslation(sourceText: "bank", translatedText: "ธนาคาร")
         let result = makeResult(
@@ -277,13 +300,14 @@ final class AppShellModelWordCardTests: XCTestCase {
     private func makeResult(
         text: String,
         translatedText: String? = nil,
-        wordTranslations: [WordTranslation]
+        wordTranslations: [WordTranslation],
+        inputMode: TranslationInputMode = .selectedText
     ) -> TranslationResult {
         let request = TranslationRequest(
             text: text,
             sourceLanguage: .english,
             targetLanguage: .thai,
-            inputMode: .selectedText,
+            inputMode: inputMode,
             providerID: .apple
         )
         return TranslationResult(
@@ -305,6 +329,81 @@ final class AppShellModelWordCardTests: XCTestCase {
             targetLanguage: result.request.targetLanguage,
             providerID: result.request.providerID,
             inputMode: result.request.inputMode
+        )
+    }
+}
+
+@MainActor
+final class AppShellModelWordCardResultGateTests: XCTestCase {
+    func testSelectPopupWordIgnoresMismatchedResultID() async throws {
+        let staleWord = WordTranslation(sourceText: "stale", translatedText: "เก่า")
+        let staleResult = makeResult(
+            text: "stale quick translate",
+            wordTranslations: [staleWord],
+            inputMode: .quickTranslate
+        )
+        let currentWord = WordTranslation(sourceText: "current", translatedText: "ปัจจุบัน")
+        let currentResult = makeResult(
+            text: "current popup",
+            wordTranslations: [currentWord]
+        )
+        let historyStore = WordCardTestTranslationHistoryStore()
+        let wordLookupProvider = WordCardTestLookupProvider(response: .failure(.providerFailed))
+        let model = AppShellModel(
+            services: makeServices(
+                wordLookupProvider: wordLookupProvider,
+                historyStore: historyStore
+            )
+        )
+        model.popupState = .success(currentResult, showsOriginal: false)
+
+        await model.selectPopupWord(staleWord, at: 0, resultID: staleResult.id)
+
+        let requests = await wordLookupProvider.lookupRequests()
+        let savedResults = try await historyStore.recent(limit: 10)
+        XCTAssertEqual(requests, [])
+        XCTAssertEqual(savedResults, [])
+        XCTAssertEqual(model.popupState, .success(currentResult, showsOriginal: false))
+    }
+
+    private func makeServices(
+        wordLookupProvider: any WordLookupProviding,
+        historyStore: any TranslationHistoryStoring
+    ) -> LinguistServices {
+        LinguistServices(
+            screenCapture: WordCardTestScreenCaptureService(),
+            ocr: WordCardTestOCRService(),
+            translatorRegistry: WordCardTestTranslationProviderRegistry(),
+            languageAvailability: WordCardTestLanguageAvailabilityChecker(),
+            settingsStore: WordCardTestAppSettingsStore(),
+            apiKeyStore: WordCardTestAPIKeyStore(),
+            launchAtLogin: WordCardTestLaunchAtLoginService(),
+            historyStore: historyStore,
+            permissionChecker: WordCardTestPermissionChecker(),
+            clipboard: WordCardTestClipboard(),
+            selectedTextCapture: WordCardTestSelectedTextCapture(),
+            shortcutRegistry: WordCardTestShortcutRegistry(),
+            wordLookupProvider: wordLookupProvider
+        )
+    }
+
+    private func makeResult(
+        text: String,
+        wordTranslations: [WordTranslation],
+        inputMode: TranslationInputMode = .selectedText
+    ) -> TranslationResult {
+        let request = TranslationRequest(
+            text: text,
+            sourceLanguage: .english,
+            targetLanguage: .thai,
+            inputMode: inputMode,
+            providerID: .apple
+        )
+        return TranslationResult(
+            request: request,
+            translatedText: text + " (translated)",
+            wordTranslations: wordTranslations,
+            createdAt: Date(timeIntervalSince1970: 10)
         )
     }
 }

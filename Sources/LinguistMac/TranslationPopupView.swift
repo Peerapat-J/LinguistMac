@@ -71,13 +71,32 @@ struct TranslationPopupView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if !result.wordTranslations.isEmpty {
+                    if !result.wordTranslations.isEmpty || wordCard != nil {
                         Divider()
-                        wordTranslationList(result.wordTranslations, wordCard: wordCard)
-                    }
-
-                    if let wordCard {
-                        wordLookupCard(wordCard)
+                        TranslationWordLookupSection(
+                            wordTranslations: result.wordTranslations,
+                            wordCard: wordCard,
+                            isSelectionEnabled: true,
+                            onSelectWord: { wordTranslation, index in
+                                Task {
+                                    await model.selectPopupWord(
+                                        wordTranslation,
+                                        at: index,
+                                        resultID: result.id
+                                    )
+                                }
+                            },
+                            onDismissWordCard: {
+                                model.dismissPopupWordCard()
+                            },
+                            onRecoveryAction: { action, card in
+                                handleWordLookupRecovery(
+                                    action,
+                                    card: card,
+                                    resultID: result.id
+                                )
+                            }
+                        )
                     }
 
                     if showsOriginal {
@@ -119,10 +138,89 @@ struct TranslationPopupView: View {
         }
     }
 
-    private func wordTranslationList(
-        _ wordTranslations: [WordTranslation],
-        wordCard: TranslationPopupWordCardState?
-    ) -> some View {
+    private func handleWordLookupRecovery(
+        _ action: TranslationRecoveryAction,
+        card: TranslationPopupWordCardState,
+        resultID: UUID
+    ) {
+        if action == .retry {
+            Task {
+                await model.selectPopupWord(
+                    card.wordTranslation,
+                    at: card.wordIndex,
+                    resultID: resultID
+                )
+            }
+        } else {
+            model.performRecoveryAction(action)
+        }
+    }
+
+    private var popupFont: Font {
+        guard !model.settings.popupFontFamily.isEmpty else {
+            return .system(size: model.settings.popupFontSize)
+        }
+
+        return .custom(model.settings.popupFontFamily, size: model.settings.popupFontSize)
+    }
+
+    private var footer: some View {
+        HStack(alignment: .bottom) {
+            Button {
+                Task {
+                    await model.copyPopupText()
+                }
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
+            }
+            .disabled(model.popupState.copyableText == nil)
+
+            Button {
+                model.togglePopupOriginal()
+            } label: {
+                if model.popupState.showsOriginal {
+                    Label("Hide Original", systemImage: "text.quote")
+                } else {
+                    Label("Show Original", systemImage: "text.quote")
+                }
+            }
+            .disabled(model.popupState.copyableText == nil)
+
+            Spacer()
+
+            Button("Done") {
+                dismiss()
+            }
+            .keyboardShortcut(.defaultAction)
+
+            PopupResizeGrip { widthDelta, heightDelta in
+                model.resizePopup(widthDelta: widthDelta, heightDelta: heightDelta)
+            }
+        }
+    }
+}
+
+struct TranslationWordLookupSection: View {
+    let wordTranslations: [WordTranslation]
+    let wordCard: TranslationPopupWordCardState?
+    let isSelectionEnabled: Bool
+    let onSelectWord: (WordTranslation, Int) -> Void
+    let onDismissWordCard: () -> Void
+    let onRecoveryAction: (TranslationRecoveryAction, TranslationPopupWordCardState) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !wordTranslations.isEmpty {
+                wordTranslationList
+            }
+
+            if let wordCard {
+                wordLookupCard(wordCard)
+            }
+        }
+    }
+
+    private var wordTranslationList: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Words")
                 .font(.caption)
@@ -131,9 +229,7 @@ struct TranslationPopupView: View {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(Array(wordTranslations.enumerated()), id: \.offset) { index, wordTranslation in
                     Button {
-                        Task {
-                            await model.selectPopupWord(wordTranslation, at: index)
-                        }
+                        onSelectWord(wordTranslation, index)
                     } label: {
                         wordTranslationRow(
                             wordTranslation,
@@ -141,6 +237,7 @@ struct TranslationPopupView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .disabled(!isSelectionEnabled)
                     .accessibilityLabel("Look up \(wordTranslation.sourceText)")
                 }
             }
@@ -200,7 +297,7 @@ struct TranslationPopupView: View {
                 Spacer()
 
                 Button {
-                    model.dismissPopupWordCard()
+                    onDismissWordCard()
                 } label: {
                     Label("Dismiss word card", systemImage: "xmark.circle")
                         .labelStyle(.iconOnly)
@@ -281,60 +378,11 @@ struct TranslationPopupView: View {
 
             if let action = presentation.recoveryAction {
                 Button {
-                    if action == .retry {
-                        Task {
-                            await model.selectPopupWord(card.wordTranslation, at: card.wordIndex)
-                        }
-                    } else {
-                        model.performRecoveryAction(action)
-                    }
+                    onRecoveryAction(action, card)
                 } label: {
                     Label(action.displayTitle, systemImage: action.systemImage)
                 }
                 .controlSize(.small)
-            }
-        }
-    }
-
-    private var popupFont: Font {
-        guard !model.settings.popupFontFamily.isEmpty else {
-            return .system(size: model.settings.popupFontSize)
-        }
-
-        return .custom(model.settings.popupFontFamily, size: model.settings.popupFontSize)
-    }
-
-    private var footer: some View {
-        HStack(alignment: .bottom) {
-            Button {
-                Task {
-                    await model.copyPopupText()
-                }
-            } label: {
-                Label("Copy", systemImage: "doc.on.doc")
-            }
-            .disabled(model.popupState.copyableText == nil)
-
-            Button {
-                model.togglePopupOriginal()
-            } label: {
-                if model.popupState.showsOriginal {
-                    Label("Hide Original", systemImage: "text.quote")
-                } else {
-                    Label("Show Original", systemImage: "text.quote")
-                }
-            }
-            .disabled(model.popupState.copyableText == nil)
-
-            Spacer()
-
-            Button("Done") {
-                dismiss()
-            }
-            .keyboardShortcut(.defaultAction)
-
-            PopupResizeGrip { widthDelta, heightDelta in
-                model.resizePopup(widthDelta: widthDelta, heightDelta: heightDelta)
             }
         }
     }
