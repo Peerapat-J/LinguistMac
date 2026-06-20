@@ -76,15 +76,26 @@ struct TranslationPopupView: View {
                         TranslationWordLookupSection(
                             wordTranslations: result.wordTranslations,
                             wordCard: wordCard,
+                            isSelectionEnabled: true,
                             onSelectWord: { wordTranslation, index in
                                 Task {
-                                    await model.selectPopupWord(wordTranslation, at: index)
+                                    await model.selectPopupWord(
+                                        wordTranslation,
+                                        at: index,
+                                        resultID: result.id
+                                    )
                                 }
                             },
                             onDismissWordCard: {
                                 model.dismissPopupWordCard()
                             },
-                            onRecoveryAction: handleWordLookupRecovery
+                            onRecoveryAction: { action, card in
+                                handleWordLookupRecovery(
+                                    action,
+                                    card: card,
+                                    resultID: result.id
+                                )
+                            }
                         )
                     }
 
@@ -129,11 +140,16 @@ struct TranslationPopupView: View {
 
     private func handleWordLookupRecovery(
         _ action: TranslationRecoveryAction,
-        card: TranslationPopupWordCardState
+        card: TranslationPopupWordCardState,
+        resultID: UUID
     ) {
         if action == .retry {
             Task {
-                await model.selectPopupWord(card.wordTranslation, at: card.wordIndex)
+                await model.selectPopupWord(
+                    card.wordTranslation,
+                    at: card.wordIndex,
+                    resultID: resultID
+                )
             }
         } else {
             model.performRecoveryAction(action)
@@ -187,6 +203,7 @@ struct TranslationPopupView: View {
 struct TranslationWordLookupSection: View {
     let wordTranslations: [WordTranslation]
     let wordCard: TranslationPopupWordCardState?
+    let isSelectionEnabled: Bool
     let onSelectWord: (WordTranslation, Int) -> Void
     let onDismissWordCard: () -> Void
     let onRecoveryAction: (TranslationRecoveryAction, TranslationPopupWordCardState) -> Void
@@ -220,6 +237,7 @@ struct TranslationWordLookupSection: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .disabled(!isSelectionEnabled)
                     .accessibilityLabel("Look up \(wordTranslation.sourceText)")
                 }
             }

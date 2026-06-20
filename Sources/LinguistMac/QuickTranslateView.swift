@@ -113,6 +113,7 @@ struct QuickTranslateView: View {
         case let .completed(result):
             let presentedResult = quickPresentedResult(for: result)
             let wordCard = quickWordCard(for: result)
+            let canSelectWords = quickResultMatchesPopup(result)
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Result")
@@ -127,15 +128,26 @@ struct QuickTranslateView: View {
                         TranslationWordLookupSection(
                             wordTranslations: presentedResult.wordTranslations,
                             wordCard: wordCard,
+                            isSelectionEnabled: canSelectWords,
                             onSelectWord: { wordTranslation, index in
                                 Task {
-                                    await model.selectPopupWord(wordTranslation, at: index)
+                                    await model.selectPopupWord(
+                                        wordTranslation,
+                                        at: index,
+                                        resultID: presentedResult.id
+                                    )
                                 }
                             },
                             onDismissWordCard: {
                                 model.dismissPopupWordCard()
                             },
-                            onRecoveryAction: handleWordLookupRecovery
+                            onRecoveryAction: { action, card in
+                                handleWordLookupRecovery(
+                                    action,
+                                    card: card,
+                                    resultID: presentedResult.id
+                                )
+                            }
                         )
                     }
                 }
@@ -172,13 +184,26 @@ struct QuickTranslateView: View {
         return wordCard
     }
 
+    private func quickResultMatchesPopup(_ result: TranslationResult) -> Bool {
+        guard case let .success(currentResult, _, _) = model.popupState else {
+            return false
+        }
+
+        return currentResult.id == result.id
+    }
+
     private func handleWordLookupRecovery(
         _ action: TranslationRecoveryAction,
-        card: TranslationPopupWordCardState
+        card: TranslationPopupWordCardState,
+        resultID: UUID
     ) {
         if action == .retry {
             Task {
-                await model.selectPopupWord(card.wordTranslation, at: card.wordIndex)
+                await model.selectPopupWord(
+                    card.wordTranslation,
+                    at: card.wordIndex,
+                    resultID: resultID
+                )
             }
         } else {
             model.performRecoveryAction(action)

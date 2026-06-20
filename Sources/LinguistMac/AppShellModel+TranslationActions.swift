@@ -135,8 +135,15 @@ extension AppShellModel {
         popupState = popupState.toggledOriginalVisibility()
     }
 
-    func selectPopupWord(_ wordTranslation: WordTranslation, at index: Int? = nil) async {
+    func selectPopupWord(
+        _ wordTranslation: WordTranslation,
+        at index: Int? = nil,
+        resultID expectedResultID: UUID? = nil
+    ) async {
         guard case let .success(result, showsOriginal, _) = popupState else {
+            return
+        }
+        guard expectedResultID == nil || result.id == expectedResultID else {
             return
         }
 
