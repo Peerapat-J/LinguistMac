@@ -124,6 +124,10 @@ struct SettingsView: View {
                             model.openSystemSettings(for: .screenRecording)
                         case .accessibility:
                             model.openSystemSettings(for: .accessibility)
+                        case .voiceMicrophone:
+                            model.openSystemSettings(for: .microphone)
+                        case .speechRecognition:
+                            model.openSystemSettings(for: .speechRecognition)
                         case .appleTranslation, .cloudProvider:
                             model.openSettingsWindow()
                             model.record(.settings)
@@ -452,7 +456,7 @@ private struct ReadinessRow: View {
 
             Spacer()
 
-            if item.status != .granted {
+            if item.showsRecoveryAction {
                 Button("Open") {
                     action()
                 }

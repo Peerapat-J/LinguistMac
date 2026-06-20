@@ -24,8 +24,14 @@ Sandbox and outbound client networking for opt-in M4 cloud providers:
 - `com.apple.security.app-sandbox`
 - `com.apple.security.network.client`
 
-Do not add file, automation, or broader security exceptions until the feature
-issue that requires them is implemented and reviewed.
+The voice permission preparation slice adds microphone and speech-recognition
+usage-description copy to `Configuration/LinguistMac/Info.plist`, but it does
+not enable the sandbox audio-input entitlement or live capture. Add
+`com.apple.security.device.audio-input` only in the runtime capture issue that
+needs it.
+
+Do not add file, automation, audio-input, or broader security exceptions until
+the feature issue that requires them is implemented and reviewed.
 
 ## Permission Matrix
 
@@ -33,6 +39,8 @@ issue that requires them is implemented and reviewed.
 | --- | --- | --- |
 | Screen Recording | Selected-region screenshot capture for OCR | Required for default screen translation; model and docs only in M0 |
 | Accessibility | Selected text, double-copy, and drag translation workflows | Optional until M3 input modes |
+| Microphone | Explicit push-to-talk voice capture | Modeled for M6 voice setup; no live capture or audio-input entitlement yet |
+| Speech Recognition | Converting short spoken phrases into translatable text | Modeled for M6 voice setup; no runtime recognition flow yet |
 | Keychain | Optional cloud provider API keys | Optional until M4 provider/key issues |
 | Network client | Optional cloud translation providers | Enabled in M4 for user-selected BYOK providers only |
 | Launch at login | User preference for startup behavior | Implemented in M4 app-preferences issue |

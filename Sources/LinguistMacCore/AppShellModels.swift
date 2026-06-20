@@ -342,6 +342,10 @@ public extension PermissionKind {
             "Screen Recording"
         case .accessibility:
             "Accessibility"
+        case .microphone:
+            "Microphone"
+        case .speechRecognition:
+            "Speech Recognition"
         case .keychain:
             "Keychain"
         case .network:
@@ -360,6 +364,8 @@ public enum LanguagePackReadiness: Equatable, Sendable {
 public enum SetupReadinessKind: String, CaseIterable, Sendable {
     case screenTranslation
     case accessibility
+    case voiceMicrophone
+    case speechRecognition
     case appleTranslation
     case cloudProvider
 }
@@ -373,6 +379,19 @@ public struct OnboardingReadinessItem: Identifiable, Equatable, Sendable {
 
     public var id: SetupReadinessKind {
         kind
+    }
+
+    public var showsRecoveryAction: Bool {
+        guard status != .granted else {
+            return false
+        }
+
+        switch kind {
+        case .voiceMicrophone, .speechRecognition:
+            return status == .denied || status == .restricted
+        case .screenTranslation, .accessibility, .appleTranslation, .cloudProvider:
+            return true
+        }
     }
 
     public init(
@@ -406,6 +425,8 @@ public struct OnboardingReadinessSnapshot: Equatable, Sendable {
     public static func make(
         screenRecording: PermissionStatus,
         accessibility: PermissionStatus,
+        microphone: PermissionStatus = .notDetermined,
+        speechRecognition: PermissionStatus = .notDetermined,
         appleTranslation: LanguagePackReadiness,
         cloudProviderConfigured: Bool
     ) -> OnboardingReadinessSnapshot {
@@ -430,6 +451,20 @@ public struct OnboardingReadinessSnapshot: Equatable, Sendable {
                     title: "Text Selection",
                     detail: "Accessibility unlocks selected-text, double-copy, and drag workflows later.",
                     status: accessibility,
+                    isRequiredForDefaultWorkflow: false
+                ),
+                OnboardingReadinessItem(
+                    kind: .voiceMicrophone,
+                    title: "Voice Microphone",
+                    detail: "Microphone access will be needed for explicit push-to-talk voice capture.",
+                    status: microphone,
+                    isRequiredForDefaultWorkflow: false
+                ),
+                OnboardingReadinessItem(
+                    kind: .speechRecognition,
+                    title: "Speech Recognition",
+                    detail: "Speech Recognition will turn short spoken phrases into translatable text.",
+                    status: speechRecognition,
                     isRequiredForDefaultWorkflow: false
                 ),
                 OnboardingReadinessItem(

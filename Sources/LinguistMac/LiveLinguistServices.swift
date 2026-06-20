@@ -1,9 +1,11 @@
 import AppKit
 import ApplicationServices
+import AVFoundation
 import Carbon
 import CoreGraphics
 import Foundation
 import LinguistMacCore
+import Speech
 
 enum LiveLinguistServices {
     @MainActor
@@ -91,6 +93,10 @@ struct SystemPermissionChecker: PermissionChecking {
             CGPreflightScreenCaptureAccess() ? .granted : .notDetermined
         case .accessibility:
             AXIsProcessTrusted() ? .granted : .notDetermined
+        case .microphone:
+            Self.permissionStatus(from: AVCaptureDevice.authorizationStatus(for: .audio))
+        case .speechRecognition:
+            Self.permissionStatus(from: SFSpeechRecognizer.authorizationStatus())
         case .keychain:
             .granted
         case .network:
@@ -104,6 +110,10 @@ struct SystemPermissionChecker: PermissionChecking {
             CGRequestScreenCaptureAccess() ? .granted : .denied
         case .accessibility:
             await requestAccessibilityPermission()
+        case .microphone:
+            await requestMicrophonePermission()
+        case .speechRecognition:
+            await requestSpeechRecognitionPermission()
         case .keychain:
             .granted
         case .network:
@@ -125,6 +135,56 @@ struct SystemPermissionChecker: PermissionChecking {
                 NSWorkspace.shared.open(url)
             }
             return AXIsProcessTrusted() ? .granted : .notDetermined
+        }
+    }
+
+    private func requestMicrophonePermission() async -> PermissionStatus {
+        let isGranted = await withCheckedContinuation { continuation in
+            AVCaptureDevice.requestAccess(for: .audio) { isGranted in
+                continuation.resume(returning: isGranted)
+            }
+        }
+
+        return isGranted ? .granted : Self.permissionStatus(from: AVCaptureDevice.authorizationStatus(for: .audio))
+    }
+
+    private func requestSpeechRecognitionPermission() async -> PermissionStatus {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: Self.permissionStatus(from: status))
+            }
+        }
+    }
+
+    private static func permissionStatus(from status: AVAuthorizationStatus) -> PermissionStatus {
+        switch status {
+        case .authorized:
+            .granted
+        case .notDetermined:
+            .notDetermined
+        case .denied:
+            .denied
+        case .restricted:
+            .restricted
+        @unknown default:
+            .unavailable
+        }
+    }
+
+    private static func permissionStatus(
+        from status: SFSpeechRecognizerAuthorizationStatus
+    ) -> PermissionStatus {
+        switch status {
+        case .authorized:
+            .granted
+        case .notDetermined:
+            .notDetermined
+        case .denied:
+            .denied
+        case .restricted:
+            .restricted
+        @unknown default:
+            .unavailable
         }
     }
 

@@ -10,6 +10,9 @@ Mac unless the user explicitly selects and configures a cloud provider.
   then sends recognized text to the selected translation provider.
 - Selected Text, Cmd+C+C, Drag Translation, and Quick Translate send only the
   source text for the requested translation workflow.
+- Voice translation permission setup is present, but live microphone capture is
+  not enabled yet. Future push-to-talk voice capture should keep raw audio in
+  memory only long enough to produce a transcript.
 - Apple Translation uses Apple system frameworks and on-device language packs
   when available.
 - Cloud providers send source text to the selected provider only after the user
@@ -23,6 +26,8 @@ Mac unless the user explicitly selects and configures a cloud provider.
 
 - No telemetry or analytics dependency is included.
 - No Sparkle feed or auto-update channel is included.
+- No live voice capture, background listening, wake-word detection, or speech
+  recognition runtime flow is included.
 - No copied upstream website, privacy, email, update, or distribution links are
   included.
 - No bundled font is included until licensing is reviewed and the asset is

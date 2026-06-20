@@ -28,22 +28,30 @@ struct OnboardingView: View {
                 .buttonStyle(.borderless)
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(model.readiness.items) { item in
-                    SetupStatusCard(item: item) {
-                        switch item.kind {
-                        case .screenTranslation:
-                            model.openSystemSettings(for: .screenRecording)
-                        case .accessibility:
-                            model.openSystemSettings(for: .accessibility)
-                        case .appleTranslation:
-                            openSettingsWindow()
-                        case .cloudProvider:
-                            openSettingsWindow()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(model.readiness.items) { item in
+                        SetupStatusCard(item: item) {
+                            switch item.kind {
+                            case .screenTranslation:
+                                model.openSystemSettings(for: .screenRecording)
+                            case .accessibility:
+                                model.openSystemSettings(for: .accessibility)
+                            case .voiceMicrophone:
+                                model.openSystemSettings(for: .microphone)
+                            case .speechRecognition:
+                                model.openSystemSettings(for: .speechRecognition)
+                            case .appleTranslation:
+                                openSettingsWindow()
+                            case .cloudProvider:
+                                openSettingsWindow()
+                            }
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxHeight: .infinity)
 
             Text(
                 "Default translation stays on-device. "
@@ -114,7 +122,7 @@ private struct SetupStatusCard: View {
 
             Spacer()
 
-            if item.status != .granted {
+            if item.showsRecoveryAction {
                 Button("Open") {
                     action()
                 }

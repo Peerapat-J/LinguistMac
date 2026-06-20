@@ -24,4 +24,15 @@ final class PermissionBaselineTests: XCTestCase {
         XCTAssertTrue(kinds.contains(.keychain))
         XCTAssertTrue(kinds.contains(.network))
     }
+
+    func testDefaultRequirementsIncludeVoicePermissionBoundaries() {
+        let requirements = Dictionary(
+            uniqueKeysWithValues: PermissionBaseline.defaultRequirements.map { ($0.kind, $0) }
+        )
+
+        XCTAssertEqual(requirements[.microphone]?.isRequiredForDefaultWorkflow, false)
+        XCTAssertEqual(requirements[.speechRecognition]?.isRequiredForDefaultWorkflow, false)
+        XCTAssertTrue(requirements[.microphone]?.reason.contains("push-to-talk") == true)
+        XCTAssertTrue(requirements[.speechRecognition]?.reason.contains("spoken phrases") == true)
+    }
 }

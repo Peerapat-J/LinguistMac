@@ -81,10 +81,51 @@ final class AppShellModelsTests: XCTestCase {
         XCTAssertFalse(waiting.isScreenTranslationReady)
     }
 
+    func testOnboardingReadinessSurfacesVoicePermissionsAsOptional() {
+        let readiness = OnboardingReadinessSnapshot.make(
+            screenRecording: .granted,
+            accessibility: .granted,
+            microphone: .denied,
+            speechRecognition: .restricted,
+            appleTranslation: .ready,
+            cloudProviderConfigured: false
+        )
+        let items = Dictionary(uniqueKeysWithValues: readiness.items.map { ($0.kind, $0) })
+
+        XCTAssertEqual(items[.voiceMicrophone]?.status, .denied)
+        XCTAssertEqual(items[.speechRecognition]?.status, .restricted)
+        XCTAssertEqual(items[.voiceMicrophone]?.isRequiredForDefaultWorkflow, false)
+        XCTAssertEqual(items[.speechRecognition]?.isRequiredForDefaultWorkflow, false)
+        XCTAssertEqual(items[.voiceMicrophone]?.showsRecoveryAction, true)
+        XCTAssertEqual(items[.speechRecognition]?.showsRecoveryAction, true)
+        XCTAssertTrue(readiness.isScreenTranslationReady)
+    }
+
+    func testFreshVoicePermissionsDoNotShowRecoveryActions() {
+        let readiness = OnboardingReadinessSnapshot.make(
+            screenRecording: .notDetermined,
+            accessibility: .notDetermined,
+            microphone: .notDetermined,
+            speechRecognition: .notDetermined,
+            appleTranslation: .unknown,
+            cloudProviderConfigured: false
+        )
+        let items = Dictionary(uniqueKeysWithValues: readiness.items.map { ($0.kind, $0) })
+
+        XCTAssertEqual(items[.voiceMicrophone]?.showsRecoveryAction, false)
+        XCTAssertEqual(items[.speechRecognition]?.showsRecoveryAction, false)
+        XCTAssertEqual(items[.screenTranslation]?.showsRecoveryAction, true)
+        XCTAssertEqual(items[.accessibility]?.showsRecoveryAction, true)
+    }
+
     func testFailurePresentationMapsRecoveryActionsAndRedactsProviderMessage() {
         XCTAssertEqual(
             TranslationFailure.permissionDenied(.screenRecording).presentation.recoveryAction,
             .openSystemSettings(.screenRecording)
+        )
+        XCTAssertEqual(
+            TranslationFailure.permissionDenied(.speechRecognition).presentation.recoveryAction,
+            .openSystemSettings(.speechRecognition)
         )
         XCTAssertEqual(
             TranslationFailure.missingAPIKey(.deepl).presentation.recoveryAction,
