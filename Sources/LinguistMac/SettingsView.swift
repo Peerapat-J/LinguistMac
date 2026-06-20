@@ -456,7 +456,7 @@ private struct ReadinessRow: View {
 
             Spacer()
 
-            if item.status != .granted {
+            if item.showsRecoveryAction {
                 Button("Open") {
                     action()
                 }

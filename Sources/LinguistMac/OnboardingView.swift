@@ -122,7 +122,7 @@ private struct SetupStatusCard: View {
 
             Spacer()
 
-            if item.status != .granted {
+            if item.showsRecoveryAction {
                 Button("Open") {
                     action()
                 }
