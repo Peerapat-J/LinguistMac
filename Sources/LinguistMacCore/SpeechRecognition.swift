@@ -102,17 +102,16 @@ public actor SpeechRecognitionCoordinator {
             isCaptureInProgress = false
         }
 
-        guard await requestPermissionIfNeeded(.microphone) == .granted else {
-            return fail(with: .permissionDenied(.microphone))
-        }
-        guard await requestPermissionIfNeeded(.speechRecognition) == .granted else {
-            return fail(with: .permissionDenied(.speechRecognition))
-        }
-
-        let request = SpeechRecognitionRequest(sourceLanguage: sourceLanguage)
-
         do {
             try Task.checkCancellation()
+            guard try await requestPermissionIfNeeded(.microphone) == .granted else {
+                return fail(with: .permissionDenied(.microphone))
+            }
+            guard try await requestPermissionIfNeeded(.speechRecognition) == .granted else {
+                return fail(with: .permissionDenied(.speechRecognition))
+            }
+
+            let request = SpeechRecognitionRequest(sourceLanguage: sourceLanguage)
             setState(.capturing)
             let result = try await services.speechToText.transcribeShortPhrase(request) { progress in
                 await self.handleProgress(progress)
@@ -133,14 +132,19 @@ public actor SpeechRecognitionCoordinator {
         }
     }
 
-    private func requestPermissionIfNeeded(_ kind: PermissionKind) async -> PermissionStatus {
+    private func requestPermissionIfNeeded(_ kind: PermissionKind) async throws -> PermissionStatus {
+        try Task.checkCancellation()
         let status = await services.permissionChecker.status(for: kind)
+        try Task.checkCancellation()
         guard status != .granted else {
             return status
         }
 
         setState(.requestingPermission(kind))
-        return await services.permissionChecker.request(for: kind)
+        try Task.checkCancellation()
+        let requestedStatus = await services.permissionChecker.request(for: kind)
+        try Task.checkCancellation()
+        return requestedStatus
     }
 
     private func handleProgress(_ progress: SpeechRecognitionProgress) {

@@ -229,6 +229,7 @@ final class SpeechRecognitionCoordinatorTests: XCTestCase {
         requestMicrophoneStatus: PermissionStatus? = nil,
         speechRecognitionStatus: PermissionStatus = .granted,
         requestSpeechRecognitionStatus: PermissionStatus? = nil,
+        permissionChecker: (any PermissionChecking)? = nil,
         speechToText: any SpeechToTextServicing
     ) -> LinguistServices {
         let provider = StubTranslationProvider(
@@ -250,7 +251,7 @@ final class SpeechRecognitionCoordinatorTests: XCTestCase {
             apiKeyStore: InMemoryAPIKeyStore(),
             launchAtLogin: StubLaunchAtLoginService(),
             historyStore: InMemoryTranslationHistoryStore(),
-            permissionChecker: StubPermissionChecker(
+            permissionChecker: permissionChecker ?? StubPermissionChecker(
                 statuses: [
                     .microphone: microphoneStatus,
                     .speechRecognition: speechRecognitionStatus
@@ -260,6 +261,127 @@ final class SpeechRecognitionCoordinatorTests: XCTestCase {
                     .speechRecognition: requestSpeechRecognitionStatus ?? speechRecognitionStatus
                 ]
             ),
+            clipboard: InMemoryClipboard(),
+            selectedTextCapture: StubSelectedTextCapture(result: .success("selected text")),
+            shortcutRegistry: RecordingShortcutRegistry(),
+            speechToText: speechToText
+        )
+    }
+}
+
+final class SpeechRecognitionCancelTests: XCTestCase {
+    func testCancelledCaptureDoesNotRequestVoicePermissions() async {
+        let permissionChecker = ControlledPermissionChecker(
+            statuses: [
+                .microphone: .notDetermined,
+                .speechRecognition: .notDetermined
+            ],
+            requestStatuses: [
+                .microphone: .granted,
+                .speechRecognition: .granted
+            ]
+        )
+        let speechToText = RecordingSpeechToTextService(
+            result: .success(SpeechRecognitionResult(transcript: "unused"))
+        )
+        let coordinator = SpeechRecognitionCoordinator(
+            services: makeServices(
+                permissionChecker: permissionChecker,
+                speechToText: speechToText
+            )
+        )
+        let startGate = StartGate()
+        let task = Task {
+            await startGate.wait()
+            return await coordinator.captureShortPhrase()
+        }
+
+        task.cancel()
+        await startGate.open()
+        let finalState = await task.value
+
+        XCTAssertEqual(finalState, .failed(.cancelled))
+        let statusCalls = await permissionChecker.capturedStatusCalls()
+        let requestCalls = await permissionChecker.capturedRequestCalls()
+        let requests = await speechToText.capturedRequests()
+        XCTAssertTrue(statusCalls.isEmpty)
+        XCTAssertTrue(requestCalls.isEmpty)
+        XCTAssertTrue(requests.isEmpty)
+        let states = await coordinator.states()
+        XCTAssertEqual(states, [.idle, .failed(.cancelled)])
+    }
+
+    func testCancellationDuringMicrophonePromptDoesNotRequestSpeechRecognitionPermission() async {
+        let permissionChecker = ControlledPermissionChecker(
+            statuses: [
+                .microphone: .notDetermined,
+                .speechRecognition: .notDetermined
+            ],
+            requestStatuses: [
+                .speechRecognition: .granted
+            ],
+            pendingRequestKinds: [.microphone]
+        )
+        let speechToText = RecordingSpeechToTextService(
+            result: .success(SpeechRecognitionResult(transcript: "unused"))
+        )
+        let coordinator = SpeechRecognitionCoordinator(
+            services: makeServices(
+                permissionChecker: permissionChecker,
+                speechToText: speechToText
+            )
+        )
+        let task = Task {
+            await coordinator.captureShortPhrase()
+        }
+        await permissionChecker.waitUntilRequestStarted(.microphone)
+
+        task.cancel()
+        await permissionChecker.finishRequest(.microphone, status: .granted)
+        let finalState = await task.value
+
+        XCTAssertEqual(finalState, .failed(.cancelled))
+        let statusCalls = await permissionChecker.capturedStatusCalls()
+        let requestCalls = await permissionChecker.capturedRequestCalls()
+        let requests = await speechToText.capturedRequests()
+        XCTAssertEqual(statusCalls, [.microphone])
+        XCTAssertEqual(requestCalls, [.microphone])
+        XCTAssertTrue(requests.isEmpty)
+        let states = await coordinator.states()
+        XCTAssertEqual(
+            states,
+            [
+                .idle,
+                .requestingPermission(.microphone),
+                .failed(.cancelled)
+            ]
+        )
+    }
+
+    private func makeServices(
+        permissionChecker: any PermissionChecking,
+        speechToText: any SpeechToTextServicing
+    ) -> LinguistServices {
+        let provider = StubTranslationProvider(
+            id: .apple,
+            displayName: "Apple Translation",
+            requiresAPIKey: false,
+            usesNetwork: false,
+            translatedText: "translated"
+        )
+
+        return LinguistServices(
+            screenCapture: StubScreenCaptureService(
+                result: .success(CapturedScreenRegion(imageData: Data([1])))
+            ),
+            ocr: StubOCRService(result: .success(RecognizedText(text: "hello"))),
+            translatorRegistry: StubTranslationProviderRegistry(provider: provider),
+            languageAvailability: StubLanguageAvailabilityChecker(readiness: .ready),
+            settingsStore: InMemoryAppSettingsStore(),
+            apiKeyStore: InMemoryAPIKeyStore(),
+            launchAtLogin: StubLaunchAtLoginService(),
+            historyStore: InMemoryTranslationHistoryStore(),
+            permissionChecker: permissionChecker,
             clipboard: InMemoryClipboard(),
             selectedTextCapture: StubSelectedTextCapture(result: .success("selected text")),
             shortcutRegistry: RecordingShortcutRegistry(),
@@ -354,5 +476,98 @@ private actor ControlledSpeechToTextService: SpeechToTextServicing {
     func finishRecognition() {
         finishRecognitionContinuation?.resume()
         finishRecognitionContinuation = nil
+    }
+}
+
+private actor ControlledPermissionChecker: PermissionChecking {
+    private let statuses: [PermissionKind: PermissionStatus]
+    private let requestStatuses: [PermissionKind: PermissionStatus]
+    private let pendingRequestKinds: Set<PermissionKind>
+    private var statusCalls: [PermissionKind] = []
+    private var requestCalls: [PermissionKind] = []
+    private var pendingRequestContinuations: [PermissionKind: CheckedContinuation<PermissionStatus, Never>] = [:]
+    private var requestStartedContinuations: [PermissionKind: [CheckedContinuation<Void, Never>]] = [:]
+
+    init(
+        statuses: [PermissionKind: PermissionStatus],
+        requestStatuses: [PermissionKind: PermissionStatus] = [:],
+        pendingRequestKinds: Set<PermissionKind> = []
+    ) {
+        self.statuses = statuses
+        self.requestStatuses = requestStatuses
+        self.pendingRequestKinds = pendingRequestKinds
+    }
+
+    func status(for kind: PermissionKind) async -> PermissionStatus {
+        statusCalls.append(kind)
+        return statuses[kind] ?? .notDetermined
+    }
+
+    func request(for kind: PermissionKind) async -> PermissionStatus {
+        requestCalls.append(kind)
+        guard pendingRequestKinds.contains(kind) else {
+            return requestStatuses[kind] ?? statuses[kind] ?? .notDetermined
+        }
+
+        return await withCheckedContinuation { continuation in
+            pendingRequestContinuations[kind] = continuation
+            resumeRequestStartedContinuations(for: kind)
+        }
+    }
+
+    func capturedStatusCalls() -> [PermissionKind] {
+        statusCalls
+    }
+
+    func capturedRequestCalls() -> [PermissionKind] {
+        requestCalls
+    }
+
+    func waitUntilRequestStarted(_ kind: PermissionKind) async {
+        guard requestCalls.contains(kind) else {
+            await withCheckedContinuation { continuation in
+                requestStartedContinuations[kind, default: []].append(continuation)
+            }
+            return
+        }
+    }
+
+    func finishRequest(_ kind: PermissionKind, status: PermissionStatus) {
+        guard let continuation = pendingRequestContinuations.removeValue(forKey: kind) else {
+            return
+        }
+
+        continuation.resume(returning: status)
+    }
+
+    private func resumeRequestStartedContinuations(for kind: PermissionKind) {
+        let continuations = requestStartedContinuations.removeValue(forKey: kind) ?? []
+        for continuation in continuations {
+            continuation.resume()
+        }
+    }
+}
+
+private actor StartGate {
+    private var isOpen = false
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isOpen else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            continuations.append(continuation)
+        }
+    }
+
+    func open() {
+        isOpen = true
+        let pendingContinuations = continuations
+        continuations = []
+        for continuation in pendingContinuations {
+            continuation.resume()
+        }
     }
 }
