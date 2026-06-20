@@ -37,6 +37,46 @@ final class SpeechRecognitionCoordinatorTests: XCTestCase {
         XCTAssertEqual(requests.first?.localeIdentifier, "en")
     }
 
+    func testCaptureShortPhraseKeepsCapturingStateWhileServiceRecords() async {
+        let expectedResult = SpeechRecognitionResult(
+            transcript: "hello world",
+            language: .english
+        )
+        let speechToText = ControlledSpeechToTextService(result: expectedResult)
+        let coordinator = SpeechRecognitionCoordinator(
+            services: makeServices(speechToText: speechToText)
+        )
+
+        let task = Task {
+            await coordinator.captureShortPhrase(sourceLanguage: .english)
+        }
+        await speechToText.waitUntilCaptureStarted()
+
+        let recordingState = await coordinator.state
+        XCTAssertEqual(recordingState, .capturing)
+
+        await speechToText.finishCapture()
+        await speechToText.waitUntilRecognitionStarted()
+
+        let recognitionState = await coordinator.state
+        XCTAssertEqual(recognitionState, .recognizing)
+
+        await speechToText.finishRecognition()
+        let finalState = await task.value
+
+        XCTAssertEqual(finalState, .completed(expectedResult))
+        let states = await coordinator.states()
+        XCTAssertEqual(
+            states,
+            [
+                .idle,
+                .capturing,
+                .recognizing,
+                .completed(expectedResult)
+            ]
+        )
+    }
+
     func testCaptureShortPhraseFailsForEmptyTranscript() async {
         let coordinator = SpeechRecognitionCoordinator(
             services: makeServices(
@@ -188,10 +228,83 @@ final class SpeechRecognitionCoordinatorTests: XCTestCase {
 private struct ThrowingSpeechToTextService: SpeechToTextServicing {
     let error: any Error & Sendable
 
-    func transcribeShortPhrase(_ request: SpeechRecognitionRequest) async throws -> SpeechRecognitionResult {
+    func transcribeShortPhrase(
+        _ request: SpeechRecognitionRequest,
+        progress: SpeechRecognitionProgressHandler
+    ) async throws -> SpeechRecognitionResult {
         _ = request
+        await progress(.recordingFinished)
         throw error
     }
 }
 
 private struct SampleSpeechRecognitionError: Error {}
+
+private actor ControlledSpeechToTextService: SpeechToTextServicing {
+    private let result: SpeechRecognitionResult
+    private var captureStartedContinuation: CheckedContinuation<Void, Never>?
+    private var finishCaptureContinuation: CheckedContinuation<Void, Never>?
+    private var recognitionStartedContinuation: CheckedContinuation<Void, Never>?
+    private var finishRecognitionContinuation: CheckedContinuation<Void, Never>?
+    private var hasStartedCapture = false
+    private var hasStartedRecognition = false
+
+    init(result: SpeechRecognitionResult) {
+        self.result = result
+    }
+
+    func transcribeShortPhrase(
+        _ request: SpeechRecognitionRequest,
+        progress: SpeechRecognitionProgressHandler
+    ) async throws -> SpeechRecognitionResult {
+        _ = request
+        hasStartedCapture = true
+        captureStartedContinuation?.resume()
+        captureStartedContinuation = nil
+
+        await withCheckedContinuation { continuation in
+            finishCaptureContinuation = continuation
+        }
+
+        await progress(.recordingFinished)
+        hasStartedRecognition = true
+        recognitionStartedContinuation?.resume()
+        recognitionStartedContinuation = nil
+
+        await withCheckedContinuation { continuation in
+            finishRecognitionContinuation = continuation
+        }
+
+        return result
+    }
+
+    func waitUntilCaptureStarted() async {
+        guard !hasStartedCapture else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            captureStartedContinuation = continuation
+        }
+    }
+
+    func finishCapture() {
+        finishCaptureContinuation?.resume()
+        finishCaptureContinuation = nil
+    }
+
+    func waitUntilRecognitionStarted() async {
+        guard !hasStartedRecognition else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            recognitionStartedContinuation = continuation
+        }
+    }
+
+    func finishRecognition() {
+        finishRecognitionContinuation?.resume()
+        finishRecognitionContinuation = nil
+    }
+}

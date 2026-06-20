@@ -45,15 +45,28 @@ public enum SpeechRecognitionSessionState: Equatable, Sendable {
     case failed(SpeechRecognitionFailure)
 }
 
+public enum SpeechRecognitionProgress: Equatable, Sendable {
+    case recordingFinished
+}
+
+public typealias SpeechRecognitionProgressHandler = @Sendable (SpeechRecognitionProgress) async -> Void
+
 public protocol SpeechToTextServicing: Sendable {
-    func transcribeShortPhrase(_ request: SpeechRecognitionRequest) async throws -> SpeechRecognitionResult
+    func transcribeShortPhrase(
+        _ request: SpeechRecognitionRequest,
+        progress: SpeechRecognitionProgressHandler
+    ) async throws -> SpeechRecognitionResult
 }
 
 public struct UnavailableSpeechToTextService: SpeechToTextServicing {
     public init() {}
 
-    public func transcribeShortPhrase(_ request: SpeechRecognitionRequest) async throws -> SpeechRecognitionResult {
+    public func transcribeShortPhrase(
+        _ request: SpeechRecognitionRequest,
+        progress: SpeechRecognitionProgressHandler
+    ) async throws -> SpeechRecognitionResult {
         _ = request
+        _ = progress
         throw SpeechRecognitionFailure.recognitionFailed
     }
 }
@@ -89,8 +102,9 @@ public actor SpeechRecognitionCoordinator {
         do {
             try Task.checkCancellation()
             setState(.capturing)
-            setState(.recognizing)
-            let result = try await services.speechToText.transcribeShortPhrase(request)
+            let result = try await services.speechToText.transcribeShortPhrase(request) { progress in
+                await self.handleProgress(progress)
+            }
             let transcript = result.trimmedTranscript
             guard !transcript.isEmpty else {
                 return fail(with: .emptyTranscript)
@@ -115,6 +129,17 @@ public actor SpeechRecognitionCoordinator {
 
         setState(.requestingPermission(kind))
         return await services.permissionChecker.request(for: kind)
+    }
+
+    private func handleProgress(_ progress: SpeechRecognitionProgress) {
+        switch progress {
+        case .recordingFinished:
+            guard state == .capturing else {
+                return
+            }
+
+            setState(.recognizing)
+        }
     }
 
     private func failure(from error: Error) -> SpeechRecognitionFailure {
