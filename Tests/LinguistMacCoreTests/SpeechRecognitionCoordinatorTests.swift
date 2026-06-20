@@ -194,4 +194,4 @@ private struct ThrowingSpeechToTextService: SpeechToTextServicing {
     }
 }
 
-private struct SampleSpeechRecognitionError: Error, Sendable {}
+private struct SampleSpeechRecognitionError: Error {}
