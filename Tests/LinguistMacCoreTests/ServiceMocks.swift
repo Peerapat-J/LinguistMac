@@ -87,6 +87,35 @@ struct StubWordLookupProvider: WordLookupProviding {
     }
 }
 
+actor RecordingSpeechToTextService: SpeechToTextServicing {
+    private let result: Result<SpeechRecognitionResult, SpeechRecognitionFailure>
+    private let progressEvents: [SpeechRecognitionProgress]
+    private var requests: [SpeechRecognitionRequest] = []
+
+    init(
+        result: Result<SpeechRecognitionResult, SpeechRecognitionFailure>,
+        progressEvents: [SpeechRecognitionProgress] = [.recordingFinished]
+    ) {
+        self.result = result
+        self.progressEvents = progressEvents
+    }
+
+    func transcribeShortPhrase(
+        _ request: SpeechRecognitionRequest,
+        progress: SpeechRecognitionProgressHandler
+    ) async throws -> SpeechRecognitionResult {
+        requests.append(request)
+        for event in progressEvents {
+            await progress(event)
+        }
+        return try result.get()
+    }
+
+    func capturedRequests() -> [SpeechRecognitionRequest] {
+        requests
+    }
+}
+
 struct StubLanguageAvailabilityChecker: LanguageAvailabilityChecking {
     var readiness: LanguagePackReadiness
 

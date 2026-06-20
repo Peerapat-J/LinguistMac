@@ -12,6 +12,7 @@ public struct LinguistServices: Sendable {
     public let selectedTextCapture: any SelectedTextCapturing
     public let shortcutRegistry: any ShortcutRegistering
     public let wordLookupProvider: any WordLookupProviding
+    public let speechToText: any SpeechToTextServicing
 
     public init(
         screenCapture: any ScreenCaptureServicing,
@@ -26,7 +27,8 @@ public struct LinguistServices: Sendable {
         clipboard: any ClipboardServicing,
         selectedTextCapture: any SelectedTextCapturing,
         shortcutRegistry: any ShortcutRegistering,
-        wordLookupProvider: any WordLookupProviding = UnavailableWordLookupProvider()
+        wordLookupProvider: any WordLookupProviding = UnavailableWordLookupProvider(),
+        speechToText: any SpeechToTextServicing = UnavailableSpeechToTextService()
     ) {
         self.screenCapture = screenCapture
         self.ocr = ocr
@@ -41,5 +43,6 @@ public struct LinguistServices: Sendable {
         self.selectedTextCapture = selectedTextCapture
         self.shortcutRegistry = shortcutRegistry
         self.wordLookupProvider = wordLookupProvider
+        self.speechToText = speechToText
     }
 }
