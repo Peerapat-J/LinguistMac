@@ -114,6 +114,11 @@ shipping:
 Each slice should be reviewable without including word-card or dictionary work
 from issue `#32`.
 
+Issue `#47` covers the first slice only: microphone and speech-recognition
+permission states, recoverable setup copy, usage-description strings, and
+documentation. It does not start live capture, enable background listening, add
+the sandbox audio-input entitlement, or introduce a speech-to-text service.
+
 ## Test Expectations
 
 - Permission baseline tests for microphone and speech-recognition requirements

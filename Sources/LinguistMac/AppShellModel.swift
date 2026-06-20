@@ -86,6 +86,8 @@ final class AppShellModel: ObservableObject {
         readiness = OnboardingReadinessSnapshot.make(
             screenRecording: .notDetermined,
             accessibility: .notDetermined,
+            microphone: .notDetermined,
+            speechRecognition: .notDetermined,
             appleTranslation: .unknown,
             cloudProviderConfigured: false
         )
@@ -148,6 +150,8 @@ final class AppShellModel: ObservableObject {
     func refreshReadiness() async {
         let screenRecording = await services.permissionChecker.status(for: .screenRecording)
         let accessibility = await services.permissionChecker.status(for: .accessibility)
+        let microphone = await services.permissionChecker.status(for: .microphone)
+        let speechRecognition = await services.permissionChecker.status(for: .speechRecognition)
         let appleTranslation = await services.languageAvailability.readiness(
             from: settings.sourceLanguage,
             to: settings.targetLanguage,
@@ -160,6 +164,8 @@ final class AppShellModel: ObservableObject {
         readiness = OnboardingReadinessSnapshot.make(
             screenRecording: screenRecording,
             accessibility: accessibility,
+            microphone: microphone,
+            speechRecognition: speechRecognition,
             appleTranslation: appleTranslation,
             cloudProviderConfigured: cloudProviderConfigured
         )

@@ -130,6 +130,10 @@ extension AppShellModel {
             URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
         case .accessibility:
             URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        case .microphone:
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+        case .speechRecognition:
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition")
         case .keychain, .network:
             URL(string: "x-apple.systempreferences:com.apple.preference.security")
         }

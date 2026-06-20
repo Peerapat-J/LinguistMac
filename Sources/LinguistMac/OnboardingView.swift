@@ -36,6 +36,10 @@ struct OnboardingView: View {
                             model.openSystemSettings(for: .screenRecording)
                         case .accessibility:
                             model.openSystemSettings(for: .accessibility)
+                        case .voiceMicrophone:
+                            model.openSystemSettings(for: .microphone)
+                        case .speechRecognition:
+                            model.openSystemSettings(for: .speechRecognition)
                         case .appleTranslation:
                             openSettingsWindow()
                         case .cloudProvider:

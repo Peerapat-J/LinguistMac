@@ -209,6 +209,23 @@ final class AppShellModelTests: XCTestCase {
         XCTAssertEqual(model.recentTranslations, [])
     }
 
+    func testRefreshReadinessIncludesVoicePermissionStatuses() async {
+        let statuses: [PermissionKind: PermissionStatus] = [
+            .screenRecording: .granted,
+            .accessibility: .granted,
+            .microphone: .denied,
+            .speechRecognition: .restricted
+        ]
+        let model = AppShellModel(services: makeServices(permissionChecker: TestPermissionChecker(statuses: statuses)))
+
+        await model.refreshReadiness()
+
+        let items = Dictionary(uniqueKeysWithValues: model.readiness.items.map { ($0.kind, $0) })
+        XCTAssertEqual(items[.voiceMicrophone]?.status, .denied)
+        XCTAssertEqual(items[.speechRecognition]?.status, .restricted)
+        XCTAssertTrue(model.readiness.isScreenTranslationReady)
+    }
+
     func testTestAPIKeyConfigurationPreservesUnsavedAzureRegionDraft() async {
         let model = AppShellModel(
             services: makeServices(
@@ -296,6 +313,7 @@ final class AppShellModelTests: XCTestCase {
         translatorRegistry: (any TranslationProviderRegistry)? = nil,
         historyStore: any TranslationHistoryStoring = TestTranslationHistoryStore(),
         apiKeyStore: any APIKeyStoring = TestAPIKeyStore(),
+        permissionChecker: any PermissionChecking = TestPermissionChecker(),
         clipboard: TestClipboard = TestClipboard()
     ) -> LinguistServices {
         LinguistServices(
@@ -307,36 +325,36 @@ final class AppShellModelTests: XCTestCase {
             apiKeyStore: apiKeyStore,
             launchAtLogin: TestLaunchAtLoginService(),
             historyStore: historyStore,
-            permissionChecker: TestPermissionChecker(),
+            permissionChecker: permissionChecker,
             clipboard: clipboard,
             selectedTextCapture: TestSelectedTextCapture(),
             shortcutRegistry: TestShortcutRegistry()
         )
     }
+}
 
-    private func makeResult(
-        id: UUID = UUID(),
-        text: String,
-        wordTranslations: [WordTranslation] = [],
-        shownWordCards: [ShownWordCardContent] = [],
-        createdAt: Date = Date(timeIntervalSince1970: 1)
-    ) -> TranslationResult {
-        let request = TranslationRequest(
-            text: text,
-            sourceLanguage: .english,
-            targetLanguage: .thai,
-            inputMode: .quickTranslate,
-            providerID: .apple
-        )
-        return TranslationResult(
-            id: id,
-            request: request,
-            translatedText: text,
-            wordTranslations: wordTranslations,
-            shownWordCards: shownWordCards,
-            createdAt: createdAt
-        )
-    }
+private func makeResult(
+    id: UUID = UUID(),
+    text: String,
+    wordTranslations: [WordTranslation] = [],
+    shownWordCards: [ShownWordCardContent] = [],
+    createdAt: Date = Date(timeIntervalSince1970: 1)
+) -> TranslationResult {
+    let request = TranslationRequest(
+        text: text,
+        sourceLanguage: .english,
+        targetLanguage: .thai,
+        inputMode: .quickTranslate,
+        providerID: .apple
+    )
+    return TranslationResult(
+        id: id,
+        request: request,
+        translatedText: text,
+        wordTranslations: wordTranslations,
+        shownWordCards: shownWordCards,
+        createdAt: createdAt
+    )
 }
 
 private struct TestScreenCaptureService: ScreenCaptureServicing {
@@ -596,14 +614,15 @@ private struct TestHistorySaveError: LocalizedError {
 }
 
 private struct TestPermissionChecker: PermissionChecking {
+    var statuses: [PermissionKind: PermissionStatus] = [:]
+    var requestStatuses: [PermissionKind: PermissionStatus] = [:]
+
     func status(for kind: PermissionKind) async -> PermissionStatus {
-        _ = kind
-        return .granted
+        statuses[kind] ?? .granted
     }
 
     func request(for kind: PermissionKind) async -> PermissionStatus {
-        _ = kind
-        return .granted
+        requestStatuses[kind] ?? statuses[kind] ?? .granted
     }
 }
 
