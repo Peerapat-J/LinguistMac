@@ -77,6 +77,49 @@ final class SpeechRecognitionCoordinatorTests: XCTestCase {
         )
     }
 
+    func testCaptureShortPhraseRejectsOverlappingCaptureWithoutChangingActiveState() async {
+        let expectedResult = SpeechRecognitionResult(
+            transcript: "hello world",
+            language: .english
+        )
+        let speechToText = ControlledSpeechToTextService(result: expectedResult)
+        let coordinator = SpeechRecognitionCoordinator(
+            services: makeServices(speechToText: speechToText)
+        )
+
+        let firstTask = Task {
+            await coordinator.captureShortPhrase(sourceLanguage: .english)
+        }
+        await speechToText.waitUntilCaptureStarted()
+
+        let secondState = await coordinator.captureShortPhrase(sourceLanguage: .thai)
+
+        XCTAssertEqual(secondState, .failed(.captureInProgress))
+        let activeState = await coordinator.state
+        XCTAssertEqual(activeState, .capturing)
+        let requestsDuringOverlap = await speechToText.capturedRequests()
+        XCTAssertEqual(requestsDuringOverlap, [SpeechRecognitionRequest(sourceLanguage: .english)])
+
+        await speechToText.finishCapture()
+        await speechToText.waitUntilRecognitionStarted()
+        await speechToText.finishRecognition()
+        let firstState = await firstTask.value
+
+        XCTAssertEqual(firstState, .completed(expectedResult))
+        let finalRequests = await speechToText.capturedRequests()
+        XCTAssertEqual(finalRequests, [SpeechRecognitionRequest(sourceLanguage: .english)])
+        let states = await coordinator.states()
+        XCTAssertEqual(
+            states,
+            [
+                .idle,
+                .capturing,
+                .recognizing,
+                .completed(expectedResult)
+            ]
+        )
+    }
+
     func testCaptureShortPhraseFailsForEmptyTranscript() async {
         let coordinator = SpeechRecognitionCoordinator(
             services: makeServices(
@@ -242,6 +285,7 @@ private struct SampleSpeechRecognitionError: Error {}
 
 private actor ControlledSpeechToTextService: SpeechToTextServicing {
     private let result: SpeechRecognitionResult
+    private var requests: [SpeechRecognitionRequest] = []
     private var captureStartedContinuation: CheckedContinuation<Void, Never>?
     private var finishCaptureContinuation: CheckedContinuation<Void, Never>?
     private var recognitionStartedContinuation: CheckedContinuation<Void, Never>?
@@ -257,7 +301,7 @@ private actor ControlledSpeechToTextService: SpeechToTextServicing {
         _ request: SpeechRecognitionRequest,
         progress: SpeechRecognitionProgressHandler
     ) async throws -> SpeechRecognitionResult {
-        _ = request
+        requests.append(request)
         hasStartedCapture = true
         captureStartedContinuation?.resume()
         captureStartedContinuation = nil
@@ -276,6 +320,10 @@ private actor ControlledSpeechToTextService: SpeechToTextServicing {
         }
 
         return result
+    }
+
+    func capturedRequests() -> [SpeechRecognitionRequest] {
+        requests
     }
 
     func waitUntilCaptureStarted() async {

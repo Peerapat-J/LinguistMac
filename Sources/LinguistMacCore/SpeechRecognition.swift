@@ -33,6 +33,7 @@ public enum SpeechRecognitionFailure: Error, Equatable, Sendable {
     case permissionDenied(PermissionKind)
     case emptyTranscript
     case cancelled
+    case captureInProgress
     case recognitionFailed
 }
 
@@ -74,12 +75,14 @@ public struct UnavailableSpeechToTextService: SpeechToTextServicing {
 public actor SpeechRecognitionCoordinator {
     public private(set) var state: SpeechRecognitionSessionState
     private var stateHistory: [SpeechRecognitionSessionState]
+    private var isCaptureInProgress: Bool
     private let services: LinguistServices
 
     public init(services: LinguistServices) {
         self.services = services
         state = .idle
         stateHistory = [.idle]
+        isCaptureInProgress = false
     }
 
     public func states() -> [SpeechRecognitionSessionState] {
@@ -90,6 +93,15 @@ public actor SpeechRecognitionCoordinator {
     public func captureShortPhrase(
         sourceLanguage: TranslationLanguage = .autoDetect
     ) async -> SpeechRecognitionSessionState {
+        guard !isCaptureInProgress else {
+            return .failed(.captureInProgress)
+        }
+
+        isCaptureInProgress = true
+        defer {
+            isCaptureInProgress = false
+        }
+
         guard await requestPermissionIfNeeded(.microphone) == .granted else {
             return fail(with: .permissionDenied(.microphone))
         }
