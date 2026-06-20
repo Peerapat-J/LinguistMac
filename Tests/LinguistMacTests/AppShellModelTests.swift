@@ -52,6 +52,7 @@ final class AppShellModelTests: XCTestCase {
         model.quickDraft.sourceText = "  hello world  "
 
         await model.runQuickTranslate()
+        await model.activeQuickWordTranslationTask?.value
 
         let expectedWords = [
             WordTranslation(sourceText: "hello", translatedText: "สวัสดี"),
@@ -66,6 +67,59 @@ final class AppShellModelTests: XCTestCase {
 
         let savedResults = try await historyStore.recent(limit: 10)
         XCTAssertEqual(savedResults.first?.wordTranslations, expectedWords)
+    }
+
+    func testQuickTranslatePublishesSentenceBeforeWordBreakdownFinishes() async throws {
+        let historyStore = TestTranslationHistoryStore()
+        let clipboard = TestClipboard()
+        let provider = GatedQuickTranslateProvider()
+        let model = AppShellModel(
+            settings: AppSettings(
+                sourceLanguage: .english,
+                targetLanguage: .thai,
+                autoCopyEnabled: true
+            ),
+            services: makeServices(
+                translatorRegistry: TestTranslationProviderRegistry(provider: provider),
+                historyStore: historyStore,
+                clipboard: clipboard
+            )
+        )
+        model.quickDraft.sourceText = "hello world"
+        let quickTranslateReturned = expectation(description: "Quick Translate returns before word lookups finish")
+
+        let runTask = Task {
+            await model.runQuickTranslate()
+            quickTranslateReturned.fulfill()
+        }
+        await fulfillment(of: [quickTranslateReturned], timeout: 1)
+
+        guard case let .completed(immediateResult) = model.quickSessionState else {
+            await provider.releaseWordTranslations()
+            await runTask.value
+            return XCTFail("Expected the sentence result before word lookup enrichment.")
+        }
+        XCTAssertEqual(immediateResult.translatedText, "สวัสดีชาวโลก")
+        XCTAssertEqual(immediateResult.wordTranslations, [])
+        let immediateClipboardText = await clipboard.textValue()
+        XCTAssertEqual(immediateClipboardText, "สวัสดีชาวโลก")
+        let immediateHistory = try await historyStore.recent(limit: 10)
+        XCTAssertEqual(immediateHistory.first?.wordTranslations, [])
+
+        await provider.releaseWordTranslations()
+        await model.activeQuickWordTranslationTask?.value
+        await runTask.value
+
+        let expectedWords = [
+            WordTranslation(sourceText: "hello", translatedText: "สวัสดี"),
+            WordTranslation(sourceText: "world", translatedText: "โลก")
+        ]
+        guard case let .completed(enrichedResult) = model.quickSessionState else {
+            return XCTFail("Expected enriched quick translate state.")
+        }
+        XCTAssertEqual(enrichedResult.wordTranslations, expectedWords)
+        let enrichedHistory = try await historyStore.recent(limit: 10)
+        XCTAssertEqual(enrichedHistory.first?.wordTranslations, expectedWords)
     }
 
     func testQuickTranslateSurfacesHistorySaveFailure() async {
@@ -329,9 +383,9 @@ private struct TestTranslationProvider: TranslationProviding {
 }
 
 private struct TestTranslationProviderRegistry: TranslationProviderRegistry {
-    let provider: TestTranslationProvider
+    let provider: any TranslationProviding
 
-    init(provider: TestTranslationProvider = TestTranslationProvider()) {
+    init(provider: any TranslationProviding = TestTranslationProvider()) {
         self.provider = provider
     }
 
@@ -346,12 +400,69 @@ private struct TestTranslationProviderRegistry: TranslationProviderRegistry {
     func availableProviders() async -> [TranslationProviderDescriptor] {
         [
             TranslationProviderDescriptor(
-                id: .apple,
-                displayName: "Apple Translation",
-                requiresAPIKey: false,
-                usesNetwork: false
+                id: provider.id,
+                displayName: provider.displayName,
+                requiresAPIKey: provider.requiresAPIKey,
+                usesNetwork: provider.usesNetwork
             )
         ]
+    }
+}
+
+private actor GatedQuickTranslateProvider: TranslationProviding {
+    nonisolated let id = TranslationProviderID.apple
+    nonisolated let displayName = "Apple Translation"
+    nonisolated let detail = "Gated test provider"
+    nonisolated let requiresAPIKey = false
+    nonisolated let usesNetwork = true
+    nonisolated let privacySummary = "Test cloud provider"
+
+    private var isWordTranslationReleased = false
+    private var wordTranslationContinuations: [CheckedContinuation<Void, Never>] = []
+
+    func configurationStatus() async -> TranslationProviderConfigurationStatus {
+        .ready
+    }
+
+    func translate(_ request: TranslationRequest) async throws -> TranslationResult {
+        if request.text != "hello world" {
+            await waitForWordTranslationRelease()
+        }
+
+        return TranslationResult(
+            request: request,
+            translatedText: translatedText(for: request.text)
+        )
+    }
+
+    func releaseWordTranslations() {
+        isWordTranslationReleased = true
+        let continuations = wordTranslationContinuations
+        wordTranslationContinuations = []
+        continuations.forEach { $0.resume() }
+    }
+
+    private func waitForWordTranslationRelease() async {
+        guard !isWordTranslationReleased else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            wordTranslationContinuations.append(continuation)
+        }
+    }
+
+    private func translatedText(for text: String) -> String {
+        switch text {
+        case "hello world":
+            "สวัสดีชาวโลก"
+        case "hello":
+            "สวัสดี"
+        case "world":
+            "โลก"
+        default:
+            text
+        }
     }
 }
 

@@ -249,6 +249,8 @@ public enum WordTranslationAugmenter {
         var translations: [WordTranslation] = []
 
         for sourceWord in sourceWords {
+            try Task.checkCancellation()
+
             let translatedText: String
             if let cachedTranslation = translatedBySource[sourceWord] {
                 translatedText = cachedTranslation

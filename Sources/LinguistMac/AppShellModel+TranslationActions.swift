@@ -37,6 +37,7 @@ extension AppShellModel {
     func runQuickTranslate() async {
         record(.quickTranslate)
         cancelPopupWordLookup()
+        cancelQuickWordTranslation()
         do {
             let translationSettings = settingsWithSupportedProvider()
             var request = try quickDraft
@@ -67,7 +68,7 @@ extension AppShellModel {
                     throw TranslationFailure.unsupportedLanguagePair
                 }
             }
-            let result = try await completedQuickTranslateResult(request, translator: translator)
+            let result = try await translator.translate(request)
             quickSessionState = .completed(result)
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
@@ -76,6 +77,8 @@ extension AppShellModel {
             if translationSettings.autoCopyEnabled {
                 await services.clipboard.writeText(result.translatedText)
             }
+
+            startQuickWordTranslation(for: result, translator: translator)
         } catch let failure as TranslationFailure {
             quickSessionState = .failed(failure)
             popupState = .failed(failure, originalText: quickDraft.trimmedText)
@@ -86,16 +89,54 @@ extension AppShellModel {
         }
     }
 
-    private func completedQuickTranslateResult(
-        _ request: TranslationRequest,
+    private func startQuickWordTranslation(
+        for result: TranslationResult,
         translator: any TranslationProviding
-    ) async throws -> TranslationResult {
-        let translatedResult = try await translator.translate(request)
-        return await WordTranslationAugmenter.resultWithWordTranslationsIfNeeded(
-            translatedResult,
-            provider: translator,
-            eligibleInputModes: [.quickTranslate]
-        )
+    ) {
+        let augmentationID = UUID()
+        activeQuickWordTranslationID = augmentationID
+        activeQuickWordTranslationTask = Task {
+            let augmentedResult = await WordTranslationAugmenter.resultWithWordTranslationsIfNeeded(
+                result,
+                provider: translator,
+                eligibleInputModes: [.quickTranslate]
+            )
+            await finishQuickWordTranslation(
+                augmentationID: augmentationID,
+                resultID: result.id,
+                augmentedResult: augmentedResult
+            )
+        }
+    }
+
+    private func finishQuickWordTranslation(
+        augmentationID: UUID,
+        resultID: UUID,
+        augmentedResult: TranslationResult
+    ) async {
+        guard activeQuickWordTranslationID == augmentationID else {
+            return
+        }
+
+        activeQuickWordTranslationID = nil
+        activeQuickWordTranslationTask = nil
+
+        guard !Task.isCancelled,
+              !augmentedResult.wordTranslations.isEmpty,
+              case let .completed(currentQuickResult) = quickSessionState,
+              currentQuickResult.id == resultID
+        else {
+            return
+        }
+
+        quickSessionState = .completed(augmentedResult)
+        if case let .success(currentPopupResult, showsOriginal, wordCard) = popupState {
+            if currentPopupResult.id == resultID {
+                popupState = .success(augmentedResult, showsOriginal: showsOriginal, wordCard: wordCard)
+            }
+        }
+        saveRecent(augmentedResult)
+        await persistRecentTranslation(augmentedResult)
     }
 
     func runSelectedTextTranslation() async {
@@ -288,6 +329,12 @@ extension AppShellModel {
         activePopupWordLookupID = nil
         activePopupWordLookupTask?.cancel()
         activePopupWordLookupTask = nil
+    }
+
+    func cancelQuickWordTranslation() {
+        activeQuickWordTranslationID = nil
+        activeQuickWordTranslationTask?.cancel()
+        activeQuickWordTranslationTask = nil
     }
 
     private func wordLookupRequest(

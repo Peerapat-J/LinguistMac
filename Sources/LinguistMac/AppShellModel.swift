@@ -57,6 +57,8 @@ final class AppShellModel: ObservableObject {
     var doubleCopyTriggerDetector: DoubleCopyTriggerDetector
     var activePopupWordLookupID: UUID?
     var activePopupWordLookupTask: Task<WordLookupState, Never>?
+    var activeQuickWordTranslationID: UUID?
+    var activeQuickWordTranslationTask: Task<Void, Never>?
 
     init(
         settings: AppSettings? = nil,
@@ -102,6 +104,7 @@ final class AppShellModel: ObservableObject {
 
     deinit {
         activePopupWordLookupTask?.cancel()
+        activeQuickWordTranslationTask?.cancel()
     }
 
     var recentMenuItems: [TranslationResult] {
@@ -114,6 +117,7 @@ final class AppShellModel: ObservableObject {
 
     func prepareQuickTranslate() {
         record(.quickTranslate)
+        cancelQuickWordTranslation()
         quickDraft.sourceLanguage = settings.sourceLanguage
         quickDraft.targetLanguage = settings.targetLanguage
         quickSessionState = .idle
