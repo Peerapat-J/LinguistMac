@@ -1,4 +1,3 @@
-@preconcurrency import AVFoundation
 import Foundation
 import LinguistMacCore
 @preconcurrency import Speech
@@ -79,7 +78,7 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
                     let isFinal = result?.isFinal == true
                     let failure = error.map(Self.speechRecognitionFailure(from:))
                     Task {
-                        await self.handleRecognitionResult(
+                        self.handleRecognitionResult(
                             transcript: transcript,
                             isFinal: isFinal,
                             failure: failure,
@@ -110,7 +109,7 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
     private func scheduleRecognitionTimeout() {
         Task {
             try? await Task.sleep(nanoseconds: nanoseconds(for: maxPhraseDuration + recognitionGraceDuration))
-            await failActiveRecognitionIfNeeded(.recognitionFailed)
+            failActiveRecognitionIfNeeded(.recognitionFailed)
         }
     }
 
