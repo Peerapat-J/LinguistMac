@@ -9,6 +9,9 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
     private var activeRecognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var activeRecognitionTask: SFSpeechRecognitionTask?
     private var activeContinuation: SpeechRecognitionContinuationBox?
+    private var activeSessionID: UUID?
+    private var activeShortPhraseLimitTask: Task<Void, Never>?
+    private var activeRecognitionTimeoutTask: Task<Void, Never>?
 
     init(
         maxPhraseDuration: TimeInterval = 8,
@@ -25,16 +28,18 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
         try Task.checkCancellation()
         let recognizer = try makeRecognizer(for: request)
         let language = request.sourceLanguage.supportsAutoDetect ? nil : request.sourceLanguage
+        let sessionID = UUID()
 
         return try await withTaskCancellationHandler {
             try await startTranscription(
                 recognizer: recognizer,
                 language: language,
-                progress: progress
+                progress: progress,
+                sessionID: sessionID
             )
         } onCancel: {
             Task {
-                await self.cancelActiveRecognition()
+                await self.cancelActiveRecognition(sessionID: sessionID)
             }
         }
     }
@@ -53,10 +58,12 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
     private func startTranscription(
         recognizer: SFSpeechRecognizer,
         language: TranslationLanguage?,
-        progress: @escaping SpeechRecognitionProgressHandler
+        progress: @escaping SpeechRecognitionProgressHandler,
+        sessionID: UUID
     ) async throws -> SpeechRecognitionResult {
         try await withCheckedThrowingContinuation { continuation in
             let continuationBox = SpeechRecognitionContinuationBox(continuation)
+            activeSessionID = sessionID
             activeContinuation = continuationBox
 
             do {
@@ -83,15 +90,15 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
                             isFinal: isFinal,
                             failure: failure,
                             language: language,
-                            continuation: continuationBox
+                            sessionID: sessionID
                         )
                     }
                 }
 
                 audioEngine.prepare()
                 try audioEngine.start()
-                scheduleShortPhraseLimit(progress: progress)
-                scheduleRecognitionTimeout()
+                scheduleShortPhraseLimit(sessionID: sessionID, progress: progress)
+                scheduleRecognitionTimeout(sessionID: sessionID)
             } catch {
                 cleanupActiveRecognition(cancelTask: true)
                 continuationBox.resume(throwing: Self.speechRecognitionFailure(from: error))
@@ -99,28 +106,45 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
         }
     }
 
-    private func scheduleShortPhraseLimit(progress: @escaping SpeechRecognitionProgressHandler) {
-        Task {
-            try? await Task.sleep(nanoseconds: nanoseconds(for: maxPhraseDuration))
-            await finishRecordingIfNeeded(progress: progress)
+    private func scheduleShortPhraseLimit(
+        sessionID: UUID,
+        progress: @escaping SpeechRecognitionProgressHandler
+    ) {
+        activeShortPhraseLimitTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: nanoseconds(for: maxPhraseDuration))
+                await finishRecordingIfNeeded(sessionID: sessionID, progress: progress)
+            } catch {}
         }
     }
 
-    private func scheduleRecognitionTimeout() {
-        Task {
-            try? await Task.sleep(nanoseconds: nanoseconds(for: maxPhraseDuration + recognitionGraceDuration))
-            failActiveRecognitionIfNeeded(.recognitionFailed)
+    private func scheduleRecognitionTimeout(sessionID: UUID) {
+        activeRecognitionTimeoutTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: nanoseconds(for: maxPhraseDuration + recognitionGraceDuration))
+                failActiveRecognitionIfNeeded(.recognitionFailed, sessionID: sessionID)
+            } catch {}
         }
     }
 
-    private func finishRecordingIfNeeded(progress: @escaping SpeechRecognitionProgressHandler) async {
-        guard activeContinuation?.isResolved == false,
+    private func finishRecordingIfNeeded(
+        sessionID: UUID,
+        progress: @escaping SpeechRecognitionProgressHandler
+    ) async {
+        guard activeSessionID == sessionID,
+              activeContinuation?.isResolved == false,
               activeRecognitionRequest != nil
         else {
             return
         }
 
         await progress(.recordingFinished)
+        guard activeSessionID == sessionID,
+              activeContinuation?.isResolved == false
+        else {
+            return
+        }
+
         stopAudioInput()
     }
 
@@ -129,9 +153,10 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
         isFinal: Bool,
         failure: SpeechRecognitionFailure?,
         language: TranslationLanguage?,
-        continuation: SpeechRecognitionContinuationBox
+        sessionID: UUID
     ) {
-        guard activeContinuation === continuation,
+        guard activeSessionID == sessionID,
+              let continuation = activeContinuation,
               !continuation.isResolved
         else {
             return
@@ -158,8 +183,12 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
         )
     }
 
-    private func failActiveRecognitionIfNeeded(_ failure: SpeechRecognitionFailure) {
+    private func failActiveRecognitionIfNeeded(
+        _ failure: SpeechRecognitionFailure,
+        sessionID: UUID? = nil
+    ) {
         guard let continuation = activeContinuation,
+              sessionID == nil || activeSessionID == sessionID,
               !continuation.isResolved
         else {
             return
@@ -169,8 +198,8 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
         continuation.resume(throwing: failure)
     }
 
-    private func cancelActiveRecognition() {
-        failActiveRecognitionIfNeeded(.cancelled)
+    private func cancelActiveRecognition(sessionID: UUID? = nil) {
+        failActiveRecognitionIfNeeded(.cancelled, sessionID: sessionID)
     }
 
     private func stopAudioInput() {
@@ -183,11 +212,16 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
 
     private func cleanupActiveRecognition(cancelTask: Bool) {
         stopAudioInput()
+        activeShortPhraseLimitTask?.cancel()
+        activeShortPhraseLimitTask = nil
+        activeRecognitionTimeoutTask?.cancel()
+        activeRecognitionTimeoutTask = nil
         if cancelTask {
             activeRecognitionTask?.cancel()
         }
         activeRecognitionTask = nil
         activeContinuation = nil
+        activeSessionID = nil
     }
 
     private nonisolated func nanoseconds(for duration: TimeInterval) -> UInt64 {
