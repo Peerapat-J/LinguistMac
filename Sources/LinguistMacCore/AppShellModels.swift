@@ -166,6 +166,12 @@ public extension TranslationFailure {
                 title: "Voice Capture Running",
                 message: "Finish or cancel the current voice capture before starting another one."
             )
+        case .speechSourceLanguageRequired:
+            TranslationFailurePresentation(
+                title: "Speech Language Required",
+                message: "Choose a source language before using voice capture. "
+                    + "Speech recognition does not support Auto Detect."
+            )
         case .noSpeechRecognized:
             TranslationFailurePresentation(
                 title: "No Speech Recognized",

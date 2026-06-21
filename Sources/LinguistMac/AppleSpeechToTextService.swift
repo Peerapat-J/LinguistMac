@@ -45,7 +45,10 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
     }
 
     private func makeRecognizer(for request: SpeechRecognitionRequest) throws -> SFSpeechRecognizer {
-        let localeIdentifier = request.localeIdentifier ?? Locale.current.identifier
+        guard let localeIdentifier = request.localeIdentifier else {
+            throw SpeechRecognitionFailure.sourceLanguageRequired
+        }
+
         guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: localeIdentifier)),
               recognizer.isAvailable
         else {

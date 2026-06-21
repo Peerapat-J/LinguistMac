@@ -207,6 +207,11 @@ extension AppShellModel {
 
     private func runQuickVoiceCapture(captureID: UUID) async {
         let sourceLanguage = quickDraft.sourceLanguage
+        guard !sourceLanguage.supportsAutoDetect else {
+            await finishQuickVoiceCapture(.failed(.sourceLanguageRequired), captureID: captureID)
+            return
+        }
+
         let coordinator = SpeechRecognitionCoordinator(services: services)
         let finalState = await coordinator.captureShortPhrase(sourceLanguage: sourceLanguage) { [weak self] state in
             await self?.applyQuickVoiceState(state, captureID: captureID)
@@ -283,6 +288,8 @@ extension AppShellModel {
         switch failure {
         case let .permissionDenied(kind):
             .permissionDenied(kind)
+        case .sourceLanguageRequired:
+            .speechSourceLanguageRequired
         case .emptyTranscript:
             .noSpeechRecognized
         case .cancelled:

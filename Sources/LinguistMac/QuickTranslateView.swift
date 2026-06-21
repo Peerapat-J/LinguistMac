@@ -329,6 +329,8 @@ private extension QuickTranslateView {
         switch failure {
         case let .permissionDenied(kind):
             "\(kind.displayName) denied"
+        case .sourceLanguageRequired:
+            "Choose source language"
         case .emptyTranscript:
             "No speech recognized"
         case .cancelled:

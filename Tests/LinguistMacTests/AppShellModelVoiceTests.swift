@@ -90,10 +90,52 @@ final class AppShellModelVoiceTests: XCTestCase {
         XCTAssertEqual(savedResults.map(\.translatedText), ["เสียงแรก"])
     }
 
+    func testQuickVoiceTranslateRequiresConcreteSourceLanguage() async throws {
+        let historyStore = VoiceTestTranslationHistoryStore()
+        let speechToText = VoiceTestSpeechToTextService(
+            result: .success(SpeechRecognitionResult(transcript: "unused"))
+        )
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .autoDetect, targetLanguage: .thai),
+            services: makeVoiceTestServices(
+                historyStore: historyStore,
+                speechToText: speechToText
+            )
+        )
+
+        model.startQuickVoiceCapture()
+        let captureTask = model.activeQuickVoiceCaptureTask
+        await captureTask?.value
+
+        XCTAssertEqual(model.quickVoiceState, .failed(.sourceLanguageRequired))
+        XCTAssertEqual(model.quickSessionState, .failed(.speechSourceLanguageRequired))
+        XCTAssertFalse(model.isQuickVoiceCaptureActive)
+        XCTAssertNil(model.quickVoiceTranscript)
+        let requests = await speechToText.capturedRequests()
+        XCTAssertTrue(requests.isEmpty)
+        let savedResults = try await historyStore.recent(limit: 10)
+        XCTAssertTrue(savedResults.isEmpty)
+    }
+
+    func testAppleSpeechToTextServiceRejectsAutoDetectSourceLanguage() async {
+        let service = AppleSpeechToTextService()
+
+        do {
+            _ = try await service.transcribeShortPhrase(
+                SpeechRecognitionRequest(sourceLanguage: .autoDetect),
+                progress: { _ in }
+            )
+            XCTFail("Expected Auto Detect speech capture to require a concrete source language.")
+        } catch {
+            XCTAssertEqual(error as? SpeechRecognitionFailure, .sourceLanguageRequired)
+        }
+    }
+
     func testQuickVoiceTranslateCancellationDoesNotSaveFailedOrPartialTranslation() async throws {
         let historyStore = VoiceTestTranslationHistoryStore()
         let speechToText = VoiceTestSpeechToTextService(result: .failure(.cancelled))
         let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
             services: makeVoiceTestServices(
                 historyStore: historyStore,
                 speechToText: speechToText
@@ -117,6 +159,7 @@ final class AppShellModelVoiceTests: XCTestCase {
             result: .success(SpeechRecognitionResult(transcript: "unused"))
         )
         let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
             services: makeVoiceTestServices(
                 permissionChecker: VoiceTestPermissionChecker(
                     statuses: [.microphone: .denied],

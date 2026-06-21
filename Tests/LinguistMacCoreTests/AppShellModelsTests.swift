@@ -136,6 +136,10 @@ final class AppShellModelsTests: XCTestCase {
             .retry
         )
         XCTAssertEqual(
+            TranslationFailure.speechSourceLanguageRequired.presentation.message,
+            "Choose a source language before using voice capture. Speech recognition does not support Auto Detect."
+        )
+        XCTAssertEqual(
             TranslationFailure.noSpeechRecognized.presentation.message,
             "No spoken phrase was recognized. Try speaking again."
         )
