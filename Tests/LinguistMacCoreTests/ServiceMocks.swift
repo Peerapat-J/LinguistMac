@@ -102,7 +102,7 @@ actor RecordingSpeechToTextService: SpeechToTextServicing {
 
     func transcribeShortPhrase(
         _ request: SpeechRecognitionRequest,
-        progress: SpeechRecognitionProgressHandler
+        progress: @escaping SpeechRecognitionProgressHandler
     ) async throws -> SpeechRecognitionResult {
         requests.append(request)
         for event in progressEvents {

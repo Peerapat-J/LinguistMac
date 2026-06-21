@@ -155,6 +155,29 @@ public extension TranslationFailure {
                 message: "The screen capture was cancelled before text could be translated.",
                 recoveryAction: .retry
             )
+        case .voiceCaptureCancelled:
+            TranslationFailurePresentation(
+                title: "Voice Capture Cancelled",
+                message: "Voice capture was cancelled before text could be translated.",
+                recoveryAction: .retry
+            )
+        case .voiceCaptureInProgress:
+            TranslationFailurePresentation(
+                title: "Voice Capture Running",
+                message: "Finish or cancel the current voice capture before starting another one."
+            )
+        case .noSpeechRecognized:
+            TranslationFailurePresentation(
+                title: "No Speech Recognized",
+                message: "No spoken phrase was recognized. Try speaking again.",
+                recoveryAction: .retry
+            )
+        case .speechRecognitionFailed:
+            TranslationFailurePresentation(
+                title: "Speech Recognition Failed",
+                message: "Speech recognition could not complete. Check permissions or try again.",
+                recoveryAction: .retry
+            )
         case .noTextRecognized:
             TranslationFailurePresentation(
                 title: "No Text Found",

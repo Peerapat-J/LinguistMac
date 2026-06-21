@@ -41,7 +41,8 @@ enum LiveLinguistServices {
             clipboard: SystemClipboardService(),
             selectedTextCapture: SystemSelectedTextCaptureService(),
             shortcutRegistry: shortcutRegistry,
-            wordLookupProvider: ProviderBackedWordLookupService(translatorRegistry: translatorRegistry)
+            wordLookupProvider: ProviderBackedWordLookupService(translatorRegistry: translatorRegistry),
+            speechToText: AppleSpeechToTextService()
         )
     }
 

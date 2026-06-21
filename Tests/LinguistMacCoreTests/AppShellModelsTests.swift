@@ -131,6 +131,18 @@ final class AppShellModelsTests: XCTestCase {
             TranslationFailure.missingAPIKey(.deepl).presentation.recoveryAction,
             .openSettings
         )
+        XCTAssertEqual(
+            TranslationFailure.voiceCaptureCancelled.presentation.recoveryAction,
+            .retry
+        )
+        XCTAssertEqual(
+            TranslationFailure.noSpeechRecognized.presentation.message,
+            "No spoken phrase was recognized. Try speaking again."
+        )
+        XCTAssertEqual(
+            TranslationFailure.speechRecognitionFailed.presentation.recoveryAction,
+            .retry
+        )
 
         let providerFailure = TranslationFailure.providerFailed("secret-token-123 source text")
 

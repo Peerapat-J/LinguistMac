@@ -48,7 +48,7 @@ struct LinguistMacApp: App {
             QuickTranslateView(model: model)
                 .environment(\.locale, model.settings.appLanguage.locale)
         }
-        .defaultSize(width: 560, height: 460)
+        .defaultSize(width: 560, height: 520)
 
         Window("Translation", id: AppWindow.translationPopup.rawValue) {
             TranslationPopupView(model: model)

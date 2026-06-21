@@ -51,11 +51,12 @@ public enum SpeechRecognitionProgress: Equatable, Sendable {
 }
 
 public typealias SpeechRecognitionProgressHandler = @Sendable (SpeechRecognitionProgress) async -> Void
+public typealias SpeechRecognitionStateHandler = @Sendable (SpeechRecognitionSessionState) async -> Void
 
 public protocol SpeechToTextServicing: Sendable {
     func transcribeShortPhrase(
         _ request: SpeechRecognitionRequest,
-        progress: SpeechRecognitionProgressHandler
+        progress: @escaping SpeechRecognitionProgressHandler
     ) async throws -> SpeechRecognitionResult
 }
 
@@ -64,7 +65,7 @@ public struct UnavailableSpeechToTextService: SpeechToTextServicing {
 
     public func transcribeShortPhrase(
         _ request: SpeechRecognitionRequest,
-        progress: SpeechRecognitionProgressHandler
+        progress: @escaping SpeechRecognitionProgressHandler
     ) async throws -> SpeechRecognitionResult {
         _ = request
         _ = progress
@@ -91,7 +92,8 @@ public actor SpeechRecognitionCoordinator {
 
     @discardableResult
     public func captureShortPhrase(
-        sourceLanguage: TranslationLanguage = .autoDetect
+        sourceLanguage: TranslationLanguage = .autoDetect,
+        onStateChange: SpeechRecognitionStateHandler? = nil
     ) async -> SpeechRecognitionSessionState {
         guard !isCaptureInProgress else {
             return .failed(.captureInProgress)
@@ -104,35 +106,42 @@ public actor SpeechRecognitionCoordinator {
 
         do {
             try Task.checkCancellation()
-            guard try await requestPermissionIfNeeded(.microphone) == .granted else {
-                return fail(with: .permissionDenied(.microphone))
+            guard try await requestPermissionIfNeeded(.microphone, onStateChange: onStateChange) == .granted else {
+                return await fail(with: .permissionDenied(.microphone), onStateChange: onStateChange)
             }
-            guard try await requestPermissionIfNeeded(.speechRecognition) == .granted else {
-                return fail(with: .permissionDenied(.speechRecognition))
+            let speechRecognitionStatus = try await requestPermissionIfNeeded(
+                .speechRecognition,
+                onStateChange: onStateChange
+            )
+            guard speechRecognitionStatus == .granted else {
+                return await fail(with: .permissionDenied(.speechRecognition), onStateChange: onStateChange)
             }
 
             let request = SpeechRecognitionRequest(sourceLanguage: sourceLanguage)
-            setState(.capturing)
+            await setState(.capturing, onStateChange: onStateChange)
             let result = try await services.speechToText.transcribeShortPhrase(request) { progress in
-                await self.handleProgress(progress)
+                await self.handleProgress(progress, onStateChange: onStateChange)
             }
             let transcript = result.trimmedTranscript
             guard !transcript.isEmpty else {
-                return fail(with: .emptyTranscript)
+                return await fail(with: .emptyTranscript, onStateChange: onStateChange)
             }
 
             let completedResult = SpeechRecognitionResult(
                 transcript: transcript,
                 language: result.language
             )
-            setState(.completed(completedResult))
+            await setState(.completed(completedResult), onStateChange: onStateChange)
             return state
         } catch {
-            return fail(with: failure(from: error))
+            return await fail(with: failure(from: error), onStateChange: onStateChange)
         }
     }
 
-    private func requestPermissionIfNeeded(_ kind: PermissionKind) async throws -> PermissionStatus {
+    private func requestPermissionIfNeeded(
+        _ kind: PermissionKind,
+        onStateChange: SpeechRecognitionStateHandler?
+    ) async throws -> PermissionStatus {
         try Task.checkCancellation()
         let status = await services.permissionChecker.status(for: kind)
         try Task.checkCancellation()
@@ -140,21 +149,24 @@ public actor SpeechRecognitionCoordinator {
             return status
         }
 
-        setState(.requestingPermission(kind))
+        await setState(.requestingPermission(kind), onStateChange: onStateChange)
         try Task.checkCancellation()
         let requestedStatus = await services.permissionChecker.request(for: kind)
         try Task.checkCancellation()
         return requestedStatus
     }
 
-    private func handleProgress(_ progress: SpeechRecognitionProgress) {
+    private func handleProgress(
+        _ progress: SpeechRecognitionProgress,
+        onStateChange: SpeechRecognitionStateHandler?
+    ) async {
         switch progress {
         case .recordingFinished:
             guard state == .capturing else {
                 return
             }
 
-            setState(.recognizing)
+            await setState(.recognizing, onStateChange: onStateChange)
         }
     }
 
@@ -181,13 +193,22 @@ public actor SpeechRecognitionCoordinator {
         return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
     }
 
-    private func fail(with failure: SpeechRecognitionFailure) -> SpeechRecognitionSessionState {
-        setState(.failed(failure))
+    private func fail(
+        with failure: SpeechRecognitionFailure,
+        onStateChange: SpeechRecognitionStateHandler?
+    ) async -> SpeechRecognitionSessionState {
+        await setState(.failed(failure), onStateChange: onStateChange)
         return state
     }
 
-    private func setState(_ newState: SpeechRecognitionSessionState) {
+    private func setState(
+        _ newState: SpeechRecognitionSessionState,
+        onStateChange: SpeechRecognitionStateHandler?
+    ) async {
         state = newState
         stateHistory.append(newState)
+        if let onStateChange {
+            await onStateChange(newState)
+        }
     }
 }
