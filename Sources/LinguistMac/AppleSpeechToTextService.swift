@@ -201,13 +201,12 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
         if error is CancellationError {
             return .cancelled
         }
-        if let urlError = error as? URLError,
-           urlError.code == .cancelled {
+        if let urlError = error as? URLError, urlError.code == .cancelled {
             return .cancelled
         }
 
         let nsError = error as NSError
-        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+        if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
             return .cancelled
         }
 
