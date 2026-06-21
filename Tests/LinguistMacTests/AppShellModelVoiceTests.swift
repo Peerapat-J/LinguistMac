@@ -39,6 +39,57 @@ final class AppShellModelVoiceTests: XCTestCase {
         XCTAssertEqual(savedResults.map(\.request.text), ["spoken phrase"])
     }
 
+    func testQuickVoiceTranslateKeepsCaptureActiveUntilTranslationFinishes() async throws {
+        let historyStore = VoiceTestTranslationHistoryStore()
+        let translationGate = VoiceTranslationGate()
+        let speechToText = VoiceTestSpeechToTextService(
+            result: .success(SpeechRecognitionResult(transcript: "first phrase"))
+        )
+        let provider = GatedVoiceTranslationProvider(
+            gate: translationGate,
+            translatedText: "เสียงแรก"
+        )
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
+            services: makeVoiceTestServices(
+                translatorRegistry: VoiceTestTranslationProviderRegistry(provider: provider),
+                historyStore: historyStore,
+                speechToText: speechToText
+            )
+        )
+
+        model.startQuickVoiceCapture()
+        let captureTask = try XCTUnwrap(model.activeQuickVoiceCaptureTask)
+        await translationGate.waitUntilTranslationStarts()
+
+        let activeCaptureID = model.activeQuickVoiceCaptureID
+        XCTAssertNotNil(activeCaptureID)
+        XCTAssertTrue(model.isQuickVoiceCaptureActive)
+        XCTAssertEqual(model.quickVoiceTranscript, "first phrase")
+        guard case .translating = model.quickSessionState else {
+            await translationGate.releaseTranslation()
+            await captureTask.value
+            return XCTFail("Expected voice capture to stay active during translation.")
+        }
+
+        model.startQuickVoiceCapture()
+
+        XCTAssertEqual(model.activeQuickVoiceCaptureID, activeCaptureID)
+        let requestsBeforeRelease = await speechToText.capturedRequests()
+        XCTAssertEqual(requestsBeforeRelease, [SpeechRecognitionRequest(sourceLanguage: .english)])
+
+        await translationGate.releaseTranslation()
+        await captureTask.value
+
+        XCTAssertFalse(model.isQuickVoiceCaptureActive)
+        XCTAssertNil(model.activeQuickVoiceCaptureID)
+        XCTAssertNil(model.activeQuickVoiceCaptureTask)
+        XCTAssertEqual(model.recentTranslations.map(\.translatedText), ["เสียงแรก"])
+        XCTAssertEqual(model.popupState.copyableText, "เสียงแรก")
+        let savedResults = try await historyStore.recent(limit: 10)
+        XCTAssertEqual(savedResults.map(\.translatedText), ["เสียงแรก"])
+    }
+
     func testQuickVoiceTranslateCancellationDoesNotSaveFailedOrPartialTranslation() async throws {
         let historyStore = VoiceTestTranslationHistoryStore()
         let speechToText = VoiceTestSpeechToTextService(result: .failure(.cancelled))
@@ -163,8 +214,66 @@ private struct VoiceTestTranslationProvider: TranslationProviding {
     }
 }
 
+private struct GatedVoiceTranslationProvider: TranslationProviding {
+    let id = TranslationProviderID.apple
+    let displayName = "Apple Translation"
+    let detail = "Gated voice test provider"
+    let requiresAPIKey = false
+    let usesNetwork = false
+    let privacySummary = "On-device"
+    let gate: VoiceTranslationGate
+    let translatedText: String
+
+    func configurationStatus() async -> TranslationProviderConfigurationStatus {
+        .ready
+    }
+
+    func translate(_ request: TranslationRequest) async throws -> TranslationResult {
+        await gate.translate(request, translatedText: translatedText)
+    }
+}
+
+private actor VoiceTranslationGate {
+    private var didStartTranslation = false
+    private var isReleased = false
+    private var startContinuations: [CheckedContinuation<Void, Never>] = []
+    private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
+
+    func translate(_ request: TranslationRequest, translatedText: String) async -> TranslationResult {
+        didStartTranslation = true
+        let continuations = startContinuations
+        startContinuations = []
+        continuations.forEach { $0.resume() }
+
+        if !isReleased {
+            await withCheckedContinuation { continuation in
+                releaseContinuations.append(continuation)
+            }
+        }
+
+        return TranslationResult(request: request, translatedText: translatedText)
+    }
+
+    func waitUntilTranslationStarts() async {
+        guard !didStartTranslation else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            startContinuations.append(continuation)
+        }
+    }
+
+    func releaseTranslation() {
+        isReleased = true
+        let continuations = releaseContinuations
+        releaseContinuations = []
+        continuations.forEach { $0.resume() }
+    }
+}
+
 private struct VoiceTestTranslationProviderRegistry: TranslationProviderRegistry {
-    var provider = VoiceTestTranslationProvider()
+    var provider: any TranslationProviding = VoiceTestTranslationProvider()
 
     func provider(for id: TranslationProviderID) async throws -> any TranslationProviding {
         guard id == provider.id else {
