@@ -18,6 +18,7 @@
 		B10000000000000000000009 /* QuickTranslateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000009 /* QuickTranslateView.swift */; };
 		B1000000000000000000000A /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000A /* OnboardingView.swift */; };
 		B1000000000000000000000B /* LiveLinguistServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000B /* LiveLinguistServices.swift */; };
+		B10000000000000000000052 /* AppleSpeechToTextService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000052 /* AppleSpeechToTextService.swift */; };
 		B1000000000000000000000C /* AppleTranslationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000C /* AppleTranslationProvider.swift */; };
 		B1000000000000000000000D /* VisionOCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000D /* VisionOCRService.swift */; };
 		B1000000000000000000000E /* ScreenCaptureKitScreenCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000E /* ScreenCaptureKitScreenCaptureService.swift */; };
@@ -70,6 +71,7 @@
 		C10000000000000000000001 /* AppShellModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000001 /* AppShellModelTests.swift */; };
 		C10000000000000000000003 /* AppShellModelWordCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000003 /* AppShellModelWordCardTests.swift */; };
 		C10000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift */; };
+		C10000000000000000000005 /* AppShellModelVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000005 /* AppShellModelVoiceTests.swift */; };
 		C10000000000000000000002 /* libLinguistMacCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B20000000000000000000030 /* libLinguistMacCore.a */; };
 /* End PBXBuildFile section */
 
@@ -114,6 +116,7 @@
 		B20000000000000000000009 /* QuickTranslateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickTranslateView.swift; sourceTree = "<group>"; };
 		B2000000000000000000000A /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		B2000000000000000000000B /* LiveLinguistServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveLinguistServices.swift; sourceTree = "<group>"; };
+		B20000000000000000000052 /* AppleSpeechToTextService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSpeechToTextService.swift; sourceTree = "<group>"; };
 		B2000000000000000000000C /* AppleTranslationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleTranslationProvider.swift; sourceTree = "<group>"; };
 		B2000000000000000000000D /* VisionOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionOCRService.swift; sourceTree = "<group>"; };
 		B2000000000000000000000E /* ScreenCaptureKitScreenCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCaptureKitScreenCaptureService.swift; sourceTree = "<group>"; };
@@ -172,6 +175,7 @@
 		C20000000000000000000001 /* AppShellModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000003 /* AppShellModelWordCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelWordCardTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataTranslationHistoryStoreTests.swift; sourceTree = "<group>"; };
+		C20000000000000000000005 /* AppShellModelVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelVoiceTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000002 /* LinguistMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LinguistMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -244,6 +248,7 @@
 				B20000000000000000000009 /* QuickTranslateView.swift */,
 				B2000000000000000000000A /* OnboardingView.swift */,
 				B2000000000000000000000B /* LiveLinguistServices.swift */,
+				B20000000000000000000052 /* AppleSpeechToTextService.swift */,
 				B2000000000000000000000C /* AppleTranslationProvider.swift */,
 				B2000000000000000000000F /* AppleTranslationSessionAdapter.swift */,
 				B2000000000000000000001C /* SelectedTextCaptureService.swift */,
@@ -321,6 +326,7 @@
 			isa = PBXGroup;
 			children = (
 				C20000000000000000000001 /* AppShellModelTests.swift */,
+				C20000000000000000000005 /* AppShellModelVoiceTests.swift */,
 				C20000000000000000000003 /* AppShellModelWordCardTests.swift */,
 				C20000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift */,
 			);
@@ -511,6 +517,7 @@
 				B10000000000000000000009 /* QuickTranslateView.swift in Sources */,
 				B1000000000000000000000A /* OnboardingView.swift in Sources */,
 				B1000000000000000000000B /* LiveLinguistServices.swift in Sources */,
+				B10000000000000000000052 /* AppleSpeechToTextService.swift in Sources */,
 				B1000000000000000000000C /* AppleTranslationProvider.swift in Sources */,
 				B1000000000000000000000F /* AppleTranslationSessionAdapter.swift in Sources */,
 				B1000000000000000000001C /* SelectedTextCaptureService.swift in Sources */,
@@ -578,6 +585,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C10000000000000000000001 /* AppShellModelTests.swift in Sources */,
+				C10000000000000000000005 /* AppShellModelVoiceTests.swift in Sources */,
 				C10000000000000000000003 /* AppShellModelWordCardTests.swift in Sources */,
 				C10000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift in Sources */,
 			);

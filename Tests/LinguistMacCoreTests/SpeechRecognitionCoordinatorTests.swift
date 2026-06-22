@@ -395,7 +395,7 @@ private struct ThrowingSpeechToTextService: SpeechToTextServicing {
 
     func transcribeShortPhrase(
         _ request: SpeechRecognitionRequest,
-        progress: SpeechRecognitionProgressHandler
+        progress: @escaping SpeechRecognitionProgressHandler
     ) async throws -> SpeechRecognitionResult {
         _ = request
         await progress(.recordingFinished)
@@ -421,7 +421,7 @@ private actor ControlledSpeechToTextService: SpeechToTextServicing {
 
     func transcribeShortPhrase(
         _ request: SpeechRecognitionRequest,
-        progress: SpeechRecognitionProgressHandler
+        progress: @escaping SpeechRecognitionProgressHandler
     ) async throws -> SpeechRecognitionResult {
         requests.append(request)
         hasStartedCapture = true

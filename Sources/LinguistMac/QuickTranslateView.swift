@@ -21,6 +21,7 @@ struct QuickTranslateView: View {
             }
 
             languageBar
+            voiceControls
 
             TextEditor(text: $model.quickDraft.sourceText)
                 .font(.body)
@@ -66,7 +67,7 @@ struct QuickTranslateView: View {
             }
         }
         .padding(20)
-        .frame(width: 560, height: 460)
+        .frame(width: 560, height: 520)
     }
 
     private var languageBar: some View {
@@ -90,6 +91,32 @@ struct QuickTranslateView: View {
         }
     }
 
+    private var voiceControls: some View {
+        HStack(spacing: 10) {
+            Button {
+                model.startQuickVoiceCapture()
+            } label: {
+                Label("Speak", systemImage: "mic.fill")
+            }
+            .disabled(model.isQuickVoiceCaptureActive)
+
+            Button {
+                model.cancelQuickVoiceCapture()
+            } label: {
+                Label("Cancel", systemImage: "stop.fill")
+            }
+            .disabled(!model.isQuickVoiceCaptureActive)
+
+            Spacer()
+
+            if let statusText = quickVoiceStatusText {
+                Label(statusText, systemImage: quickVoiceStatusImage)
+                    .font(.caption)
+                    .foregroundStyle(quickVoiceStatusTint)
+            }
+        }
+    }
+
     @ViewBuilder
     private var resultPanel: some View {
         switch model.quickSessionState {
@@ -104,18 +131,49 @@ struct QuickTranslateView: View {
             .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
             .padding(12)
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-        case .capturing, .recognizing, .requestingPermission:
-            ProgressView("Preparing...")
+        case .capturing:
+            ProgressView("Recording short phrase...")
+                .frame(maxWidth: .infinity, minHeight: 96)
+        case .recognizing:
+            ProgressView("Recognizing speech...")
+                .frame(maxWidth: .infinity, minHeight: 96)
+        case let .requestingPermission(kind):
+            ProgressView("Requesting \(kind.displayName)...")
                 .frame(maxWidth: .infinity, minHeight: 96)
         case .translating:
-            ProgressView("Translating...")
-                .frame(maxWidth: .infinity, minHeight: 96)
+            VStack(alignment: .leading, spacing: 8) {
+                if let transcript = model.quickVoiceTranscript {
+                    Text("Transcript")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(transcript)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Divider()
+                }
+
+                ProgressView("Translating...")
+                    .frame(maxWidth: .infinity, minHeight: 56)
+            }
+            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+            .padding(12)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
         case let .completed(result):
             let presentedResult = quickPresentedResult(for: result)
             let wordCard = quickWordCard(for: result)
             let canSelectWords = quickResultMatchesPopup(result)
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
+                    if let transcript = voiceTranscript(for: presentedResult) {
+                        Text("Transcript")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(transcript)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Divider()
+                    }
+
                     Text("Result")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -192,6 +250,16 @@ struct QuickTranslateView: View {
         return currentResult.id == result.id
     }
 
+    private func voiceTranscript(for result: TranslationResult) -> String? {
+        guard let transcript = model.quickVoiceTranscript,
+              transcript == result.originalText
+        else {
+            return nil
+        }
+
+        return transcript
+    }
+
     private func handleWordLookupRecovery(
         _ action: TranslationRecoveryAction,
         card: TranslationPopupWordCardState,
@@ -207,6 +275,72 @@ struct QuickTranslateView: View {
             }
         } else {
             model.performRecoveryAction(action)
+        }
+    }
+}
+
+private extension QuickTranslateView {
+    var quickVoiceStatusText: String? {
+        switch model.quickVoiceState {
+        case .idle:
+            nil
+        case let .requestingPermission(kind):
+            "Requesting \(kind.displayName)"
+        case .capturing:
+            "Recording"
+        case .recognizing:
+            "Recognizing"
+        case let .completed(result):
+            result.trimmedTranscript.isEmpty ? nil : "Transcript ready"
+        case let .failed(failure):
+            quickVoiceFailureText(failure)
+        }
+    }
+
+    var quickVoiceStatusImage: String {
+        switch model.quickVoiceState {
+        case .idle:
+            "mic"
+        case .requestingPermission:
+            "hand.raised"
+        case .capturing:
+            "mic.circle.fill"
+        case .recognizing:
+            "waveform"
+        case .completed:
+            "checkmark.circle"
+        case .failed:
+            "exclamationmark.triangle"
+        }
+    }
+
+    var quickVoiceStatusTint: AnyShapeStyle {
+        switch model.quickVoiceState {
+        case .idle, .completed:
+            AnyShapeStyle(.secondary)
+        case .requestingPermission, .capturing, .recognizing:
+            AnyShapeStyle(.blue)
+        case .failed:
+            AnyShapeStyle(.orange)
+        }
+    }
+
+    func quickVoiceFailureText(_ failure: SpeechRecognitionFailure) -> String {
+        switch failure {
+        case let .permissionDenied(kind):
+            "\(kind.displayName) denied"
+        case .sourceLanguageRequired:
+            "Choose source language"
+        case .onDeviceRecognitionUnavailable:
+            "On-device speech unavailable"
+        case .emptyTranscript:
+            "No speech recognized"
+        case .cancelled:
+            "Voice capture cancelled"
+        case .captureInProgress:
+            "Voice capture running"
+        case .recognitionFailed:
+            "Speech recognition failed"
         }
     }
 }

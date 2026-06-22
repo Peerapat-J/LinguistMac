@@ -439,6 +439,12 @@ public extension TranslationResult {
 public enum TranslationFailure: Error, Equatable, Sendable {
     case permissionDenied(PermissionKind)
     case captureCancelled
+    case voiceCaptureCancelled
+    case voiceCaptureInProgress
+    case speechSourceLanguageRequired
+    case onDeviceSpeechUnavailable
+    case noSpeechRecognized
+    case speechRecognitionFailed
     case noTextRecognized
     case emptyInput
     case unsupportedLanguagePair

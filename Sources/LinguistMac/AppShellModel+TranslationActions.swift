@@ -35,57 +35,288 @@ extension AppShellModel {
     }
 
     func runQuickTranslate() async {
+        clearActiveQuickVoiceCapture()
+        quickVoiceState = .idle
+        quickVoiceTranscript = nil
+        await runQuickTranslate(preservingVoiceTranscript: false)
+    }
+
+    func startQuickVoiceCapture() {
+        guard !isQuickVoiceCaptureActive else {
+            return
+        }
+
         record(.quickTranslate)
         cancelPopupWordLookup()
         cancelQuickWordTranslation()
+        clearActiveQuickVoiceCapture()
+        let captureID = UUID()
+        activeQuickVoiceCaptureID = captureID
+        quickVoiceState = .capturing
+        quickVoiceTranscript = nil
+        quickSessionState = .capturing
+        activeQuickVoiceCaptureTask = Task {
+            await runQuickVoiceCapture(captureID: captureID)
+        }
+    }
+
+    func cancelQuickVoiceCapture() {
+        activeQuickVoiceCaptureTask?.cancel()
+    }
+
+    var isQuickVoiceCaptureActive: Bool {
+        activeQuickVoiceCaptureID != nil || activeQuickVoiceCaptureTask != nil
+    }
+
+    func clearActiveQuickVoiceCapture() {
+        activeQuickVoiceCaptureID = nil
+        activeQuickVoiceCaptureTask?.cancel()
+        activeQuickVoiceCaptureTask = nil
+    }
+
+    private func runQuickTranslate(
+        preservingVoiceTranscript: Bool,
+        voiceCaptureID: UUID? = nil,
+        sourceLanguageOverride: TranslationLanguage? = nil
+    ) async {
+        prepareQuickTranslation(preservingVoiceTranscript: preservingVoiceTranscript)
         do {
             let translationSettings = settingsWithSupportedProvider()
-            var request = try quickDraft
-                .makeRequest(providerID: translationSettings.selectedProviderID)
-                .resolvingAutoDetectedSource()
-            let providerID = await services.translatorRegistry.supportedProviderID(
-                preferred: request.providerID,
-                sourceLanguage: request.sourceLanguage,
-                targetLanguage: request.targetLanguage
+            let request = try await quickTranslationRequest(
+                settings: translationSettings,
+                sourceLanguageOverride: sourceLanguageOverride
             )
-            request = request.usingProvider(providerID)
+            guard try shouldContinueQuickVoiceCapture(voiceCaptureID) else {
+                return
+            }
             quickSessionState = .translating(request)
             popupState = .loading(request)
 
-            let readiness = await services.languageAvailability.readiness(
-                from: request.sourceLanguage,
-                to: request.targetLanguage,
-                sampleText: request.text
-            )
-            let translator = try await services.translatorRegistry.provider(for: request.providerID)
-            if !translator.usesNetwork {
-                switch readiness {
-                case .ready, .unknown:
-                    break
-                case .needsDownload:
-                    throw TranslationFailure.missingLanguagePack(request.providerID)
-                case .unavailable:
-                    throw TranslationFailure.unsupportedLanguagePair
-                }
+            let translator = try await readyQuickTranslator(for: request)
+            guard try shouldContinueQuickVoiceCapture(voiceCaptureID) else {
+                return
             }
             let result = try await translator.translate(request)
-            quickSessionState = .completed(result)
-            popupState = .success(result, showsOriginal: false)
-            saveRecent(result)
-            await persistRecentTranslation(result)
-
-            if translationSettings.autoCopyEnabled {
-                await services.clipboard.writeText(result.translatedText)
+            guard try shouldContinueQuickVoiceCapture(voiceCaptureID) else {
+                return
             }
-
-            startQuickWordTranslation(for: result, translator: translator)
+            await finishQuickTranslation(
+                result,
+                translator: translator,
+                settings: translationSettings,
+                voiceCaptureID: voiceCaptureID
+            )
+        } catch is CancellationError {
+            applyQuickTranslationFailure(cancellationFailure(for: voiceCaptureID), voiceCaptureID: voiceCaptureID)
         } catch let failure as TranslationFailure {
-            quickSessionState = .failed(failure)
-            popupState = .failed(failure, originalText: quickDraft.trimmedText)
+            applyQuickTranslationFailure(failure, voiceCaptureID: voiceCaptureID)
         } catch {
             let failure = TranslationFailure.providerFailed(error.localizedDescription)
-            quickSessionState = .failed(failure)
-            popupState = .failed(failure, originalText: quickDraft.trimmedText)
+            applyQuickTranslationFailure(failure, voiceCaptureID: voiceCaptureID)
+        }
+    }
+
+    private func prepareQuickTranslation(preservingVoiceTranscript: Bool) {
+        record(.quickTranslate)
+        cancelPopupWordLookup()
+        cancelQuickWordTranslation()
+        if !preservingVoiceTranscript {
+            quickVoiceState = .idle
+            quickVoiceTranscript = nil
+        }
+    }
+
+    private func shouldContinueQuickVoiceCapture(_ captureID: UUID?) throws -> Bool {
+        try Task.checkCancellation()
+        return isCurrentQuickVoiceCapture(captureID)
+    }
+
+    private func finishQuickTranslation(
+        _ result: TranslationResult,
+        translator: any TranslationProviding,
+        settings: AppSettings,
+        voiceCaptureID: UUID?
+    ) async {
+        guard !Task.isCancelled, isCurrentQuickVoiceCapture(voiceCaptureID) else {
+            return
+        }
+
+        quickSessionState = .completed(result)
+        popupState = .success(result, showsOriginal: false)
+        saveRecent(result)
+        await persistRecentTranslation(result)
+
+        if settings.autoCopyEnabled, isCurrentQuickVoiceCapture(voiceCaptureID) {
+            await services.clipboard.writeText(result.translatedText)
+        }
+
+        guard !Task.isCancelled, isCurrentQuickVoiceCapture(voiceCaptureID) else {
+            return
+        }
+
+        startQuickWordTranslation(for: result, translator: translator)
+    }
+
+    private func applyQuickTranslationFailure(
+        _ failure: TranslationFailure,
+        voiceCaptureID: UUID?
+    ) {
+        guard isCurrentQuickVoiceCapture(voiceCaptureID) else {
+            return
+        }
+
+        quickSessionState = .failed(failure)
+        popupState = .failed(failure, originalText: quickDraft.trimmedText)
+    }
+
+    private func cancellationFailure(for voiceCaptureID: UUID?) -> TranslationFailure {
+        voiceCaptureID == nil
+            ? .providerFailed(CancellationError().localizedDescription)
+            : .voiceCaptureCancelled
+    }
+
+    private func quickTranslationRequest(
+        settings: AppSettings,
+        sourceLanguageOverride: TranslationLanguage? = nil
+    ) async throws -> TranslationRequest {
+        var draft = quickDraft
+        if let sourceLanguageOverride {
+            draft.sourceLanguage = sourceLanguageOverride
+        }
+
+        var request = try draft
+            .makeRequest(providerID: settings.selectedProviderID)
+            .resolvingAutoDetectedSource()
+        let providerID = await services.translatorRegistry.supportedProviderID(
+            preferred: request.providerID,
+            sourceLanguage: request.sourceLanguage,
+            targetLanguage: request.targetLanguage
+        )
+        request = request.usingProvider(providerID)
+        return request
+    }
+
+    private func readyQuickTranslator(for request: TranslationRequest) async throws -> any TranslationProviding {
+        let translator = try await services.translatorRegistry.provider(for: request.providerID)
+        guard !translator.usesNetwork else {
+            return translator
+        }
+
+        let readiness = await services.languageAvailability.readiness(
+            from: request.sourceLanguage,
+            to: request.targetLanguage,
+            sampleText: request.text
+        )
+        switch readiness {
+        case .ready, .unknown:
+            return translator
+        case .needsDownload:
+            throw TranslationFailure.missingLanguagePack(request.providerID)
+        case .unavailable:
+            throw TranslationFailure.unsupportedLanguagePair
+        }
+    }
+
+    private func runQuickVoiceCapture(captureID: UUID) async {
+        let sourceLanguage = quickDraft.sourceLanguage
+        guard !sourceLanguage.supportsAutoDetect else {
+            await finishQuickVoiceCapture(.failed(.sourceLanguageRequired), captureID: captureID)
+            return
+        }
+
+        let coordinator = SpeechRecognitionCoordinator(services: services)
+        let finalState = await coordinator.captureShortPhrase(sourceLanguage: sourceLanguage) { [weak self] state in
+            await self?.applyQuickVoiceState(state, captureID: captureID)
+        }
+
+        await finishQuickVoiceCapture(finalState, captureID: captureID, sourceLanguage: sourceLanguage)
+    }
+
+    private func applyQuickVoiceState(
+        _ state: SpeechRecognitionSessionState,
+        captureID: UUID
+    ) {
+        guard activeQuickVoiceCaptureID == captureID else {
+            return
+        }
+
+        quickVoiceState = state
+        switch state {
+        case .idle:
+            quickSessionState = .idle
+        case let .requestingPermission(kind):
+            quickSessionState = .requestingPermission(kind)
+        case .capturing:
+            quickSessionState = .capturing
+        case .recognizing:
+            quickSessionState = .recognizing
+        case let .completed(result):
+            quickVoiceTranscript = result.trimmedTranscript
+        case let .failed(failure):
+            quickSessionState = .failed(translationFailure(from: failure))
+        }
+    }
+
+    private func finishQuickVoiceCapture(
+        _ finalState: SpeechRecognitionSessionState,
+        captureID: UUID,
+        sourceLanguage: TranslationLanguage? = nil
+    ) async {
+        guard activeQuickVoiceCaptureID == captureID else {
+            return
+        }
+
+        guard case let .completed(result) = finalState else {
+            applyQuickVoiceState(finalState, captureID: captureID)
+            clearFinishedQuickVoiceCapture(captureID: captureID)
+            return
+        }
+
+        let transcript = result.trimmedTranscript
+        quickVoiceState = finalState
+        quickVoiceTranscript = transcript
+        quickDraft.sourceText = transcript
+        await runQuickTranslate(
+            preservingVoiceTranscript: true,
+            voiceCaptureID: captureID,
+            sourceLanguageOverride: sourceLanguage
+        )
+        clearFinishedQuickVoiceCapture(captureID: captureID)
+    }
+
+    private func clearFinishedQuickVoiceCapture(captureID: UUID) {
+        guard activeQuickVoiceCaptureID == captureID else {
+            return
+        }
+
+        activeQuickVoiceCaptureID = nil
+        activeQuickVoiceCaptureTask = nil
+    }
+
+    private func isCurrentQuickVoiceCapture(_ captureID: UUID?) -> Bool {
+        guard let captureID else {
+            return true
+        }
+
+        return activeQuickVoiceCaptureID == captureID
+    }
+
+    private func translationFailure(from failure: SpeechRecognitionFailure) -> TranslationFailure {
+        switch failure {
+        case let .permissionDenied(kind):
+            .permissionDenied(kind)
+        case .sourceLanguageRequired:
+            .speechSourceLanguageRequired
+        case .onDeviceRecognitionUnavailable:
+            .onDeviceSpeechUnavailable
+        case .emptyTranscript:
+            .noSpeechRecognized
+        case .cancelled:
+            .voiceCaptureCancelled
+        case .captureInProgress:
+            .voiceCaptureInProgress
+        case .recognitionFailed:
+            .speechRecognitionFailed
         }
     }
 

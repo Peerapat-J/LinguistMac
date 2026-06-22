@@ -38,6 +38,8 @@ final class AppShellModel: ObservableObject {
     @Published var popupState: TranslationPopupState
     @Published var quickDraft: QuickTranslateDraft
     @Published var quickSessionState: TranslationSessionState
+    @Published var quickVoiceState: SpeechRecognitionSessionState
+    @Published var quickVoiceTranscript: String?
     @Published var screenSessionState: TranslationSessionState
     @Published var inputModeSessionState: TranslationSessionState
     @Published private(set) var shortcutRegistrationResults: [ShortcutRegistrationResult]
@@ -59,6 +61,8 @@ final class AppShellModel: ObservableObject {
     var activePopupWordLookupTask: Task<WordLookupState, Never>?
     var activeQuickWordTranslationID: UUID?
     var activeQuickWordTranslationTask: Task<Void, Never>?
+    var activeQuickVoiceCaptureID: UUID?
+    var activeQuickVoiceCaptureTask: Task<Void, Never>?
 
     init(
         settings: AppSettings? = nil,
@@ -80,6 +84,8 @@ final class AppShellModel: ObservableObject {
             targetLanguage: initialSettings.targetLanguage
         )
         quickSessionState = .idle
+        quickVoiceState = .idle
+        quickVoiceTranscript = nil
         screenSessionState = .idle
         inputModeSessionState = .idle
         shortcutRegistrationResults = []
@@ -107,6 +113,7 @@ final class AppShellModel: ObservableObject {
     deinit {
         activePopupWordLookupTask?.cancel()
         activeQuickWordTranslationTask?.cancel()
+        activeQuickVoiceCaptureTask?.cancel()
     }
 
     var recentMenuItems: [TranslationResult] {
@@ -120,9 +127,12 @@ final class AppShellModel: ObservableObject {
     func prepareQuickTranslate() {
         record(.quickTranslate)
         cancelQuickWordTranslation()
+        clearActiveQuickVoiceCapture()
         quickDraft.sourceLanguage = settings.sourceLanguage
         quickDraft.targetLanguage = settings.targetLanguage
         quickSessionState = .idle
+        quickVoiceState = .idle
+        quickVoiceTranscript = nil
     }
 
     func swapQuickDraftLanguages() {
