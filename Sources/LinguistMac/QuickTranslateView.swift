@@ -181,6 +181,8 @@ struct QuickTranslateView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
+                    SpokenOutputControls(model: model, result: presentedResult)
+
                     if !presentedResult.wordTranslations.isEmpty || wordCard != nil {
                         Divider()
                         TranslationWordLookupSection(

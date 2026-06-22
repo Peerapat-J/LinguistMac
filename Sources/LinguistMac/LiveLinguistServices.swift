@@ -42,7 +42,8 @@ enum LiveLinguistServices {
             selectedTextCapture: SystemSelectedTextCaptureService(),
             shortcutRegistry: shortcutRegistry,
             wordLookupProvider: ProviderBackedWordLookupService(translatorRegistry: translatorRegistry),
-            speechToText: AppleSpeechToTextService()
+            speechToText: AppleSpeechToTextService(),
+            spokenOutput: AppleSpokenOutputService()
         )
     }
 
@@ -463,5 +464,155 @@ private extension KeyboardShortcut {
             modifiers |= UInt32(shiftKey)
         }
         return modifiers
+    }
+}
+
+@MainActor
+final class AppleSpokenOutputService: NSObject,
+    SpokenOutputServicing,
+    AVSpeechSynthesizerDelegate,
+    @unchecked Sendable {
+    private var activeSynthesizer: AVSpeechSynthesizer?
+    private var activeContinuation: CheckedContinuation<Void, Error>?
+    private var activeSessionID: UUID?
+
+    func canSpeak(language: TranslationLanguage) async -> Bool {
+        Self.voice(for: language) != nil
+    }
+
+    func speak(_ request: SpokenOutputRequest) async throws {
+        try Task.checkCancellation()
+        let normalizedRequest = request.normalized
+        guard !normalizedRequest.trimmedText.isEmpty else {
+            throw SpokenOutputFailure.emptyText
+        }
+        guard let voice = Self.voice(for: normalizedRequest.language) else {
+            throw SpokenOutputFailure.unsupportedLanguage(normalizedRequest.language)
+        }
+
+        let sessionID = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                startSpeaking(
+                    normalizedRequest,
+                    voice: voice,
+                    sessionID: sessionID,
+                    continuation: continuation
+                )
+            }
+        } onCancel: {
+            Task { @MainActor in
+                self.finishActiveSpeech(
+                    sessionID: sessionID,
+                    result: .failure(SpokenOutputFailure.cancelled),
+                    stopSynthesizer: true
+                )
+            }
+        }
+    }
+
+    func stop() async {
+        finishActiveSpeech(
+            sessionID: nil,
+            result: .failure(SpokenOutputFailure.cancelled),
+            stopSynthesizer: true
+        )
+    }
+
+    nonisolated func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didFinish utterance: AVSpeechUtterance
+    ) {
+        _ = synthesizer
+        _ = utterance
+        Task { @MainActor in
+            self.finishActiveSpeech(
+                sessionID: nil,
+                result: .success(()),
+                stopSynthesizer: false
+            )
+        }
+    }
+
+    nonisolated func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didCancel utterance: AVSpeechUtterance
+    ) {
+        _ = synthesizer
+        _ = utterance
+        Task { @MainActor in
+            self.finishActiveSpeech(
+                sessionID: nil,
+                result: .failure(SpokenOutputFailure.cancelled),
+                stopSynthesizer: false
+            )
+        }
+    }
+
+    private func startSpeaking(
+        _ request: SpokenOutputRequest,
+        voice: AVSpeechSynthesisVoice,
+        sessionID: UUID,
+        continuation: CheckedContinuation<Void, Error>
+    ) {
+        finishActiveSpeech(
+            sessionID: nil,
+            result: .failure(SpokenOutputFailure.cancelled),
+            stopSynthesizer: true
+        )
+
+        activeSessionID = sessionID
+        activeContinuation = continuation
+
+        let synthesizer = AVSpeechSynthesizer()
+        synthesizer.delegate = self
+        activeSynthesizer = synthesizer
+
+        let utterance = AVSpeechUtterance(string: request.trimmedText)
+        utterance.voice = voice
+        synthesizer.speak(utterance)
+    }
+
+    private func finishActiveSpeech(
+        sessionID: UUID?,
+        result: Result<Void, Error>,
+        stopSynthesizer: Bool
+    ) {
+        guard sessionID == nil || activeSessionID == sessionID else {
+            return
+        }
+
+        let synthesizer = activeSynthesizer
+        let continuation = activeContinuation
+
+        activeSynthesizer = nil
+        activeContinuation = nil
+        activeSessionID = nil
+
+        synthesizer?.delegate = nil
+        if stopSynthesizer {
+            synthesizer?.stopSpeaking(at: .immediate)
+        }
+
+        continuation?.resume(with: result)
+    }
+
+    private static func voice(for language: TranslationLanguage) -> AVSpeechSynthesisVoice? {
+        guard !language.supportsAutoDetect,
+              let requestedLanguageCode = languageCode(for: language.id)
+        else {
+            return nil
+        }
+
+        return AVSpeechSynthesisVoice.speechVoices().first { voice in
+            voice.language == language.id
+                || languageCode(for: voice.language) == requestedLanguageCode
+        }
+    }
+
+    private static func languageCode(for identifier: String) -> String? {
+        Locale(identifier: identifier).language.languageCode?.identifier
+            ?? identifier.split(separator: "-").first.map(String.init)
+            ?? identifier.split(separator: "_").first.map(String.init)
     }
 }

@@ -34,6 +34,7 @@ extension AppShellModel {
 
     func showHistoryResult(_ result: TranslationResult) {
         record(.history)
+        stopSpokenOutput()
         let wordCard = result.shownWordCards.first.map {
             TranslationPopupWordCardState(shownContent: $0, result: result)
         }

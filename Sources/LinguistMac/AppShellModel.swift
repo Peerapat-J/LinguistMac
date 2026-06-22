@@ -40,6 +40,7 @@ final class AppShellModel: ObservableObject {
     @Published var quickSessionState: TranslationSessionState
     @Published var quickVoiceState: SpeechRecognitionSessionState
     @Published var quickVoiceTranscript: String?
+    @Published var spokenOutputState: SpokenOutputSessionState
     @Published var screenSessionState: TranslationSessionState
     @Published var inputModeSessionState: TranslationSessionState
     @Published private(set) var shortcutRegistrationResults: [ShortcutRegistrationResult]
@@ -63,6 +64,9 @@ final class AppShellModel: ObservableObject {
     var activeQuickWordTranslationTask: Task<Void, Never>?
     var activeQuickVoiceCaptureID: UUID?
     var activeQuickVoiceCaptureTask: Task<Void, Never>?
+    var activeSpokenOutputID: UUID?
+    var activeSpokenOutputResultID: UUID?
+    var activeSpokenOutputTask: Task<Void, Never>?
 
     init(
         settings: AppSettings? = nil,
@@ -86,6 +90,7 @@ final class AppShellModel: ObservableObject {
         quickSessionState = .idle
         quickVoiceState = .idle
         quickVoiceTranscript = nil
+        spokenOutputState = .idle
         screenSessionState = .idle
         inputModeSessionState = .idle
         shortcutRegistrationResults = []
@@ -114,6 +119,7 @@ final class AppShellModel: ObservableObject {
         activePopupWordLookupTask?.cancel()
         activeQuickWordTranslationTask?.cancel()
         activeQuickVoiceCaptureTask?.cancel()
+        activeSpokenOutputTask?.cancel()
     }
 
     var recentMenuItems: [TranslationResult] {
@@ -126,6 +132,7 @@ final class AppShellModel: ObservableObject {
 
     func prepareQuickTranslate() {
         record(.quickTranslate)
+        stopSpokenOutput()
         cancelQuickWordTranslation()
         clearActiveQuickVoiceCapture()
         quickDraft.sourceLanguage = settings.sourceLanguage
@@ -194,11 +201,105 @@ final class AppShellModel: ObservableObject {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func speakPopupTranslation() {
+        guard case let .success(result, _, _) = popupState else {
+            return
+        }
+
+        speakTranslation(result)
+    }
+
+    func speakQuickTranslation() {
+        guard case let .completed(result) = quickSessionState else {
+            return
+        }
+
+        speakTranslation(result)
+    }
+
+    func speakTranslation(_ result: TranslationResult) {
+        stopSpokenOutput()
+        let outputID = UUID()
+        let request = SpokenOutputRequest(result: result)
+        activeSpokenOutputID = outputID
+        activeSpokenOutputResultID = result.id
+        spokenOutputState = .preparing(request.normalized)
+        activeSpokenOutputTask = Task {
+            await runSpokenOutput(request, outputID: outputID)
+        }
+    }
+
+    func stopSpokenOutput() {
+        activeSpokenOutputID = nil
+        activeSpokenOutputResultID = nil
+        activeSpokenOutputTask?.cancel()
+        activeSpokenOutputTask = nil
+        spokenOutputState = .idle
+    }
+
+    func isSpokenOutputActive(for result: TranslationResult) -> Bool {
+        guard activeSpokenOutputResultID == result.id else {
+            return false
+        }
+
+        switch spokenOutputState {
+        case .preparing, .speaking:
+            return true
+        case .idle, .completed, .failed:
+            return false
+        }
+    }
+
+    func spokenOutputFailure(for result: TranslationResult) -> SpokenOutputFailure? {
+        guard activeSpokenOutputResultID == result.id,
+              case let .failed(failure, _) = spokenOutputState
+        else {
+            return nil
+        }
+
+        return failure
+    }
+
     private func persistSettings() {
         let settings = settings
         let store = services.settingsStore
         Task {
             try? await store.saveSettings(settings)
         }
+    }
+
+    private func runSpokenOutput(
+        _ request: SpokenOutputRequest,
+        outputID: UUID
+    ) async {
+        let coordinator = SpokenOutputCoordinator(services: services)
+        let finalState = await coordinator.speak(request) { [weak self] state in
+            await self?.applySpokenOutputState(state, outputID: outputID)
+        }
+        finishSpokenOutput(finalState, outputID: outputID)
+    }
+
+    private func applySpokenOutputState(
+        _ state: SpokenOutputSessionState,
+        outputID: UUID
+    ) {
+        guard activeSpokenOutputID == outputID else {
+            return
+        }
+
+        spokenOutputState = state
+    }
+
+    private func finishSpokenOutput(
+        _ finalState: SpokenOutputSessionState,
+        outputID: UUID
+    ) {
+        guard activeSpokenOutputID == outputID else {
+            return
+        }
+
+        spokenOutputState = finalState
+        activeSpokenOutputID = nil
+        activeSpokenOutputTask = nil
     }
 }

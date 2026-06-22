@@ -72,6 +72,7 @@
 		C10000000000000000000003 /* AppShellModelWordCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000003 /* AppShellModelWordCardTests.swift */; };
 		C10000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift */; };
 		C10000000000000000000005 /* AppShellModelVoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000005 /* AppShellModelVoiceTests.swift */; };
+		C10000000000000000000006 /* AppShellModelSpokenOutputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000006 /* AppShellModelSpokenOutputTests.swift */; };
 		C10000000000000000000002 /* libLinguistMacCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B20000000000000000000030 /* libLinguistMacCore.a */; };
 /* End PBXBuildFile section */
 
@@ -176,6 +177,7 @@
 		C20000000000000000000003 /* AppShellModelWordCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelWordCardTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataTranslationHistoryStoreTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000005 /* AppShellModelVoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelVoiceTests.swift; sourceTree = "<group>"; };
+		C20000000000000000000006 /* AppShellModelSpokenOutputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelSpokenOutputTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000002 /* LinguistMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LinguistMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -326,6 +328,7 @@
 			isa = PBXGroup;
 			children = (
 				C20000000000000000000001 /* AppShellModelTests.swift */,
+				C20000000000000000000006 /* AppShellModelSpokenOutputTests.swift */,
 				C20000000000000000000005 /* AppShellModelVoiceTests.swift */,
 				C20000000000000000000003 /* AppShellModelWordCardTests.swift */,
 				C20000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift */,
@@ -585,6 +588,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C10000000000000000000001 /* AppShellModelTests.swift in Sources */,
+				C10000000000000000000006 /* AppShellModelSpokenOutputTests.swift in Sources */,
 				C10000000000000000000005 /* AppShellModelVoiceTests.swift in Sources */,
 				C10000000000000000000003 /* AppShellModelWordCardTests.swift in Sources */,
 				C10000000000000000000004 /* SwiftDataTranslationHistoryStoreTests.swift in Sources */,

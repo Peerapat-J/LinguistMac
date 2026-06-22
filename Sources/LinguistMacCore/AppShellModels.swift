@@ -19,6 +19,15 @@ public enum TranslationPopupState: Equatable, Sendable {
         }
     }
 
+    public var result: TranslationResult? {
+        switch self {
+        case let .success(result, _, _):
+            result
+        case .empty, .loading, .failed:
+            nil
+        }
+    }
+
     public var showsOriginal: Bool {
         switch self {
         case let .success(_, showsOriginal, _):
