@@ -154,6 +154,10 @@ extension AppShellModel {
             return
         }
 
+        guard shouldStartQuickWordTranslation(translator: translator, voiceCaptureID: voiceCaptureID) else {
+            return
+        }
+
         startQuickWordTranslation(for: result, translator: translator)
     }
 
@@ -318,6 +322,14 @@ extension AppShellModel {
         case .recognitionFailed:
             .speechRecognitionFailed
         }
+    }
+
+    private func shouldStartQuickWordTranslation(
+        translator: any TranslationProviding,
+        voiceCaptureID: UUID?
+    ) -> Bool {
+        // For voice captures, a network provider should receive only the final transcript request.
+        !(voiceCaptureID != nil && translator.usesNetwork)
     }
 
     private func startQuickWordTranslation(

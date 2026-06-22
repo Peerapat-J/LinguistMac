@@ -39,6 +39,50 @@ final class AppShellModelVoiceTests: XCTestCase {
         XCTAssertEqual(savedResults.map(\.request.text), ["spoken phrase"])
     }
 
+    func testQuickVoiceTranslateSendsOnlyFinalTranscriptToSelectedCloudProvider() async throws {
+        let historyStore = VoiceTestTranslationHistoryStore()
+        let speechToText = VoiceTestSpeechToTextService(
+            result: .success(SpeechRecognitionResult(transcript: "  spoken cloud phrase  "))
+        )
+        let provider = RecordingCloudVoiceTranslationProvider(translatedText: "cloud translation")
+        let model = AppShellModel(
+            settings: AppSettings(
+                sourceLanguage: .english,
+                targetLanguage: .japanese,
+                selectedProviderID: .deepl
+            ),
+            services: makeVoiceTestServices(
+                translatorRegistry: VoiceTestTranslationProviderRegistry(provider: provider),
+                historyStore: historyStore,
+                speechToText: speechToText
+            )
+        )
+
+        model.startQuickVoiceCapture()
+        let captureTask = model.activeQuickVoiceCaptureTask
+        await captureTask?.value
+        if let wordTranslationTask = model.activeQuickWordTranslationTask {
+            await wordTranslationTask.value
+        }
+
+        let expectedRequest = TranslationRequest(
+            text: "spoken cloud phrase",
+            sourceLanguage: .english,
+            targetLanguage: .japanese,
+            inputMode: .quickTranslate,
+            providerID: .deepl
+        )
+        let translationRequests = await provider.capturedRequests()
+        XCTAssertEqual(translationRequests, [expectedRequest])
+        XCTAssertNil(model.activeQuickWordTranslationTask)
+        XCTAssertEqual(model.recentTranslations.map(\.translatedText), ["cloud translation"])
+        XCTAssertEqual(model.recentTranslations.first?.wordTranslations, [])
+
+        let savedResults = try await historyStore.recent(limit: 10)
+        XCTAssertEqual(savedResults.map(\.request), [expectedRequest])
+        XCTAssertEqual(savedResults.first?.wordTranslations, [])
+    }
+
     func testQuickVoiceTranslateKeepsCaptureActiveUntilTranslationFinishes() async throws {
         let historyStore = VoiceTestTranslationHistoryStore()
         let translationGate = VoiceTranslationGate()
@@ -373,6 +417,34 @@ private actor RecordingVoiceTranslationProvider: TranslationProviding {
     nonisolated let requiresAPIKey = false
     nonisolated let usesNetwork = false
     nonisolated let privacySummary = "On-device"
+    private let translatedText: String
+    private var requests: [TranslationRequest] = []
+
+    init(translatedText: String) {
+        self.translatedText = translatedText
+    }
+
+    func configurationStatus() async -> TranslationProviderConfigurationStatus {
+        .ready
+    }
+
+    func translate(_ request: TranslationRequest) async throws -> TranslationResult {
+        requests.append(request)
+        return TranslationResult(request: request, translatedText: translatedText)
+    }
+
+    func capturedRequests() -> [TranslationRequest] {
+        requests
+    }
+}
+
+private actor RecordingCloudVoiceTranslationProvider: TranslationProviding {
+    nonisolated let id = TranslationProviderID.deepl
+    nonisolated let displayName = "DeepL"
+    nonisolated let detail = "Recording cloud voice test provider"
+    nonisolated let requiresAPIKey = true
+    nonisolated let usesNetwork = true
+    nonisolated let privacySummary = "Cloud provider"
     private let translatedText: String
     private var requests: [TranslationRequest] = []
 
