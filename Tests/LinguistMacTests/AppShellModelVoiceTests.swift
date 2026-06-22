@@ -131,6 +131,29 @@ final class AppShellModelVoiceTests: XCTestCase {
         }
     }
 
+    func testQuickVoiceTranslateSurfacesOnDeviceSpeechUnavailable() async throws {
+        let historyStore = VoiceTestTranslationHistoryStore()
+        let speechToText = VoiceTestSpeechToTextService(result: .failure(.onDeviceRecognitionUnavailable))
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .thai, targetLanguage: .english),
+            services: makeVoiceTestServices(
+                historyStore: historyStore,
+                speechToText: speechToText
+            )
+        )
+
+        model.startQuickVoiceCapture()
+        let captureTask = model.activeQuickVoiceCaptureTask
+        await captureTask?.value
+
+        XCTAssertEqual(model.quickVoiceState, .failed(.onDeviceRecognitionUnavailable))
+        XCTAssertEqual(model.quickSessionState, .failed(.onDeviceSpeechUnavailable))
+        XCTAssertNil(model.quickVoiceTranscript)
+        XCTAssertTrue(model.recentTranslations.isEmpty)
+        let savedResults = try await historyStore.recent(limit: 10)
+        XCTAssertTrue(savedResults.isEmpty)
+    }
+
     func testQuickVoiceTranslateCancellationDoesNotSaveFailedOrPartialTranslation() async throws {
         let historyStore = VoiceTestTranslationHistoryStore()
         let speechToText = VoiceTestSpeechToTextService(result: .failure(.cancelled))

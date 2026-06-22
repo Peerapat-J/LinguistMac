@@ -442,6 +442,7 @@ public enum TranslationFailure: Error, Equatable, Sendable {
     case voiceCaptureCancelled
     case voiceCaptureInProgress
     case speechSourceLanguageRequired
+    case onDeviceSpeechUnavailable
     case noSpeechRecognized
     case speechRecognitionFailed
     case noTextRecognized

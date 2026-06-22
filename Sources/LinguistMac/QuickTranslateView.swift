@@ -331,6 +331,8 @@ private extension QuickTranslateView {
             "\(kind.displayName) denied"
         case .sourceLanguageRequired:
             "Choose source language"
+        case .onDeviceRecognitionUnavailable:
+            "On-device speech unavailable"
         case .emptyTranscript:
             "No speech recognized"
         case .cancelled:

@@ -32,6 +32,7 @@ public struct SpeechRecognitionResult: Equatable, Sendable {
 public enum SpeechRecognitionFailure: Error, Equatable, Sendable {
     case permissionDenied(PermissionKind)
     case sourceLanguageRequired
+    case onDeviceRecognitionUnavailable
     case emptyTranscript
     case cancelled
     case captureInProgress

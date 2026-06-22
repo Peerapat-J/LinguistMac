@@ -172,6 +172,12 @@ public extension TranslationFailure {
                 message: "Choose a source language before using voice capture. "
                     + "Speech recognition does not support Auto Detect."
             )
+        case .onDeviceSpeechUnavailable:
+            TranslationFailurePresentation(
+                title: "On-Device Speech Unavailable",
+                message: "The selected source language does not support on-device speech recognition. "
+                    + "Choose another source language before using voice capture."
+            )
         case .noSpeechRecognized:
             TranslationFailurePresentation(
                 title: "No Speech Recognized",

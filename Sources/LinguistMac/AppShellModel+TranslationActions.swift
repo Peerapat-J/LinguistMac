@@ -290,6 +290,8 @@ extension AppShellModel {
             .permissionDenied(kind)
         case .sourceLanguageRequired:
             .speechSourceLanguageRequired
+        case .onDeviceRecognitionUnavailable:
+            .onDeviceSpeechUnavailable
         case .emptyTranscript:
             .noSpeechRecognized
         case .cancelled:

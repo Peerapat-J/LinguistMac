@@ -54,6 +54,9 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
         else {
             throw SpeechRecognitionFailure.recognitionFailed
         }
+        guard recognizer.supportsOnDeviceRecognition else {
+            throw SpeechRecognitionFailure.onDeviceRecognitionUnavailable
+        }
 
         return recognizer
     }
@@ -73,7 +76,7 @@ actor AppleSpeechToTextService: SpeechToTextServicing {
                 let audioEngine = AVAudioEngine()
                 let recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
                 recognitionRequest.shouldReportPartialResults = false
-                recognitionRequest.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
+                recognitionRequest.requiresOnDeviceRecognition = true
 
                 let inputNode = audioEngine.inputNode
                 let recordingFormat = inputNode.outputFormat(forBus: 0)
