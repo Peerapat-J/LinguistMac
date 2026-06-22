@@ -76,12 +76,16 @@ extension AppShellModel {
 
     private func runQuickTranslate(
         preservingVoiceTranscript: Bool,
-        voiceCaptureID: UUID? = nil
+        voiceCaptureID: UUID? = nil,
+        sourceLanguageOverride: TranslationLanguage? = nil
     ) async {
         prepareQuickTranslation(preservingVoiceTranscript: preservingVoiceTranscript)
         do {
             let translationSettings = settingsWithSupportedProvider()
-            let request = try await quickTranslationRequest(settings: translationSettings)
+            let request = try await quickTranslationRequest(
+                settings: translationSettings,
+                sourceLanguageOverride: sourceLanguageOverride
+            )
             guard try shouldContinueQuickVoiceCapture(voiceCaptureID) else {
                 return
             }
@@ -171,8 +175,16 @@ extension AppShellModel {
             : .voiceCaptureCancelled
     }
 
-    private func quickTranslationRequest(settings: AppSettings) async throws -> TranslationRequest {
-        var request = try quickDraft
+    private func quickTranslationRequest(
+        settings: AppSettings,
+        sourceLanguageOverride: TranslationLanguage? = nil
+    ) async throws -> TranslationRequest {
+        var draft = quickDraft
+        if let sourceLanguageOverride {
+            draft.sourceLanguage = sourceLanguageOverride
+        }
+
+        var request = try draft
             .makeRequest(providerID: settings.selectedProviderID)
             .resolvingAutoDetectedSource()
         let providerID = await services.translatorRegistry.supportedProviderID(
@@ -217,7 +229,7 @@ extension AppShellModel {
             await self?.applyQuickVoiceState(state, captureID: captureID)
         }
 
-        await finishQuickVoiceCapture(finalState, captureID: captureID)
+        await finishQuickVoiceCapture(finalState, captureID: captureID, sourceLanguage: sourceLanguage)
     }
 
     private func applyQuickVoiceState(
@@ -247,7 +259,8 @@ extension AppShellModel {
 
     private func finishQuickVoiceCapture(
         _ finalState: SpeechRecognitionSessionState,
-        captureID: UUID
+        captureID: UUID,
+        sourceLanguage: TranslationLanguage? = nil
     ) async {
         guard activeQuickVoiceCaptureID == captureID else {
             return
@@ -263,7 +276,11 @@ extension AppShellModel {
         quickVoiceState = finalState
         quickVoiceTranscript = transcript
         quickDraft.sourceText = transcript
-        await runQuickTranslate(preservingVoiceTranscript: true, voiceCaptureID: captureID)
+        await runQuickTranslate(
+            preservingVoiceTranscript: true,
+            voiceCaptureID: captureID,
+            sourceLanguageOverride: sourceLanguage
+        )
         clearFinishedQuickVoiceCapture(captureID: captureID)
     }
 

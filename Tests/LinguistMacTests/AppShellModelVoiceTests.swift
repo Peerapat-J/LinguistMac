@@ -90,6 +90,38 @@ final class AppShellModelVoiceTests: XCTestCase {
         XCTAssertEqual(savedResults.map(\.translatedText), ["เสียงแรก"])
     }
 
+    func testQuickVoiceTranslateUsesCapturedSourceLanguageWhenPickerChangesDuringCapture() async throws {
+        let historyStore = VoiceTestTranslationHistoryStore()
+        let speechToText = GatedVoiceSpeechToTextService(
+            result: SpeechRecognitionResult(transcript: "spoken phrase")
+        )
+        let provider = RecordingVoiceTranslationProvider(translatedText: "วลีที่พูด")
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
+            services: makeVoiceTestServices(
+                translatorRegistry: VoiceTestTranslationProviderRegistry(provider: provider),
+                historyStore: historyStore,
+                speechToText: speechToText
+            )
+        )
+
+        model.startQuickVoiceCapture()
+        let captureTask = try XCTUnwrap(model.activeQuickVoiceCaptureTask)
+        await speechToText.waitUntilCaptureStarts()
+
+        model.quickDraft.sourceLanguage = .japanese
+        await speechToText.releaseCapture()
+        await captureTask.value
+
+        let speechRequests = await speechToText.capturedRequests()
+        XCTAssertEqual(speechRequests, [SpeechRecognitionRequest(sourceLanguage: .english)])
+        let translationRequests = await provider.capturedRequests()
+        XCTAssertEqual(translationRequests.map(\.sourceLanguage), [.english])
+        XCTAssertEqual(model.quickDraft.sourceLanguage, .japanese)
+        let savedResults = try await historyStore.recent(limit: 10)
+        XCTAssertEqual(savedResults.map(\.request.sourceLanguage), [.english])
+    }
+
     func testQuickVoiceTranslateRequiresConcreteSourceLanguage() async throws {
         let historyStore = VoiceTestTranslationHistoryStore()
         let speechToText = VoiceTestSpeechToTextService(
@@ -258,6 +290,60 @@ private actor VoiceTestSpeechToTextService: SpeechToTextServicing {
     }
 }
 
+private actor GatedVoiceSpeechToTextService: SpeechToTextServicing {
+    private let result: SpeechRecognitionResult
+    private var requests: [SpeechRecognitionRequest] = []
+    private var didStartCapture = false
+    private var isReleased = false
+    private var startContinuations: [CheckedContinuation<Void, Never>] = []
+    private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
+
+    init(result: SpeechRecognitionResult) {
+        self.result = result
+    }
+
+    func transcribeShortPhrase(
+        _ request: SpeechRecognitionRequest,
+        progress: @escaping SpeechRecognitionProgressHandler
+    ) async throws -> SpeechRecognitionResult {
+        requests.append(request)
+        didStartCapture = true
+        let continuations = startContinuations
+        startContinuations = []
+        continuations.forEach { $0.resume() }
+
+        if !isReleased {
+            await withCheckedContinuation { continuation in
+                releaseContinuations.append(continuation)
+            }
+        }
+
+        await progress(.recordingFinished)
+        return result
+    }
+
+    func waitUntilCaptureStarts() async {
+        guard !didStartCapture else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            startContinuations.append(continuation)
+        }
+    }
+
+    func releaseCapture() {
+        isReleased = true
+        let continuations = releaseContinuations
+        releaseContinuations = []
+        continuations.forEach { $0.resume() }
+    }
+
+    func capturedRequests() -> [SpeechRecognitionRequest] {
+        requests
+    }
+}
+
 private struct VoiceTestTranslationProvider: TranslationProviding {
     let id = TranslationProviderID.apple
     let displayName = "Apple Translation"
@@ -277,6 +363,34 @@ private struct VoiceTestTranslationProvider: TranslationProviding {
             request: request,
             translatedText: translatedTextsBySource[request.text] ?? translatedText
         )
+    }
+}
+
+private actor RecordingVoiceTranslationProvider: TranslationProviding {
+    nonisolated let id = TranslationProviderID.apple
+    nonisolated let displayName = "Apple Translation"
+    nonisolated let detail = "Recording voice test provider"
+    nonisolated let requiresAPIKey = false
+    nonisolated let usesNetwork = false
+    nonisolated let privacySummary = "On-device"
+    private let translatedText: String
+    private var requests: [TranslationRequest] = []
+
+    init(translatedText: String) {
+        self.translatedText = translatedText
+    }
+
+    func configurationStatus() async -> TranslationProviderConfigurationStatus {
+        .ready
+    }
+
+    func translate(_ request: TranslationRequest) async throws -> TranslationResult {
+        requests.append(request)
+        return TranslationResult(request: request, translatedText: translatedText)
+    }
+
+    func capturedRequests() -> [TranslationRequest] {
+        requests
     }
 }
 
