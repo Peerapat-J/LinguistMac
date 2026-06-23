@@ -82,6 +82,46 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         XCTAssertEqual(stopCount, 1)
     }
 
+    func testStartingNewSpokenOutputIgnoresStaleCancellationStop() async throws {
+        let spokenOutput = SpokenOutputTestService(
+            supportedLanguages: [.thai],
+            waitsForRelease: true,
+            delaysFirstStopUntilSecondSpeechStarts: true
+        )
+        let model = AppShellModel(services: makeServices(spokenOutput: spokenOutput))
+        let firstResult = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
+        let secondResult = makeSpokenOutputResult(translatedText: "ขอบคุณ", targetLanguage: .thai)
+
+        model.speakTranslation(firstResult)
+        await spokenOutput.waitUntilSpeakStarts(count: 1)
+
+        model.speakTranslation(secondResult)
+        await spokenOutput.waitUntilSpeakStarts(count: 2)
+        await spokenOutput.waitUntilStopCallCount(1)
+
+        let sessionIDs = await spokenOutput.capturedSessionIDs()
+        XCTAssertEqual(sessionIDs.count, 2)
+        let firstSessionID = try XCTUnwrap(sessionIDs.first)
+        let secondSessionID = try XCTUnwrap(sessionIDs.dropFirst().first)
+        let stoppedSessionIDs = await spokenOutput.stoppedSessionIDs()
+        XCTAssertEqual(stoppedSessionIDs, [firstSessionID])
+        XCTAssertEqual(
+            model.spokenOutputState,
+            .speaking(SpokenOutputRequest(text: "ขอบคุณ", language: .thai))
+        )
+        XCTAssertFalse(model.isSpokenOutputActive(for: firstResult))
+        XCTAssertTrue(model.isSpokenOutputActive(for: secondResult))
+
+        await spokenOutput.releaseSpeech(sessionID: secondSessionID)
+        let task = try XCTUnwrap(model.activeSpokenOutputTask)
+        await task.value
+
+        XCTAssertEqual(
+            model.spokenOutputState,
+            .completed(SpokenOutputRequest(text: "ขอบคุณ", language: .thai))
+        )
+    }
+
     private func makeServices(
         permissionChecker: any PermissionChecking = SpokenOutputGrantedPermissionChecker(),
         spokenOutput: any SpokenOutputServicing
@@ -121,27 +161,32 @@ private func makeSpokenOutputResult(
 private actor SpokenOutputTestService: SpokenOutputServicing {
     private let supportedLanguages: Set<TranslationLanguage>
     private let waitsForRelease: Bool
+    private let delaysFirstStopUntilSecondSpeechStarts: Bool
     private var requests: [SpokenOutputRequest] = []
+    private var sessionIDs: [UUID] = []
+    private var stopSessionIDs: [UUID] = []
     private var stopCount = 0
-    private var didStartSpeaking = false
     private var startContinuations: [CheckedContinuation<Void, Never>] = []
-    private var speechContinuation: CheckedContinuation<Void, Error>?
+    private var stopContinuations: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var speechContinuations: [UUID: CheckedContinuation<Void, Error>] = [:]
 
     init(
         supportedLanguages: Set<TranslationLanguage>,
-        waitsForRelease: Bool = false
+        waitsForRelease: Bool = false,
+        delaysFirstStopUntilSecondSpeechStarts: Bool = false
     ) {
         self.supportedLanguages = supportedLanguages
         self.waitsForRelease = waitsForRelease
+        self.delaysFirstStopUntilSecondSpeechStarts = delaysFirstStopUntilSecondSpeechStarts
     }
 
     func canSpeak(language: TranslationLanguage) async -> Bool {
         supportedLanguages.contains(language)
     }
 
-    func speak(_ request: SpokenOutputRequest) async throws {
+    func speak(_ request: SpokenOutputRequest, sessionID: UUID) async throws {
         requests.append(request)
-        didStartSpeaking = true
+        sessionIDs.append(sessionID)
         let continuations = startContinuations
         startContinuations = []
         continuations.forEach { $0.resume() }
@@ -151,18 +196,30 @@ private actor SpokenOutputTestService: SpokenOutputServicing {
         }
 
         try await withCheckedThrowingContinuation { continuation in
-            speechContinuation = continuation
+            speechContinuations[sessionID] = continuation
         }
     }
 
-    func stop() async {
+    func stop(sessionID: UUID) async {
         stopCount += 1
-        speechContinuation?.resume(throwing: SpokenOutputFailure.cancelled)
-        speechContinuation = nil
+        stopSessionIDs.append(sessionID)
+        resumeStopContinuations()
+
+        let shouldDelayStop = delaysFirstStopUntilSecondSpeechStarts && stopCount == 1
+        if shouldDelayStop {
+            await waitUntilSpeakStarts(count: 2)
+        }
+
+        speechContinuations.removeValue(forKey: sessionID)?
+            .resume(throwing: SpokenOutputFailure.cancelled)
     }
 
     func waitUntilSpeakStarts() async {
-        guard !didStartSpeaking else {
+        await waitUntilSpeakStarts(count: 1)
+    }
+
+    func waitUntilSpeakStarts(count: Int) async {
+        guard requests.count < count else {
             return
         }
 
@@ -171,17 +228,48 @@ private actor SpokenOutputTestService: SpokenOutputServicing {
         }
     }
 
+    func waitUntilStopCallCount(_ count: Int) async {
+        guard stopCount < count else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            stopContinuations.append((count, continuation))
+        }
+    }
+
     func releaseSpeech() {
-        speechContinuation?.resume()
-        speechContinuation = nil
+        guard let sessionID = sessionIDs.last else {
+            return
+        }
+
+        releaseSpeech(sessionID: sessionID)
+    }
+
+    func releaseSpeech(sessionID: UUID) {
+        speechContinuations.removeValue(forKey: sessionID)?.resume()
     }
 
     func capturedRequests() -> [SpokenOutputRequest] {
         requests
     }
 
+    func capturedSessionIDs() -> [UUID] {
+        sessionIDs
+    }
+
+    func stoppedSessionIDs() -> [UUID] {
+        stopSessionIDs
+    }
+
     func stopCallCount() -> Int {
         stopCount
+    }
+
+    private func resumeStopContinuations() {
+        let readyContinuations = stopContinuations.filter { stopCount >= $0.0 }
+        stopContinuations.removeAll { stopCount >= $0.0 }
+        readyContinuations.forEach { $0.1.resume() }
     }
 }
 

@@ -479,7 +479,7 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
         Self.voice(for: language) != nil
     }
 
-    func speak(_ request: SpokenOutputRequest) async throws {
+    func speak(_ request: SpokenOutputRequest, sessionID: UUID) async throws {
         try Task.checkCancellation()
         let normalizedRequest = request.normalized
         guard !normalizedRequest.trimmedText.isEmpty else {
@@ -489,7 +489,6 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
             throw SpokenOutputFailure.unsupportedLanguage(normalizedRequest.language)
         }
 
-        let sessionID = UUID()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 startSpeaking(
@@ -503,6 +502,7 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
             Task { @MainActor in
                 self.finishActiveSpeech(
                     sessionID: sessionID,
+                    synthesizerID: nil,
                     result: .failure(SpokenOutputFailure.cancelled),
                     stopSynthesizer: true
                 )
@@ -510,9 +510,10 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
         }
     }
 
-    func stop() async {
+    func stop(sessionID: UUID) async {
         finishActiveSpeech(
-            sessionID: nil,
+            sessionID: sessionID,
+            synthesizerID: nil,
             result: .failure(SpokenOutputFailure.cancelled),
             stopSynthesizer: true
         )
@@ -522,11 +523,12 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
         _ synthesizer: AVSpeechSynthesizer,
         didFinish utterance: AVSpeechUtterance
     ) {
-        _ = synthesizer
         _ = utterance
+        let synthesizerID = ObjectIdentifier(synthesizer)
         Task { @MainActor in
             self.finishActiveSpeech(
                 sessionID: nil,
+                synthesizerID: synthesizerID,
                 result: .success(()),
                 stopSynthesizer: false
             )
@@ -537,11 +539,12 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
         _ synthesizer: AVSpeechSynthesizer,
         didCancel utterance: AVSpeechUtterance
     ) {
-        _ = synthesizer
         _ = utterance
+        let synthesizerID = ObjectIdentifier(synthesizer)
         Task { @MainActor in
             self.finishActiveSpeech(
                 sessionID: nil,
+                synthesizerID: synthesizerID,
                 result: .failure(SpokenOutputFailure.cancelled),
                 stopSynthesizer: false
             )
@@ -556,6 +559,7 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
     ) {
         finishActiveSpeech(
             sessionID: nil,
+            synthesizerID: nil,
             result: .failure(SpokenOutputFailure.cancelled),
             stopSynthesizer: true
         )
@@ -574,10 +578,16 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
 
     private func finishActiveSpeech(
         sessionID: UUID?,
+        synthesizerID expectedSynthesizerID: ObjectIdentifier?,
         result: Result<Void, Error>,
         stopSynthesizer: Bool
     ) {
         guard sessionID == nil || activeSessionID == sessionID else {
+            return
+        }
+        guard expectedSynthesizerID == nil
+            || activeSynthesizer.map(ObjectIdentifier.init) == expectedSynthesizerID
+        else {
             return
         }
 

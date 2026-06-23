@@ -247,7 +247,7 @@ final class AppShellModel: ObservableObject {
         outputID: UUID
     ) async {
         let coordinator = SpokenOutputCoordinator(services: services)
-        let finalState = await coordinator.speak(request) { [weak self] state in
+        let finalState = await coordinator.speak(request, sessionID: outputID) { [weak self] state in
             await self?.applySpokenOutputState(state, outputID: outputID)
         }
         finishSpokenOutput(finalState, outputID: outputID)

@@ -137,8 +137,8 @@ public typealias SpokenOutputStateHandler = @Sendable (SpokenOutputSessionState)
 
 public protocol SpokenOutputServicing: Sendable {
     func canSpeak(language: TranslationLanguage) async -> Bool
-    func speak(_ request: SpokenOutputRequest) async throws
-    func stop() async
+    func speak(_ request: SpokenOutputRequest, sessionID: UUID) async throws
+    func stop(sessionID: UUID) async
 }
 
 public struct UnavailableSpokenOutputService: SpokenOutputServicing {
@@ -149,11 +149,14 @@ public struct UnavailableSpokenOutputService: SpokenOutputServicing {
         return false
     }
 
-    public func speak(_ request: SpokenOutputRequest) async throws {
+    public func speak(_ request: SpokenOutputRequest, sessionID: UUID) async throws {
+        _ = sessionID
         throw SpokenOutputFailure.unsupportedLanguage(request.language)
     }
 
-    public func stop() async {}
+    public func stop(sessionID: UUID) async {
+        _ = sessionID
+    }
 }
 
 public actor SpokenOutputCoordinator {
@@ -174,6 +177,7 @@ public actor SpokenOutputCoordinator {
     @discardableResult
     public func speak(
         _ request: SpokenOutputRequest,
+        sessionID: UUID = UUID(),
         onStateChange: SpokenOutputStateHandler? = nil
     ) async -> SpokenOutputSessionState {
         let normalizedRequest = request.normalized
@@ -195,10 +199,10 @@ public actor SpokenOutputCoordinator {
             await setState(.speaking(normalizedRequest), onStateChange: onStateChange)
             let output = spokenOutput
             try await withTaskCancellationHandler {
-                try await output.speak(normalizedRequest)
+                try await output.speak(normalizedRequest, sessionID: sessionID)
             } onCancel: {
                 Task {
-                    await output.stop()
+                    await output.stop(sessionID: sessionID)
                 }
             }
             try Task.checkCancellation()
