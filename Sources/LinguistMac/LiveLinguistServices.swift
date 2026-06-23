@@ -467,11 +467,10 @@ private extension KeyboardShortcut {
     }
 }
 
+private typealias SpeechSynthesizerDelegate = AVSpeechSynthesizerDelegate
+
 @MainActor
-final class AppleSpokenOutputService: NSObject,
-    SpokenOutputServicing,
-    AVSpeechSynthesizerDelegate,
-    @unchecked Sendable {
+final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSynthesizerDelegate, @unchecked Sendable {
     private var activeSynthesizer: AVSpeechSynthesizer?
     private var activeContinuation: CheckedContinuation<Void, Error>?
     private var activeSessionID: UUID?

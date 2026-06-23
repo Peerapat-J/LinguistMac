@@ -256,22 +256,22 @@ struct SpokenOutputControls: View {
     private var statusImage: String {
         switch model.spokenOutputState {
         case .failed:
-            return "exclamationmark.triangle"
+            "exclamationmark.triangle"
         case .completed:
-            return "checkmark.circle"
+            "checkmark.circle"
         case .idle, .preparing, .speaking:
-            return "speaker.wave.2"
+            "speaker.wave.2"
         }
     }
 
     private var statusTint: Color {
         switch model.spokenOutputState {
         case .failed:
-            return .orange
+            .orange
         case .preparing, .speaking:
-            return .blue
+            .blue
         case .idle, .completed:
-            return .secondary
+            .secondary
         }
     }
 }
