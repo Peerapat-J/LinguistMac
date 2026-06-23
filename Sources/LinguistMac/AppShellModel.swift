@@ -201,22 +201,6 @@ final class AppShellModel: ObservableObject {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func speakPopupTranslation() {
-        guard case let .success(result, _, _) = popupState else {
-            return
-        }
-
-        speakTranslation(result)
-    }
-
-    func speakQuickTranslation() {
-        guard case let .completed(result) = quickSessionState else {
-            return
-        }
-
-        speakTranslation(result)
-    }
-
     func speakTranslation(_ result: TranslationResult) {
         stopSpokenOutput()
         let outputID = UUID()
@@ -248,16 +232,6 @@ final class AppShellModel: ObservableObject {
         case .idle, .completed, .failed:
             return false
         }
-    }
-
-    func spokenOutputFailure(for result: TranslationResult) -> SpokenOutputFailure? {
-        guard activeSpokenOutputResultID == result.id,
-              case let .failed(failure, _) = spokenOutputState
-        else {
-            return nil
-        }
-
-        return failure
     }
 
     private func persistSettings() {

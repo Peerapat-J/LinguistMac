@@ -18,7 +18,7 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let result = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
         model.quickSessionState = .completed(result)
 
-        model.speakQuickTranslation()
+        model.speakTranslation(result)
         let task = try XCTUnwrap(model.activeSpokenOutputTask)
         await spokenOutput.waitUntilSpeakStarts()
 
@@ -42,7 +42,7 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let result = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
         model.popupState = .success(result, showsOriginal: false)
 
-        model.speakPopupTranslation()
+        model.speakTranslation(result)
         let task = try XCTUnwrap(model.activeSpokenOutputTask)
         await task.value
 
@@ -53,7 +53,6 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
                 request: SpokenOutputRequest(text: "สวัสดี", language: .thai)
             )
         )
-        XCTAssertEqual(model.spokenOutputFailure(for: result), .unsupportedLanguage(.thai))
         let requests = await spokenOutput.capturedRequests()
         XCTAssertTrue(requests.isEmpty)
     }
