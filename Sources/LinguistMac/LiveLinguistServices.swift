@@ -502,7 +502,6 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
             Task { @MainActor in
                 self.finishActiveSpeech(
                     sessionID: sessionID,
-                    synthesizerID: nil,
                     result: .failure(SpokenOutputFailure.cancelled),
                     stopSynthesizer: true
                 )
@@ -513,7 +512,6 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
     func stop(sessionID: UUID) async {
         finishActiveSpeech(
             sessionID: sessionID,
-            synthesizerID: nil,
             result: .failure(SpokenOutputFailure.cancelled),
             stopSynthesizer: true
         )
@@ -527,7 +525,6 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
         let synthesizerID = ObjectIdentifier(synthesizer)
         Task { @MainActor in
             self.finishActiveSpeech(
-                sessionID: nil,
                 synthesizerID: synthesizerID,
                 result: .success(()),
                 stopSynthesizer: false
@@ -543,7 +540,6 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
         let synthesizerID = ObjectIdentifier(synthesizer)
         Task { @MainActor in
             self.finishActiveSpeech(
-                sessionID: nil,
                 synthesizerID: synthesizerID,
                 result: .failure(SpokenOutputFailure.cancelled),
                 stopSynthesizer: false
@@ -558,8 +554,6 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
         continuation: CheckedContinuation<Void, Error>
     ) {
         finishActiveSpeech(
-            sessionID: nil,
-            synthesizerID: nil,
             result: .failure(SpokenOutputFailure.cancelled),
             stopSynthesizer: true
         )
@@ -577,20 +571,33 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
     }
 
     private func finishActiveSpeech(
-        sessionID: UUID?,
-        synthesizerID expectedSynthesizerID: ObjectIdentifier?,
+        sessionID: UUID,
         result: Result<Void, Error>,
         stopSynthesizer: Bool
     ) {
-        guard sessionID == nil || activeSessionID == sessionID else {
-            return
-        }
-        guard expectedSynthesizerID == nil
-            || activeSynthesizer.map(ObjectIdentifier.init) == expectedSynthesizerID
-        else {
+        guard activeSessionID == sessionID else {
             return
         }
 
+        finishActiveSpeech(result: result, stopSynthesizer: stopSynthesizer)
+    }
+
+    private func finishActiveSpeech(
+        synthesizerID: ObjectIdentifier,
+        result: Result<Void, Error>,
+        stopSynthesizer: Bool
+    ) {
+        guard activeSynthesizer.map(ObjectIdentifier.init) == synthesizerID else {
+            return
+        }
+
+        finishActiveSpeech(result: result, stopSynthesizer: stopSynthesizer)
+    }
+
+    private func finishActiveSpeech(
+        result: Result<Void, Error>,
+        stopSynthesizer: Bool
+    ) {
         let synthesizer = activeSynthesizer
         let continuation = activeContinuation
 
