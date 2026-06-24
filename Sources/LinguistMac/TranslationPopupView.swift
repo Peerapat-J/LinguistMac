@@ -484,12 +484,6 @@ struct TranslationWordLookupSection: View {
     }
 }
 
-extension TranslationFailure {
-    var displayText: String {
-        presentation.message
-    }
-}
-
 private struct PopupResizeGrip: View {
     @State private var previousTranslation: CGSize = .zero
     let onResize: (Double, Double) -> Void
