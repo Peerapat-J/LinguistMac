@@ -1,7 +1,9 @@
+import AppKit
 import LinguistMacCore
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.openSettings) private var openSettings
     @ObservedObject var model: AppShellModel
 
     var body: some View {
@@ -129,8 +131,7 @@ struct SettingsView: View {
                         case .speechRecognition:
                             model.openSystemSettings(for: .speechRecognition)
                         case .appleTranslation, .cloudProvider:
-                            model.openSettingsWindow()
-                            model.record(.settings)
+                            openSettingsWindow()
                         }
                     }
                 }
@@ -185,6 +186,12 @@ struct SettingsView: View {
                 await model.setLaunchAtLoginEnabled(isEnabled)
             }
         }
+    }
+
+    private func openSettingsWindow() {
+        model.record(.settings)
+        openSettings()
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @ViewBuilder

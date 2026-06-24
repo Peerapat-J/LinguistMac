@@ -4,6 +4,7 @@ import SwiftUI
 
 struct MenuBarMenuView: View {
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: AppShellModel
 
@@ -157,7 +158,7 @@ struct MenuBarMenuView: View {
 
     private func openSettingsWindow() {
         model.record(.settings)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        openSettings()
         activateApp()
     }
 

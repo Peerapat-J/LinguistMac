@@ -65,7 +65,6 @@ extension AppShellModel {
         case let .openSystemSettings(kind):
             openSystemSettings(for: kind)
         case .openSettings:
-            openSettingsWindow()
             record(.settings)
         case .retry:
             Task {

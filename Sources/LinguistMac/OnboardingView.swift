@@ -4,6 +4,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openSettings) private var openSettings
     @ObservedObject var model: AppShellModel
 
     var body: some View {
@@ -88,7 +89,7 @@ struct OnboardingView: View {
 
     private func openSettingsWindow() {
         model.record(.settings)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        openSettings()
         NSApp.activate(ignoringOtherApps: true)
     }
 }

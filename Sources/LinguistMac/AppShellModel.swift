@@ -196,11 +196,6 @@ final class AppShellModel: ObservableObject {
         )
     }
 
-    func openSettingsWindow() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
     func speakTranslation(_ result: TranslationResult) {
         stopSpokenOutput()
         let outputID = UUID()
