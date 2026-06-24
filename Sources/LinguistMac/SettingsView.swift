@@ -1,22 +1,23 @@
-import AppKit
 import LinguistMacCore
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(\.openSettings) private var openSettings
     @ObservedObject var model: AppShellModel
+    @State private var selectedTab: SettingsTab = .general
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             generalSettings
                 .tabItem {
                     Label("General", systemImage: "slider.horizontal.3")
                 }
+                .tag(SettingsTab.general)
 
             advancedSettings
                 .tabItem {
                     Label("Advanced", systemImage: "wrench.and.screwdriver")
                 }
+                .tag(SettingsTab.advanced)
         }
         .padding(24)
         .frame(width: 620, height: 520)
@@ -131,7 +132,8 @@ struct SettingsView: View {
                         case .speechRecognition:
                             model.openSystemSettings(for: .speechRecognition)
                         case .appleTranslation, .cloudProvider:
-                            openSettingsWindow()
+                            model.record(.settings)
+                            selectedTab = .general
                         }
                     }
                 }
@@ -188,12 +190,6 @@ struct SettingsView: View {
         }
     }
 
-    private func openSettingsWindow() {
-        model.record(.settings)
-        openSettings()
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
     @ViewBuilder
     private var shortcutStatus: some View {
         if model.shortcutRegistrationResults.isEmpty {
@@ -214,6 +210,11 @@ struct SettingsView: View {
             }
         }
     }
+}
+
+private enum SettingsTab: Hashable {
+    case general
+    case advanced
 }
 
 private enum PopupFontOption: String, CaseIterable, Identifiable {

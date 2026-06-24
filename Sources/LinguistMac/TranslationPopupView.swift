@@ -1,4 +1,3 @@
-import AppKit
 import LinguistMacCore
 import SwiftUI
 
@@ -155,7 +154,7 @@ struct TranslationPopupView: View {
                 )
             }
         case .openSettings:
-            openSettingsWindow()
+            openLinguistSettings(model: model, using: openSettings)
         case .openSystemSettings:
             model.performRecoveryAction(action)
         }
@@ -164,16 +163,10 @@ struct TranslationPopupView: View {
     private func performRecoveryAction(_ action: TranslationRecoveryAction) {
         switch action {
         case .openSettings:
-            openSettingsWindow()
+            openLinguistSettings(model: model, using: openSettings)
         case .openSystemSettings, .retry:
             model.performRecoveryAction(action)
         }
-    }
-
-    private func openSettingsWindow() {
-        model.record(.settings)
-        openSettings()
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     private var popupFont: Font {

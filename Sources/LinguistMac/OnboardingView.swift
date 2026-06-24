@@ -1,4 +1,3 @@
-import AppKit
 import LinguistMacCore
 import SwiftUI
 
@@ -43,9 +42,9 @@ struct OnboardingView: View {
                             case .speechRecognition:
                                 model.openSystemSettings(for: .speechRecognition)
                             case .appleTranslation:
-                                openSettingsWindow()
+                                openLinguistSettings(model: model, using: openSettings)
                             case .cloudProvider:
-                                openSettingsWindow()
+                                openLinguistSettings(model: model, using: openSettings)
                             }
                         }
                     }
@@ -63,7 +62,7 @@ struct OnboardingView: View {
 
             HStack {
                 Button("Open Settings") {
-                    openSettingsWindow()
+                    openLinguistSettings(model: model, using: openSettings)
                 }
 
                 Spacer()
@@ -85,12 +84,6 @@ struct OnboardingView: View {
         .task {
             await model.refreshReadiness()
         }
-    }
-
-    private func openSettingsWindow() {
-        model.record(.settings)
-        openSettings()
-        NSApp.activate(ignoringOtherApps: true)
     }
 }
 
