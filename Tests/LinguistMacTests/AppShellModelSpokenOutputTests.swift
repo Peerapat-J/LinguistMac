@@ -4,6 +4,24 @@ import XCTest
 
 @MainActor
 final class AppShellModelSpokenOutputTests: XCTestCase {
+    func testSpokenOutputVoiceSelectorPrefersExactLanguageIdentifier() {
+        let selectedLanguageID = AppleSpokenOutputVoiceSelector.preferredLanguageID(
+            for: "zh-Hans",
+            availableLanguageIDs: ["zh-Hant", "zh-Hans"]
+        )
+
+        XCTAssertEqual(selectedLanguageID, "zh-Hans")
+    }
+
+    func testSpokenOutputVoiceSelectorFallsBackToLanguageCodeWhenExactMatchIsUnavailable() {
+        let selectedLanguageID = AppleSpokenOutputVoiceSelector.preferredLanguageID(
+            for: "en-GB",
+            availableLanguageIDs: ["fr-FR", "en-US"]
+        )
+
+        XCTAssertEqual(selectedLanguageID, "en-US")
+    }
+
     func testSpeakQuickTranslationUsesCompletedResultWithoutMicrophonePermission() async throws {
         let spokenOutput = SpokenOutputTestService(
             supportedLanguages: [.thai],

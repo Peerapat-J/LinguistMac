@@ -469,8 +469,33 @@ private extension KeyboardShortcut {
 
 private typealias SpeechSynthesizerDelegate = AVSpeechSynthesizerDelegate
 
+enum AppleSpokenOutputVoiceSelector {
+    static func preferredLanguageID(
+        for requestedLanguageID: String,
+        availableLanguageIDs: [String]
+    ) -> String? {
+        if let exactLanguageID = availableLanguageIDs.first(where: { $0 == requestedLanguageID }) {
+            return exactLanguageID
+        }
+
+        guard let requestedLanguageCode = languageCode(for: requestedLanguageID) else {
+            return nil
+        }
+
+        return availableLanguageIDs.first { languageID in
+            languageCode(for: languageID) == requestedLanguageCode
+        }
+    }
+
+    private static func languageCode(for identifier: String) -> String? {
+        Locale(identifier: identifier).language.languageCode?.identifier
+            ?? identifier.split(separator: "-").first.map(String.init)
+            ?? identifier.split(separator: "_").first.map(String.init)
+    }
+}
+
 @MainActor
-final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSynthesizerDelegate, @unchecked Sendable {
+final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSynthesizerDelegate {
     private var activeSynthesizer: AVSpeechSynthesizer?
     private var activeContinuation: CheckedContinuation<Void, Error>?
     private var activeSessionID: UUID?
@@ -614,21 +639,21 @@ final class AppleSpokenOutputService: NSObject, SpokenOutputServicing, SpeechSyn
     }
 
     private static func voice(for language: TranslationLanguage) -> AVSpeechSynthesisVoice? {
-        guard !language.supportsAutoDetect,
-              let requestedLanguageCode = languageCode(for: language.id)
-        else {
+        guard !language.supportsAutoDetect else {
             return nil
         }
 
-        return AVSpeechSynthesisVoice.speechVoices().first { voice in
-            voice.language == language.id
-                || languageCode(for: voice.language) == requestedLanguageCode
+        let voices = AVSpeechSynthesisVoice.speechVoices()
+        let voiceLanguageIDs = voices.map(\.language)
+        guard let selectedLanguageID = AppleSpokenOutputVoiceSelector.preferredLanguageID(
+            for: language.id,
+            availableLanguageIDs: voiceLanguageIDs
+        ) else {
+            return nil
         }
-    }
 
-    private static func languageCode(for identifier: String) -> String? {
-        Locale(identifier: identifier).language.languageCode?.identifier
-            ?? identifier.split(separator: "-").first.map(String.init)
-            ?? identifier.split(separator: "_").first.map(String.init)
+        return voices.first { voice in
+            voice.language == selectedLanguageID
+        }
     }
 }
