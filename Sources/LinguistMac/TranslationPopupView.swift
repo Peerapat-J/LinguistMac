@@ -186,6 +186,10 @@ struct TranslationPopupView: View {
             }
             .disabled(model.popupState.copyableText == nil)
 
+            if let result = model.popupState.result {
+                SpokenOutputControls(model: model, result: result)
+            }
+
             Spacer()
 
             Button("Done") {
@@ -196,6 +200,78 @@ struct TranslationPopupView: View {
             PopupResizeGrip { widthDelta, heightDelta in
                 model.resizePopup(widthDelta: widthDelta, heightDelta: heightDelta)
             }
+        }
+    }
+}
+
+struct SpokenOutputControls: View {
+    @ObservedObject var model: AppShellModel
+    let result: TranslationResult
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if model.isSpokenOutputActive(for: result) {
+                Button {
+                    model.stopSpokenOutput()
+                } label: {
+                    Label("Stop", systemImage: "speaker.slash.fill")
+                }
+            } else {
+                Button {
+                    model.speakTranslation(result)
+                } label: {
+                    Label("Speak", systemImage: "speaker.wave.2.fill")
+                }
+                .disabled(SpokenOutputRequest(result: result).trimmedText.isEmpty)
+            }
+
+            if let statusText {
+                Label(statusText, systemImage: statusImage)
+                    .font(.caption)
+                    .foregroundStyle(statusTint)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private var statusText: String? {
+        guard model.activeSpokenOutputResultID == result.id else {
+            return nil
+        }
+
+        switch model.spokenOutputState {
+        case .idle:
+            return nil
+        case .preparing:
+            return "Preparing speech"
+        case .speaking:
+            return "Speaking"
+        case .completed:
+            return "Spoken"
+        case let .failed(failure, _):
+            return failure.displayText
+        }
+    }
+
+    private var statusImage: String {
+        switch model.spokenOutputState {
+        case .failed:
+            "exclamationmark.triangle"
+        case .completed:
+            "checkmark.circle"
+        case .idle, .preparing, .speaking:
+            "speaker.wave.2"
+        }
+    }
+
+    private var statusTint: Color {
+        switch model.spokenOutputState {
+        case .failed:
+            .orange
+        case .preparing, .speaking:
+            .blue
+        case .idle, .completed:
+            .secondary
         }
     }
 }

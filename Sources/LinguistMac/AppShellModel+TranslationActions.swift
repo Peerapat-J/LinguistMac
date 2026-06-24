@@ -5,6 +5,7 @@ import LinguistMacCore
 extension AppShellModel {
     func runScreenTranslation() async {
         record(.screenTranslate)
+        stopSpokenOutput()
         cancelPopupWordLookup()
         let translationSettings = settingsWithSupportedProvider()
         let loadingRequest = TranslationRequest(
@@ -47,6 +48,7 @@ extension AppShellModel {
         }
 
         record(.quickTranslate)
+        stopSpokenOutput()
         cancelPopupWordLookup()
         cancelQuickWordTranslation()
         clearActiveQuickVoiceCapture()
@@ -118,6 +120,7 @@ extension AppShellModel {
 
     private func prepareQuickTranslation(preservingVoiceTranscript: Bool) {
         record(.quickTranslate)
+        stopSpokenOutput()
         cancelPopupWordLookup()
         cancelQuickWordTranslation()
         if !preservingVoiceTranscript {
@@ -633,6 +636,7 @@ extension AppShellModel {
         _ inputMode: TranslationInputMode,
         operation: (InputModeTranslationCoordinator, AppSettings) async -> TranslationSessionState
     ) async {
+        stopSpokenOutput()
         cancelPopupWordLookup()
         let translationSettings = settingsWithSupportedProvider()
         let loadingRequest = TranslationRequest(

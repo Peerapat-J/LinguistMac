@@ -75,6 +75,192 @@ public struct UnavailableSpeechToTextService: SpeechToTextServicing {
     }
 }
 
+public struct SpokenOutputRequest: Equatable, Sendable {
+    public let text: String
+    public let language: TranslationLanguage
+
+    public init(
+        text: String,
+        language: TranslationLanguage
+    ) {
+        self.text = text
+        self.language = language
+    }
+
+    public init(result: TranslationResult) {
+        self.init(
+            text: result.translatedText,
+            language: result.request.targetLanguage
+        )
+    }
+
+    public var trimmedText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public var normalized: SpokenOutputRequest {
+        SpokenOutputRequest(text: trimmedText, language: language)
+    }
+}
+
+public enum SpokenOutputFailure: Error, Equatable, Sendable {
+    case emptyText
+    case unsupportedLanguage(TranslationLanguage)
+    case cancelled
+    case playbackFailed
+}
+
+public extension SpokenOutputFailure {
+    var displayText: String {
+        switch self {
+        case .emptyText:
+            "No translated text to speak"
+        case let .unsupportedLanguage(language):
+            "Spoken output unavailable for \(language.displayName)"
+        case .cancelled:
+            "Spoken output stopped"
+        case .playbackFailed:
+            "Spoken output failed"
+        }
+    }
+}
+
+public enum SpokenOutputSessionState: Equatable, Sendable {
+    case idle
+    case preparing(SpokenOutputRequest)
+    case speaking(SpokenOutputRequest)
+    case completed(SpokenOutputRequest)
+    case failed(SpokenOutputFailure, request: SpokenOutputRequest?)
+}
+
+public typealias SpokenOutputStateHandler = @Sendable (SpokenOutputSessionState) async -> Void
+
+public protocol SpokenOutputServicing: Sendable {
+    func canSpeak(language: TranslationLanguage) async -> Bool
+    func speak(_ request: SpokenOutputRequest, sessionID: UUID) async throws
+    func stop(sessionID: UUID) async
+}
+
+public struct UnavailableSpokenOutputService: SpokenOutputServicing {
+    public init() {}
+
+    public func canSpeak(language: TranslationLanguage) async -> Bool {
+        _ = language
+        return false
+    }
+
+    public func speak(_ request: SpokenOutputRequest, sessionID: UUID) async throws {
+        _ = sessionID
+        throw SpokenOutputFailure.unsupportedLanguage(request.language)
+    }
+
+    public func stop(sessionID: UUID) async {
+        _ = sessionID
+    }
+}
+
+public actor SpokenOutputCoordinator {
+    public private(set) var state: SpokenOutputSessionState
+    private var stateHistory: [SpokenOutputSessionState]
+    private let spokenOutput: any SpokenOutputServicing
+
+    public init(services: LinguistServices) {
+        spokenOutput = services.spokenOutput
+        state = .idle
+        stateHistory = [.idle]
+    }
+
+    public func states() -> [SpokenOutputSessionState] {
+        stateHistory
+    }
+
+    @discardableResult
+    public func speak(
+        _ request: SpokenOutputRequest,
+        sessionID: UUID = UUID(),
+        onStateChange: SpokenOutputStateHandler? = nil
+    ) async -> SpokenOutputSessionState {
+        let normalizedRequest = request.normalized
+        guard !normalizedRequest.trimmedText.isEmpty else {
+            return await fail(with: .emptyText, request: normalizedRequest, onStateChange: onStateChange)
+        }
+
+        await setState(.preparing(normalizedRequest), onStateChange: onStateChange)
+        guard await spokenOutput.canSpeak(language: normalizedRequest.language) else {
+            return await fail(
+                with: .unsupportedLanguage(normalizedRequest.language),
+                request: normalizedRequest,
+                onStateChange: onStateChange
+            )
+        }
+
+        do {
+            try Task.checkCancellation()
+            await setState(.speaking(normalizedRequest), onStateChange: onStateChange)
+            let output = spokenOutput
+            try await withTaskCancellationHandler {
+                try await output.speak(normalizedRequest, sessionID: sessionID)
+            } onCancel: {
+                Task {
+                    await output.stop(sessionID: sessionID)
+                }
+            }
+            try Task.checkCancellation()
+            await setState(.completed(normalizedRequest), onStateChange: onStateChange)
+            return state
+        } catch {
+            return await fail(
+                with: failure(from: error),
+                request: normalizedRequest,
+                onStateChange: onStateChange
+            )
+        }
+    }
+
+    private func failure(from error: Error) -> SpokenOutputFailure {
+        if let failure = error as? SpokenOutputFailure {
+            return failure
+        }
+        if isCancellation(error) {
+            return .cancelled
+        }
+
+        return .playbackFailed
+    }
+
+    private func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError {
+            return true
+        }
+        if let urlError = error as? URLError {
+            return urlError.code == .cancelled
+        }
+
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
+    }
+
+    private func fail(
+        with failure: SpokenOutputFailure,
+        request: SpokenOutputRequest?,
+        onStateChange: SpokenOutputStateHandler?
+    ) async -> SpokenOutputSessionState {
+        await setState(.failed(failure, request: request), onStateChange: onStateChange)
+        return state
+    }
+
+    private func setState(
+        _ newState: SpokenOutputSessionState,
+        onStateChange: SpokenOutputStateHandler?
+    ) async {
+        state = newState
+        stateHistory.append(newState)
+        if let onStateChange {
+            await onStateChange(newState)
+        }
+    }
+}
+
 public actor SpeechRecognitionCoordinator {
     public private(set) var state: SpeechRecognitionSessionState
     private var stateHistory: [SpeechRecognitionSessionState]
