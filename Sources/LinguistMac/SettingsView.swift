@@ -174,22 +174,24 @@ struct SettingsView: View {
                 }
             }
 
-            settingsSection("Setup") {
-                indentedSetting {
-                    Button {
-                        openSetupGuide()
-                    } label: {
-                        Label("Open Setup Guide", systemImage: "checklist")
+            VStack(alignment: .leading, spacing: SettingsLayout.cardTitleSpacing) {
+                settingsSection("Setup") {
+                    ForEach(Array(model.readiness.items.enumerated()), id: \.element.id) { index, item in
+                        if index > 0 { SettingsDivider() }
+                        ReadinessRow(item: item) {
+                            handleReadinessAction(for: item)
+                        }
                     }
-                    .controlSize(.small)
                 }
 
-                ForEach(model.readiness.items) { item in
-                    SettingsDivider()
-                    ReadinessRow(item: item) {
-                        handleReadinessAction(for: item)
-                    }
+                Button {
+                    openSetupGuide()
+                } label: {
+                    Label("Open Setup Guide", systemImage: "checklist")
                 }
+                .controlSize(.small)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
             settingsSection("Privacy") {
