@@ -194,12 +194,7 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
-            settingsSection("Privacy") {
-                Text("The default path is on-device. Cloud providers stay optional and require explicit configuration.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            PrivacySettingsSection()
         }
     }
 
@@ -332,7 +327,7 @@ struct SettingsView: View {
     }
 }
 
-private struct SettingsSectionCard<Content: View>: View {
+struct SettingsSectionCard<Content: View>: View {
     let title: LocalizedStringKey
     let content: Content
 
@@ -365,13 +360,13 @@ private struct SettingsSectionCard<Content: View>: View {
     }
 }
 
-private struct SettingsDivider: View {
+struct SettingsDivider: View {
     var body: some View {
         Divider()
     }
 }
 
-private enum SettingsLayout {
+enum SettingsLayout {
     static let contentWidth: CGFloat = 520
     static let compactControlWidth: CGFloat = 360
     static let labelWidth: CGFloat = 112
