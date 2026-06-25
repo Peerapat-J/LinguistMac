@@ -115,6 +115,7 @@ private struct SetupStatusCard: View {
                 Button("Open") {
                     action()
                 }
+                .fixedSize(horizontal: true, vertical: false)
             }
         }
         .padding(14)

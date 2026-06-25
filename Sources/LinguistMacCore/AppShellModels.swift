@@ -427,16 +427,7 @@ public struct OnboardingReadinessItem: Identifiable, Equatable, Sendable {
     }
 
     public var showsRecoveryAction: Bool {
-        guard status != .granted else {
-            return false
-        }
-
-        switch kind {
-        case .voiceMicrophone, .speechRecognition:
-            return status == .denied || status == .restricted
-        case .screenTranslation, .accessibility, .appleTranslation, .cloudProvider:
-            return true
-        }
+        status != .granted
     }
 
     public init(

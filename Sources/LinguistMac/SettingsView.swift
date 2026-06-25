@@ -646,7 +646,6 @@ private struct ReadinessRow: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .layoutPriority(1)
 
             Spacer(minLength: 12)
 
@@ -655,6 +654,7 @@ private struct ReadinessRow: View {
                     action()
                 }
                 .controlSize(.small)
+                .fixedSize(horizontal: true, vertical: false)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

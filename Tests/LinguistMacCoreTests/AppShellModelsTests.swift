@@ -101,7 +101,7 @@ final class AppShellModelsTests: XCTestCase {
         XCTAssertTrue(readiness.isScreenTranslationReady)
     }
 
-    func testFreshVoicePermissionsDoNotShowRecoveryActions() {
+    func testFreshVoicePermissionsShowRecoveryActions() {
         let readiness = OnboardingReadinessSnapshot.make(
             screenRecording: .notDetermined,
             accessibility: .notDetermined,
@@ -112,8 +112,8 @@ final class AppShellModelsTests: XCTestCase {
         )
         let items = Dictionary(uniqueKeysWithValues: readiness.items.map { ($0.kind, $0) })
 
-        XCTAssertEqual(items[.voiceMicrophone]?.showsRecoveryAction, false)
-        XCTAssertEqual(items[.speechRecognition]?.showsRecoveryAction, false)
+        XCTAssertEqual(items[.voiceMicrophone]?.showsRecoveryAction, true)
+        XCTAssertEqual(items[.speechRecognition]?.showsRecoveryAction, true)
         XCTAssertEqual(items[.screenTranslation]?.showsRecoveryAction, true)
         XCTAssertEqual(items[.accessibility]?.showsRecoveryAction, true)
     }
