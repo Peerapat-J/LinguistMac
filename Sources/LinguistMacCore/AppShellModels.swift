@@ -155,7 +155,7 @@ public extension TranslationFailure {
         case let .permissionDenied(kind):
             TranslationFailurePresentation(
                 title: "Permission Required",
-                message: "\(kind.displayName) permission is needed before this workflow can run.",
+                message: Self.permissionDeniedMessage(for: kind),
                 recoveryAction: .openSystemSettings(kind)
             )
         case .captureCancelled:
@@ -246,6 +246,16 @@ public extension TranslationFailure {
                 message: "The translation provider could not complete the request. Check configuration or try again.",
                 recoveryAction: .openSettings
             )
+        }
+    }
+
+    private static func permissionDeniedMessage(for kind: PermissionKind) -> String {
+        switch kind {
+        case .screenRecording:
+            "\(kind.displayName) permission is needed before this workflow can run. "
+                + "If it is already enabled in System Settings, quit and reopen LinguistMac so macOS applies it."
+        case .accessibility, .microphone, .speechRecognition, .keychain, .network:
+            "\(kind.displayName) permission is needed before this workflow can run."
         }
     }
 }

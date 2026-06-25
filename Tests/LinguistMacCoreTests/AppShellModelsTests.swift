@@ -147,6 +147,11 @@ final class AppShellModelsTests: XCTestCase {
             .openSystemSettings(.screenRecording)
         )
         XCTAssertEqual(
+            TranslationFailure.permissionDenied(.screenRecording).presentation.message,
+            "Screen Recording permission is needed before this workflow can run. "
+                + "If it is already enabled in System Settings, quit and reopen LinguistMac so macOS applies it."
+        )
+        XCTAssertEqual(
             TranslationFailure.permissionDenied(.speechRecognition).presentation.recoveryAction,
             .openSystemSettings(.speechRecognition)
         )
