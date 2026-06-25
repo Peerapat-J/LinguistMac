@@ -3,6 +3,7 @@ import LinguistMacCore
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: AppShellModel
     @State private var selectedTab: SettingsTab = .general
     @State private var readinessRefreshTrigger = 0
@@ -175,7 +176,12 @@ struct SettingsView: View {
 
             settingsSection("Setup") {
                 indentedSetting {
-                    Toggle("Setup guide completed", isOn: onboardingCompletedBinding)
+                    Button {
+                        openSetupGuide()
+                    } label: {
+                        Label("Open Setup Guide", systemImage: "checklist")
+                    }
+                    .controlSize(.small)
                 }
 
                 ForEach(model.readiness.items) { item in
@@ -214,6 +220,13 @@ struct SettingsView: View {
             selectedTab = .general
         }
 
+        readinessRefreshTrigger += 1
+    }
+
+    private func openSetupGuide() {
+        model.reopenOnboarding()
+        openWindow(id: AppWindow.onboarding.rawValue)
+        NSApp.activate(ignoringOtherApps: true)
         readinessRefreshTrigger += 1
     }
 
@@ -256,14 +269,6 @@ struct SettingsView: View {
         content()
             .padding(.leading, SettingsLayout.labelWidth + SettingsLayout.rowLabelSpacing)
             .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var onboardingCompletedBinding: Binding<Bool> {
-        Binding {
-            model.settings.hasCompletedOnboarding
-        } set: { isCompleted in
-            model.setOnboardingCompleted(isCompleted)
-        }
     }
 
     private var sourceLanguageBinding: Binding<TranslationLanguage> {
