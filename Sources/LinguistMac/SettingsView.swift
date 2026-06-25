@@ -7,19 +7,23 @@ struct SettingsView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            generalSettings
-                .tabItem {
-                    Label("General", systemImage: "slider.horizontal.3")
-                }
-                .tag(SettingsTab.general)
+            settingsPane {
+                generalSettings
+            }
+            .tabItem {
+                Label("General", systemImage: "slider.horizontal.3")
+            }
+            .tag(SettingsTab.general)
 
-            advancedSettings
-                .tabItem {
-                    Label("Advanced", systemImage: "wrench.and.screwdriver")
-                }
-                .tag(SettingsTab.advanced)
+            settingsPane {
+                advancedSettings
+            }
+            .tabItem {
+                Label("Advanced", systemImage: "wrench.and.screwdriver")
+            }
+            .tag(SettingsTab.advanced)
         }
-        .padding(24)
+        .focusable(false)
         .frame(width: 620, height: 520)
         .task {
             await model.refreshProviderDescriptors()
@@ -29,56 +33,83 @@ struct SettingsView: View {
     }
 
     private var generalSettings: some View {
-        Form {
-            Section("Languages") {
-                Picker("Source", selection: sourceLanguageBinding) {
-                    ForEach(model.availableLanguages, id: \.id) { language in
-                        Text(LocalizedStringKey(language.displayName))
-                            .tag(language)
+        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+            settingsSection("Languages") {
+                settingsRow("Source") {
+                    Picker("", selection: sourceLanguageBinding) {
+                        ForEach(model.availableLanguages, id: \.id) { language in
+                            Text(LocalizedStringKey(language.displayName))
+                                .tag(language)
+                        }
                     }
+                    .labelsHidden()
+                    .frame(maxWidth: SettingsLayout.compactControlWidth)
                 }
 
-                Picker("Target", selection: targetLanguageBinding) {
-                    ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
-                        Text(LocalizedStringKey(language.displayName))
-                            .tag(language)
+                settingsRow("Target") {
+                    Picker("", selection: targetLanguageBinding) {
+                        ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
+                            Text(LocalizedStringKey(language.displayName))
+                                .tag(language)
+                        }
                     }
+                    .labelsHidden()
+                    .frame(maxWidth: SettingsLayout.compactControlWidth)
                 }
 
-                Picker("App language", selection: appLanguageBinding) {
-                    ForEach(AppLanguage.allCases, id: \.rawValue) { language in
-                        Text(LocalizedStringKey(language.displayName))
-                            .tag(language)
+                settingsRow("App language") {
+                    Picker("", selection: appLanguageBinding) {
+                        ForEach(AppLanguage.allCases, id: \.rawValue) { language in
+                            Text(LocalizedStringKey(language.displayName))
+                                .tag(language)
+                        }
                     }
+                    .labelsHidden()
+                    .frame(maxWidth: SettingsLayout.compactControlWidth)
                 }
             }
 
-            Section("Translation") {
-                Picker("Engine", selection: $model.settings.selectedProviderID) {
-                    ForEach(model.selectableProviders, id: \.id) { provider in
-                        Text(provider.pickerTitle)
-                            .tag(provider.id)
+            settingsSection("Translation") {
+                settingsRow("Engine") {
+                    Picker("", selection: $model.settings.selectedProviderID) {
+                        ForEach(model.selectableProviders, id: \.id) { provider in
+                            Text(provider.pickerTitle)
+                                .tag(provider.id)
+                        }
                     }
+                    .labelsHidden()
+                    .frame(maxWidth: SettingsLayout.compactControlWidth)
                 }
 
-                Toggle("Auto-copy result", isOn: $model.settings.autoCopyEnabled)
-                Toggle("Cmd+C+C translation", isOn: $model.settings.doubleCopyTranslationEnabled)
-                Toggle("Drag translation", isOn: $model.settings.dragTranslationEnabled)
-                Toggle("Launch at login", isOn: launchAtLoginBinding)
+                indentedSetting {
+                    Toggle("Auto-copy result", isOn: $model.settings.autoCopyEnabled)
+                }
+                indentedSetting {
+                    Toggle("Cmd+C+C translation", isOn: $model.settings.doubleCopyTranslationEnabled)
+                }
+                indentedSetting {
+                    Toggle("Drag translation", isOn: $model.settings.dragTranslationEnabled)
+                }
+                indentedSetting {
+                    Toggle("Launch at login", isOn: launchAtLoginBinding)
+                }
                 if let message = model.appPreferenceMessage {
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    indentedSetting {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
 
-            Section("Provider Keys") {
+            settingsSection("Provider Keys") {
                 ForEach(model.availableProviders.filter(\.requiresAPIKey), id: \.id) { provider in
                     ProviderConfigurationRow(model: model, provider: provider)
                 }
             }
 
-            Section("Shortcuts") {
+            settingsSection("Shortcuts") {
                 ShortcutRow(title: "Screen Translate", shortcut: model.settings.screenTranslationShortcut)
                 ShortcutRow(title: "Selected Text", shortcut: model.settings.textSelectionShortcut)
                 ShortcutRow(title: "Quick Translate", shortcut: model.settings.quickTranslateShortcut)
@@ -88,37 +119,56 @@ struct SettingsView: View {
     }
 
     private var advancedSettings: some View {
-        Form {
-            Section("Popup") {
-                Stepper(
-                    "Font size: \(Int(model.settings.popupFontSize)) pt",
-                    value: $model.settings.popupFontSize,
-                    in: 12 ... 22,
-                    step: 1
-                )
+        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+            settingsSection("Popup") {
+                settingsRow("Font size") {
+                    Stepper(
+                        "\(Int(model.settings.popupFontSize)) pt",
+                        value: $model.settings.popupFontSize,
+                        in: 12 ... 22,
+                        step: 1
+                    )
+                    .frame(maxWidth: 140, alignment: .leading)
+                }
 
-                Picker("Font", selection: $model.settings.popupFontFamily) {
-                    ForEach(PopupFontOption.allCases) { option in
-                        Text(option.displayName)
-                            .tag(option.fontFamily)
+                settingsRow("Font") {
+                    Picker("", selection: $model.settings.popupFontFamily) {
+                        ForEach(PopupFontOption.allCases) { option in
+                            Text(option.displayName)
+                                .tag(option.fontFamily)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: SettingsLayout.compactControlWidth)
+                }
+
+                settingsRow("Width") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(Int(model.settings.popupWidth)) px")
+                            .foregroundStyle(.secondary)
+                        Slider(value: $model.settings.popupWidth, in: 320 ... 720, step: 20)
+                            .frame(maxWidth: .infinity)
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Width: \(Int(model.settings.popupWidth)) px")
-                    Slider(value: $model.settings.popupWidth, in: 320 ... 720, step: 20)
+                settingsRow("Height") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(Int(model.settings.popupHeight)) px")
+                            .foregroundStyle(.secondary)
+                        Slider(value: $model.settings.popupHeight, in: 240 ... 640, step: 20)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Height: \(Int(model.settings.popupHeight)) px")
-                    Slider(value: $model.settings.popupHeight, in: 240 ... 640, step: 20)
+                indentedSetting {
+                    Toggle("Match selection width", isOn: $model.settings.matchPopupWidthToSelection)
                 }
-
-                Toggle("Match selection width", isOn: $model.settings.matchPopupWidthToSelection)
             }
 
-            Section("Setup") {
-                Toggle("Setup guide completed", isOn: onboardingCompletedBinding)
+            settingsSection("Setup") {
+                indentedSetting {
+                    Toggle("Setup guide completed", isOn: onboardingCompletedBinding)
+                }
 
                 ForEach(model.readiness.items) { item in
                     ReadinessRow(item: item) {
@@ -139,12 +189,56 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Privacy") {
+            settingsSection("Privacy") {
                 Text("The default path is on-device. Cloud providers stay optional and require explicit configuration.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private func settingsPane(@ViewBuilder content: () -> some View) -> some View {
+        ScrollView {
+            content()
+                .frame(maxWidth: SettingsLayout.contentWidth, alignment: .leading)
+                .padding(.horizontal, SettingsLayout.horizontalPadding)
+                .padding(.top, SettingsLayout.topPadding)
+                .padding(.bottom, SettingsLayout.bottomPadding)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .scrollIndicators(.visible)
+    }
+
+    private func settingsSection(
+        _ title: LocalizedStringKey,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: SettingsLayout.rowSpacing) {
+            Text(title)
+                .font(.headline)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func settingsRow(
+        _ title: LocalizedStringKey,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: SettingsLayout.rowLabelSpacing) {
+            Text(title)
+                .frame(width: SettingsLayout.labelWidth, alignment: .trailing)
+
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func indentedSetting(@ViewBuilder content: () -> some View) -> some View {
+        content()
+            .padding(.leading, SettingsLayout.labelWidth + SettingsLayout.rowLabelSpacing)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var onboardingCompletedBinding: Binding<Bool> {
@@ -196,6 +290,7 @@ struct SettingsView: View {
             Text("Shortcuts will register after Accessibility is available.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         } else {
             ForEach(model.shortcutRegistrationResults, id: \.action) { result in
                 HStack {
@@ -205,11 +300,24 @@ struct SettingsView: View {
                     Spacer()
                     Text(result.statusText)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
                 .font(.caption)
             }
         }
     }
+}
+
+private enum SettingsLayout {
+    static let contentWidth: CGFloat = 520
+    static let compactControlWidth: CGFloat = 360
+    static let labelWidth: CGFloat = 112
+    static let rowLabelSpacing: CGFloat = 12
+    static let rowSpacing: CGFloat = 10
+    static let sectionSpacing: CGFloat = 18
+    static let horizontalPadding: CGFloat = 28
+    static let topPadding: CGFloat = 8
+    static let bottomPadding: CGFloat = 24
 }
 
 private enum SettingsTab: Hashable {
@@ -275,19 +383,22 @@ private struct ProviderConfigurationRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(provider.displayName)
                     Text(provider.detail)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .layoutPriority(1)
 
-                Spacer()
+                Spacer(minLength: 12)
 
                 Label(provider.configurationStatus.displayText, systemImage: provider.statusImage)
                     .font(.caption)
                     .foregroundStyle(provider.statusTint)
+                    .lineLimit(1)
             }
 
             SecureField("API key", text: apiKeyDraftBinding)
@@ -323,9 +434,11 @@ private struct ProviderConfigurationRow: View {
                 Text(message)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var apiKeyDraftBinding: Binding<String> {
@@ -356,6 +469,7 @@ private struct ShortcutRow: View {
             Text(displayText)
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
     }
 
@@ -460,9 +574,11 @@ private struct ReadinessRow: View {
                 Text(item.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .layoutPriority(1)
 
-            Spacer()
+            Spacer(minLength: 12)
 
             if item.showsRecoveryAction {
                 Button("Open") {
@@ -471,6 +587,7 @@ private struct ReadinessRow: View {
                 .controlSize(.small)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
