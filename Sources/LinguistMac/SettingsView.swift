@@ -242,6 +242,7 @@ struct SettingsView: View {
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .accessibilityElement(children: .combine)
     }
 
     private func indentedSetting(@ViewBuilder content: () -> some View) -> some View {
