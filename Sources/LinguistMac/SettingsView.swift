@@ -116,13 +116,23 @@ struct SettingsView: View {
             }
 
             settingsSection("Shortcuts") {
-                ShortcutRow(title: "Screen Translate", shortcut: model.settings.screenTranslationShortcut)
+                ShortcutRow(
+                    title: "Screen Translate",
+                    shortcut: model.settings.screenTranslationShortcut,
+                    result: shortcutResult(for: .screenTranslation)
+                )
                 SettingsDivider()
-                ShortcutRow(title: "Selected Text", shortcut: model.settings.textSelectionShortcut)
+                ShortcutRow(
+                    title: "Selected Text",
+                    shortcut: model.settings.textSelectionShortcut,
+                    result: shortcutResult(for: .textSelectionTranslation)
+                )
                 SettingsDivider()
-                ShortcutRow(title: "Quick Translate", shortcut: model.settings.quickTranslateShortcut)
-                SettingsDivider()
-                shortcutStatus
+                ShortcutRow(
+                    title: "Quick Translate",
+                    shortcut: model.settings.quickTranslateShortcut,
+                    result: shortcutResult(for: .quickTranslate)
+                )
             }
         }
     }
@@ -303,27 +313,8 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder
-    private var shortcutStatus: some View {
-        if model.shortcutRegistrationResults.isEmpty {
-            Text("Shortcuts will register after Accessibility is available.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        } else {
-            ForEach(model.shortcutRegistrationResults, id: \.action) { result in
-                HStack {
-                    Image(systemName: result.isRegistered ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundStyle(result.isRegistered ? .green : .orange)
-                    Text(result.action.settingsTitle)
-                    Spacer()
-                    Text(result.statusText)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                .font(.caption)
-            }
-        }
+    private func shortcutResult(for action: ShortcutAction) -> ShortcutRegistrationResult? {
+        model.shortcutRegistrationResults.first { $0.action == action }
     }
 }
 
@@ -523,16 +514,31 @@ private struct ProviderConfigurationRow: View {
 private struct ShortcutRow: View {
     let title: String
     let shortcut: LinguistMacCore.KeyboardShortcut
+    let result: ShortcutRegistrationResult?
 
     var body: some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Text(displayText)
-                .font(.system(.body, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(displayText)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            if let result {
+                HStack(spacing: 6) {
+                    Image(systemName: result.isRegistered ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(result.isRegistered ? .green : .orange)
+                    Text(result.statusText)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .font(.caption)
+            }
         }
+        .accessibilityElement(children: .combine)
     }
 
     private var displayText: String {
