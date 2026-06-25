@@ -4,6 +4,7 @@ import SwiftUI
 
 struct MenuBarMenuView: View {
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: AppShellModel
 
@@ -68,7 +69,7 @@ struct MenuBarMenuView: View {
             .disabled(!model.settings.dragTranslationEnabled)
 
             Button {
-                openSettingsWindow()
+                openLinguistSettings(model: model, using: openSettings)
             } label: {
                 Label("Settings", systemImage: "gearshape")
             }
@@ -155,13 +156,16 @@ struct MenuBarMenuView: View {
         return String(text.prefix(27)) + "..."
     }
 
-    private func openSettingsWindow() {
-        model.record(.settings)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        activateApp()
-    }
-
     private func activateApp() {
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+extension View {
+    @MainActor
+    func openLinguistSettings(model: AppShellModel, using openSettings: OpenSettingsAction) {
+        model.record(.settings)
+        openSettings()
         NSApp.activate(ignoringOtherApps: true)
     }
 }

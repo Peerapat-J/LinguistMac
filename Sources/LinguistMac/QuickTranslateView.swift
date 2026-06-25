@@ -3,6 +3,7 @@ import SwiftUI
 
 struct QuickTranslateView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openSettings) private var openSettings
     @ObservedObject var model: AppShellModel
 
     var body: some View {
@@ -216,11 +217,26 @@ struct QuickTranslateView: View {
             .padding(12)
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
         case let .failed(failure):
-            Label(failure.displayText, systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-                .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
-                .padding(12)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+            let presentation = failure.presentation
+            VStack(alignment: .leading, spacing: 8) {
+                Label(presentation.title, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text(presentation.message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if let action = presentation.recoveryAction {
+                    Button {
+                        performRecoveryAction(action)
+                    } label: {
+                        Label(action.displayTitle, systemImage: action.systemImage)
+                    }
+                    .controlSize(.small)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+            .padding(12)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
         }
     }
 
@@ -267,7 +283,8 @@ struct QuickTranslateView: View {
         card: TranslationPopupWordCardState,
         resultID: UUID
     ) {
-        if action == .retry {
+        switch action {
+        case .retry:
             Task {
                 await model.selectPopupWord(
                     card.wordTranslation,
@@ -275,7 +292,18 @@ struct QuickTranslateView: View {
                     resultID: resultID
                 )
             }
-        } else {
+        case .openSettings:
+            openLinguistSettings(model: model, using: openSettings)
+        case .openSystemSettings:
+            model.performRecoveryAction(action)
+        }
+    }
+
+    private func performRecoveryAction(_ action: TranslationRecoveryAction) {
+        switch action {
+        case .openSettings:
+            openLinguistSettings(model: model, using: openSettings)
+        case .openSystemSettings, .retry:
             model.performRecoveryAction(action)
         }
     }

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct TranslationPopupView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openSettings) private var openSettings
     @ObservedObject var model: AppShellModel
 
     var body: some View {
@@ -128,7 +129,7 @@ struct TranslationPopupView: View {
 
                 if let action = presentation.recoveryAction {
                     Button {
-                        model.performRecoveryAction(action)
+                        performRecoveryAction(action)
                     } label: {
                         Label(action.displayTitle, systemImage: action.systemImage)
                     }
@@ -143,7 +144,8 @@ struct TranslationPopupView: View {
         card: TranslationPopupWordCardState,
         resultID: UUID
     ) {
-        if action == .retry {
+        switch action {
+        case .retry:
             Task {
                 await model.selectPopupWord(
                     card.wordTranslation,
@@ -151,7 +153,18 @@ struct TranslationPopupView: View {
                     resultID: resultID
                 )
             }
-        } else {
+        case .openSettings:
+            openLinguistSettings(model: model, using: openSettings)
+        case .openSystemSettings:
+            model.performRecoveryAction(action)
+        }
+    }
+
+    private func performRecoveryAction(_ action: TranslationRecoveryAction) {
+        switch action {
+        case .openSettings:
+            openLinguistSettings(model: model, using: openSettings)
+        case .openSystemSettings, .retry:
             model.performRecoveryAction(action)
         }
     }
@@ -464,12 +477,6 @@ struct TranslationWordLookupSection: View {
     }
 }
 
-extension TranslationFailure {
-    var displayText: String {
-        presentation.message
-    }
-}
-
 private struct PopupResizeGrip: View {
     @State private var previousTranslation: CGSize = .zero
     let onResize: (Double, Double) -> Void
@@ -496,7 +503,7 @@ private struct PopupResizeGrip: View {
     }
 }
 
-private extension TranslationRecoveryAction {
+extension TranslationRecoveryAction {
     var displayTitle: String {
         switch self {
         case .openSystemSettings:

@@ -1,5 +1,5 @@
-import AppKit
 import Combine
+import Foundation
 import LinguistMacCore
 
 enum AppWindow: String {
@@ -194,11 +194,6 @@ final class AppShellModel: ObservableObject {
             settings: settings,
             accessibilityStatus: accessibility
         )
-    }
-
-    func openSettingsWindow() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     func speakTranslation(_ result: TranslationResult) {
