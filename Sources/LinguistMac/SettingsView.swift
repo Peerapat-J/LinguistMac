@@ -1,3 +1,4 @@
+import AppKit
 import LinguistMacCore
 import SwiftUI
 
@@ -104,15 +105,21 @@ struct SettingsView: View {
             }
 
             settingsSection("Provider Keys") {
-                ForEach(model.availableProviders.filter(\.requiresAPIKey), id: \.id) { provider in
+                ForEach(Array(apiKeyProviders.enumerated()), id: \.element.id) { index, provider in
+                    if index > 0 {
+                        SettingsDivider()
+                    }
                     ProviderConfigurationRow(model: model, provider: provider)
                 }
             }
 
             settingsSection("Shortcuts") {
                 ShortcutRow(title: "Screen Translate", shortcut: model.settings.screenTranslationShortcut)
+                SettingsDivider()
                 ShortcutRow(title: "Selected Text", shortcut: model.settings.textSelectionShortcut)
+                SettingsDivider()
                 ShortcutRow(title: "Quick Translate", shortcut: model.settings.quickTranslateShortcut)
+                SettingsDivider()
                 shortcutStatus
             }
         }
@@ -171,6 +178,7 @@ struct SettingsView: View {
                 }
 
                 ForEach(model.readiness.items) { item in
+                    SettingsDivider()
                     ReadinessRow(item: item) {
                         switch item.kind {
                         case .screenTranslation:
@@ -198,6 +206,10 @@ struct SettingsView: View {
         }
     }
 
+    private var apiKeyProviders: [TranslationProviderDescriptor] {
+        model.availableProviders.filter(\.requiresAPIKey)
+    }
+
     private func settingsPane(@ViewBuilder content: () -> some View) -> some View {
         ScrollView {
             content()
@@ -214,12 +226,9 @@ struct SettingsView: View {
         _ title: LocalizedStringKey,
         @ViewBuilder content: () -> some View
     ) -> some View {
-        VStack(alignment: .leading, spacing: SettingsLayout.rowSpacing) {
-            Text(title)
-                .font(.headline)
+        SettingsSectionCard(title) {
             content()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func settingsRow(
@@ -308,15 +317,58 @@ struct SettingsView: View {
     }
 }
 
+private struct SettingsSectionCard<Content: View>: View {
+    let title: LocalizedStringKey
+    let content: Content
+
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SettingsLayout.cardTitleSpacing) {
+            Text(title)
+                .font(.headline)
+                .padding(.leading, SettingsLayout.cardTitleInset)
+
+            VStack(alignment: .leading, spacing: SettingsLayout.rowSpacing) {
+                content
+            }
+            .padding(SettingsLayout.cardPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: SettingsLayout.cardCornerRadius, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: SettingsLayout.cardCornerRadius, style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.75), lineWidth: 1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct SettingsDivider: View {
+    var body: some View {
+        Divider()
+    }
+}
+
 private enum SettingsLayout {
     static let contentWidth: CGFloat = 520
     static let compactControlWidth: CGFloat = 360
     static let labelWidth: CGFloat = 112
     static let rowLabelSpacing: CGFloat = 12
     static let rowSpacing: CGFloat = 10
-    static let sectionSpacing: CGFloat = 18
+    static let sectionSpacing: CGFloat = 20
+    static let cardPadding: CGFloat = 14
+    static let cardCornerRadius: CGFloat = 14
+    static let cardTitleSpacing: CGFloat = 8
+    static let cardTitleInset: CGFloat = 4
     static let horizontalPadding: CGFloat = 28
-    static let topPadding: CGFloat = 8
+    static let topPadding: CGFloat = 12
     static let bottomPadding: CGFloat = 24
 }
 
