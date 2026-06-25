@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var model: AppShellModel
     @State private var selectedTab: SettingsTab = .general
+    @State private var readinessRefreshTrigger = 0
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -29,8 +30,8 @@ struct SettingsView: View {
         .task {
             await model.refreshProviderDescriptors()
             await model.refreshAppPreferences()
-            await model.refreshReadiness()
         }
+        .readinessRefreshMonitor(model: model, trigger: readinessRefreshTrigger)
     }
 
     private var generalSettings: some View {
@@ -180,19 +181,7 @@ struct SettingsView: View {
                 ForEach(model.readiness.items) { item in
                     SettingsDivider()
                     ReadinessRow(item: item) {
-                        switch item.kind {
-                        case .screenTranslation:
-                            model.openSystemSettings(for: .screenRecording)
-                        case .accessibility:
-                            model.openSystemSettings(for: .accessibility)
-                        case .voiceMicrophone:
-                            model.openSystemSettings(for: .microphone)
-                        case .speechRecognition:
-                            model.openSystemSettings(for: .speechRecognition)
-                        case .appleTranslation, .cloudProvider:
-                            model.record(.settings)
-                            selectedTab = .general
-                        }
+                        handleReadinessAction(for: item)
                     }
                 }
             }
@@ -208,6 +197,24 @@ struct SettingsView: View {
 
     private var apiKeyProviders: [TranslationProviderDescriptor] {
         model.availableProviders.filter(\.requiresAPIKey)
+    }
+
+    private func handleReadinessAction(for item: OnboardingReadinessItem) {
+        switch item.kind {
+        case .screenTranslation:
+            model.openSystemSettings(for: .screenRecording)
+        case .accessibility:
+            model.openSystemSettings(for: .accessibility)
+        case .voiceMicrophone:
+            model.openSystemSettings(for: .microphone)
+        case .speechRecognition:
+            model.openSystemSettings(for: .speechRecognition)
+        case .appleTranslation, .cloudProvider:
+            model.record(.settings)
+            selectedTab = .general
+        }
+
+        readinessRefreshTrigger += 1
     }
 
     private func settingsPane(@ViewBuilder content: () -> some View) -> some View {
@@ -623,7 +630,12 @@ private struct ReadinessRow: View {
                 .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
+                HStack(spacing: 6) {
+                    Text(item.title)
+                    Text(item.statusText)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(item.status.tint)
+                }
                 Text(item.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)

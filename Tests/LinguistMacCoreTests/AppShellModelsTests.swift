@@ -118,6 +118,29 @@ final class AppShellModelsTests: XCTestCase {
         XCTAssertEqual(items[.accessibility]?.showsRecoveryAction, true)
     }
 
+    func testReadinessStatusTextSurfacesLanguagePackStates() {
+        let needsDownload = OnboardingReadinessSnapshot.make(
+            screenRecording: .granted,
+            accessibility: .notDetermined,
+            appleTranslation: .needsDownload,
+            cloudProviderConfigured: false
+        )
+        let unsupported = OnboardingReadinessSnapshot.make(
+            screenRecording: .granted,
+            accessibility: .notDetermined,
+            appleTranslation: .unavailable,
+            cloudProviderConfigured: true
+        )
+
+        let downloadItems = Dictionary(uniqueKeysWithValues: needsDownload.items.map { ($0.kind, $0) })
+        let unsupportedItems = Dictionary(uniqueKeysWithValues: unsupported.items.map { ($0.kind, $0) })
+
+        XCTAssertEqual(downloadItems[.appleTranslation]?.statusText, "Needs download")
+        XCTAssertEqual(downloadItems[.appleTranslation]?.status, .notDetermined)
+        XCTAssertEqual(unsupportedItems[.appleTranslation]?.statusText, "Unsupported")
+        XCTAssertEqual(unsupportedItems[.cloudProvider]?.statusText, "Ready")
+    }
+
     func testFailurePresentationMapsRecoveryActionsAndRedactsProviderMessage() {
         XCTAssertEqual(
             TranslationFailure.permissionDenied(.screenRecording).presentation.recoveryAction,
