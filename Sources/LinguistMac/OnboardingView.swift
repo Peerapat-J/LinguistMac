@@ -8,24 +8,12 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("LinguistMac Setup")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    Text("Check the pieces needed before screen translation starts.")
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Button {
-                    dismiss()
-                } label: {
-                    Label("Close", systemImage: "xmark")
-                        .labelStyle(.iconOnly)
-                }
-                .buttonStyle(.borderless)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("LinguistMac Setup")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Text("Check the pieces needed before screen translation starts.")
+                    .foregroundStyle(.secondary)
             }
 
             ScrollView {
