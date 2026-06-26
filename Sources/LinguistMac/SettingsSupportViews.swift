@@ -1,3 +1,4 @@
+import KeyboardShortcuts
 import LinguistMacCore
 import SwiftUI
 
@@ -187,18 +188,24 @@ struct ProviderConfigurationRow: View {
 
 struct ShortcutRow: View {
     let title: String
-    let shortcut: LinguistMacCore.KeyboardShortcut
+    @Binding var shortcut: LinguistMacCore.KeyboardShortcut
+    let defaultShortcut: LinguistMacCore.KeyboardShortcut
     let result: ShortcutRegistrationResult?
+    let onChange: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(title)
                 Spacer()
-                Text(displayText)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                KeyboardShortcuts.Recorder(shortcut: keyboardShortcutBinding)
+                    .shortcutValidation { keyboardShortcut in
+                        guard LinguistMacCore.KeyboardShortcut(keyboardShortcut) != nil else {
+                            return .disallow(reason: "This key is not supported yet.")
+                        }
+                        return .allow
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
             }
 
             if let result {
@@ -216,12 +223,23 @@ struct ShortcutRow: View {
         .padding(.vertical, SettingsLayout.rowVerticalPadding)
     }
 
-    private var displayText: String {
-        let modifiers = shortcut.modifiers
-            .sorted { $0.rawValue < $1.rawValue }
-            .map(\.displaySymbol)
-            .joined()
-        return modifiers + shortcut.key.uppercased()
+    private var keyboardShortcutBinding: Binding<KeyboardShortcuts.Shortcut?> {
+        Binding {
+            shortcut.keyboardShortcutsShortcut
+        } set: { newValue in
+            guard let newValue else {
+                shortcut = defaultShortcut
+                onChange()
+                return
+            }
+
+            if let appShortcut = LinguistMacCore.KeyboardShortcut(newValue) {
+                shortcut = appShortcut
+            } else {
+                shortcut = defaultShortcut
+            }
+            onChange()
+        }
     }
 }
 
@@ -289,21 +307,6 @@ extension TranslationProviderDescriptor {
             .orange
         case .unavailable:
             .red
-        }
-    }
-}
-
-extension LinguistMacCore.KeyboardModifier {
-    var displaySymbol: String {
-        switch self {
-        case .command:
-            "Cmd+"
-        case .control:
-            "Ctrl+"
-        case .option:
-            "Opt+"
-        case .shift:
-            "Shift+"
         }
     }
 }

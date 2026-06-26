@@ -10,18 +10,11 @@ final class ShortcutRegistrationTests: XCTestCase {
         XCTAssertEqual(Set(results.map(\.action)), [.screenTranslation, .textSelectionTranslation, .quickTranslate])
     }
 
-    func testShortcutPlanReportsAccessibilityRequirement() {
+    func testShortcutPlanDoesNotRequireAccessibilityPermission() {
         let results = ShortcutRegistrationPlan(settings: AppSettings())
             .validated(accessibilityStatus: .denied)
 
-        XCTAssertEqual(
-            results.map(\.issue),
-            [
-                .permissionDenied(.accessibility),
-                .permissionDenied(.accessibility),
-                .permissionDenied(.accessibility)
-            ]
-        )
+        XCTAssertTrue(results.allSatisfy(\.isRegistered))
     }
 
     func testShortcutPlanReportsConflictsAgainstFirstOwner() {

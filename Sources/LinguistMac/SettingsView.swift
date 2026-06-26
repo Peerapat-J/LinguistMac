@@ -132,20 +132,26 @@ private extension SettingsView {
             settingsSection("Shortcuts") {
                 ShortcutRow(
                     title: "Screen Translate",
-                    shortcut: model.settings.screenTranslationShortcut,
-                    result: shortcutResult(for: .screenTranslation)
+                    shortcut: shortcutBinding(\.screenTranslationShortcut),
+                    defaultShortcut: .screenTranslationDefault,
+                    result: shortcutResult(for: .screenTranslation),
+                    onChange: refreshShortcuts
                 )
                 SettingsDivider()
                 ShortcutRow(
                     title: "Selected Text",
-                    shortcut: model.settings.textSelectionShortcut,
-                    result: shortcutResult(for: .textSelectionTranslation)
+                    shortcut: shortcutBinding(\.textSelectionShortcut),
+                    defaultShortcut: .textSelectionDefault,
+                    result: shortcutResult(for: .textSelectionTranslation),
+                    onChange: refreshShortcuts
                 )
                 SettingsDivider()
                 ShortcutRow(
                     title: "Quick Translate",
-                    shortcut: model.settings.quickTranslateShortcut,
-                    result: shortcutResult(for: .quickTranslate)
+                    shortcut: shortcutBinding(\.quickTranslateShortcut),
+                    defaultShortcut: .quickTranslateDefault,
+                    result: shortcutResult(for: .quickTranslate),
+                    onChange: refreshShortcuts
                 )
             }
         }
@@ -440,6 +446,24 @@ private extension SettingsView {
             Task {
                 await model.setLaunchAtLoginEnabled(isEnabled)
             }
+        }
+    }
+
+    func shortcutBinding(
+        _ keyPath: WritableKeyPath<AppSettings, LinguistMacCore.KeyboardShortcut>
+    ) -> Binding<LinguistMacCore.KeyboardShortcut> {
+        Binding {
+            model.settings[keyPath: keyPath]
+        } set: { shortcut in
+            var settings = model.settings
+            settings[keyPath: keyPath] = shortcut
+            model.settings = settings
+        }
+    }
+
+    func refreshShortcuts() {
+        Task {
+            await model.refreshShortcutRegistrations()
         }
     }
 
