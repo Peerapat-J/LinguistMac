@@ -55,6 +55,7 @@ struct LinguistMacApp: App {
                 .environment(\.locale, model.settings.appLanguage.locale)
         }
         .defaultSize(width: 460, height: 320)
+        .restorationBehavior(.disabled)
 
         Window("Setup Guide", id: AppWindow.onboarding.rawValue) {
             OnboardingView(model: model)
