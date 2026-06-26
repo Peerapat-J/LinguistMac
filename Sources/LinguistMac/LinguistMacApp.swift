@@ -23,7 +23,7 @@ struct LinguistMacApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("LinguistMac", systemImage: "character.book.closed") {
+        MenuBarExtra("LinguistMac", systemImage: "asterisk") {
             MenuBarMenuView(model: model)
                 .environment(\.locale, model.settings.appLanguage.locale)
         }
