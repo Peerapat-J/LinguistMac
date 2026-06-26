@@ -52,15 +52,6 @@ struct SettingsView: View {
                 .disabled(!canNavigateForward)
                 .help("Forward")
             }
-
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    toggleSidebar()
-                } label: {
-                    Image(systemName: "sidebar.left")
-                }
-                .help("Show or Hide Sidebar")
-            }
         }
         .toolbar(removing: .sidebarToggle)
         .background(SettingsWindowConfigurator())
@@ -333,10 +324,6 @@ private extension SettingsView {
 
         sectionHistoryIndex += 1
         selectedSection = sectionHistory[sectionHistoryIndex]
-    }
-
-    func toggleSidebar() {
-        NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
     }
 
     func handleReadinessAction(for item: OnboardingReadinessItem) {
