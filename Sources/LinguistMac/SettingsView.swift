@@ -27,7 +27,7 @@ struct SettingsView: View {
             .tag(SettingsTab.advanced)
         }
         .focusable(false)
-        .frame(width: 620, height: 520)
+        .frame(width: 560, height: 520)
         .task {
             await model.refreshProviderDescriptors()
             await model.refreshAppPreferences()
@@ -368,7 +368,7 @@ enum SettingsLayout {
     static let cardCornerRadius: CGFloat = 14
     static let cardTitleSpacing: CGFloat = 8
     static let cardTitleInset: CGFloat = 4
-    static let horizontalPadding: CGFloat = 28
+    static let horizontalPadding: CGFloat = 20
     static let topPadding: CGFloat = 12
     static let bottomPadding: CGFloat = 24
 }
