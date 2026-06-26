@@ -6,16 +6,25 @@ struct SettingsView: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: AppShellModel
     @State private var selectedSection: SettingsSectionID? = .general
+    @State private var sidebarSearchText = ""
     @State private var readinessRefreshTrigger = 0
 
     var body: some View {
         NavigationSplitView {
-            List(SettingsSectionID.allCases, selection: $selectedSection) { section in
-                NavigationLink(value: section) {
-                    Label(section.title, systemImage: section.systemImage)
+            List(selection: $selectedSection) {
+                ForEach(filteredSidebarSections) { section in
+                    NavigationLink(value: section) {
+                        Label(section.title, systemImage: section.systemImage)
+                    }
+                }
+
+                if filteredSidebarSections.isEmpty {
+                    Text("No Results")
+                        .foregroundStyle(.secondary)
                 }
             }
             .listStyle(.sidebar)
+            .searchable(text: $sidebarSearchText, placement: .sidebar, prompt: "Search")
             .navigationTitle("Settings")
             .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 220)
         } detail: {
@@ -234,6 +243,16 @@ private extension SettingsView {
 
     var apiKeyProviders: [TranslationProviderDescriptor] {
         model.availableProviders.filter(\.requiresAPIKey)
+    }
+
+    var filteredSidebarSections: [SettingsSectionID] {
+        let query = sidebarSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return SettingsSectionID.allCases
+        }
+        return SettingsSectionID.allCases.filter {
+            $0.title.localizedCaseInsensitiveContains(query)
+        }
     }
 
     func handleReadinessAction(for item: OnboardingReadinessItem) {
