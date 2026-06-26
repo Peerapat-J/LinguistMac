@@ -26,7 +26,7 @@ struct SettingsView: View {
             .listStyle(.sidebar)
             .searchable(text: $sidebarSearchText, placement: .sidebar, prompt: "Search")
             .navigationTitle("Settings")
-            .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 220)
+            .navigationSplitViewColumnWidth(min: 128, ideal: 144, max: 176)
         } detail: {
             detailPane(for: selectedSection ?? .general)
         }
