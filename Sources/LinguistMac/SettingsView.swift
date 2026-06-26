@@ -7,6 +7,8 @@ struct SettingsView: View {
     @ObservedObject var model: AppShellModel
     @State private var selectedSection: SettingsSectionID? = .general
     @State private var sidebarSearchText = ""
+    @State private var sectionHistory: [SettingsSectionID] = [.general]
+    @State private var sectionHistoryIndex = 0
     @State private var readinessRefreshTrigger = 0
 
     var body: some View {
@@ -32,6 +34,42 @@ struct SettingsView: View {
         }
         .focusable(false)
         .frame(width: 760, height: 560)
+        .toolbar {
+            ToolbarItemGroup(placement: .navigation) {
+                Button {
+                    navigateBack()
+                } label: {
+                    Image(systemName: "chevron.left")
+                }
+                .disabled(!canNavigateBack)
+                .help("Back")
+
+                Button {
+                    navigateForward()
+                } label: {
+                    Image(systemName: "chevron.right")
+                }
+                .disabled(!canNavigateForward)
+                .help("Forward")
+            }
+
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    toggleSidebar()
+                } label: {
+                    Image(systemName: "sidebar.left")
+                }
+                .help("Show or Hide Sidebar")
+            }
+        }
+        .toolbar(removing: .sidebarToggle)
+        .background(SettingsWindowConfigurator())
+        .onChange(of: selectedSection) { _, newValue in
+            guard let newValue else {
+                return
+            }
+            recordSectionSelection(newValue)
+        }
         .task {
             await model.refreshProviderDescriptors()
             await model.refreshAppPreferences()
@@ -255,6 +293,52 @@ private extension SettingsView {
         }
     }
 
+    var canNavigateBack: Bool {
+        sectionHistoryIndex > 0
+    }
+
+    var canNavigateForward: Bool {
+        sectionHistoryIndex < sectionHistory.count - 1
+    }
+
+    func recordSectionSelection(_ section: SettingsSectionID) {
+        guard sectionHistory.indices.contains(sectionHistoryIndex) else {
+            sectionHistory = [section]
+            sectionHistoryIndex = 0
+            return
+        }
+
+        guard sectionHistory[sectionHistoryIndex] != section else {
+            return
+        }
+
+        sectionHistory = Array(sectionHistory.prefix(sectionHistoryIndex + 1))
+        sectionHistory.append(section)
+        sectionHistoryIndex = sectionHistory.count - 1
+    }
+
+    func navigateBack() {
+        guard canNavigateBack else {
+            return
+        }
+
+        sectionHistoryIndex -= 1
+        selectedSection = sectionHistory[sectionHistoryIndex]
+    }
+
+    func navigateForward() {
+        guard canNavigateForward else {
+            return
+        }
+
+        sectionHistoryIndex += 1
+        selectedSection = sectionHistory[sectionHistoryIndex]
+    }
+
+    func toggleSidebar() {
+        NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
+    }
+
     func handleReadinessAction(for item: OnboardingReadinessItem) {
         switch item.kind {
         case .screenTranslation:
@@ -426,5 +510,40 @@ private enum PopupFontOption: String, CaseIterable, Identifiable {
         case .pingFang:
             "PingFang SC"
         }
+    }
+}
+
+private struct SettingsWindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        SettingsWindowConfiguratorView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard let view = nsView as? SettingsWindowConfiguratorView else {
+            return
+        }
+
+        view.configureWindowIfNeeded()
+    }
+}
+
+private final class SettingsWindowConfiguratorView: NSView {
+    private weak var configuredWindow: NSWindow?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        configureWindowIfNeeded()
+    }
+
+    func configureWindowIfNeeded() {
+        guard let window, configuredWindow !== window else {
+            return
+        }
+
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = false
+        window.toolbarStyle = .unified
+        window.styleMask.remove(.fullSizeContentView)
+        configuredWindow = window
     }
 }
