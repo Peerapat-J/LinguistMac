@@ -10,10 +10,9 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selectedSection) {
-                ForEach(SettingsSectionID.allCases) { section in
+            List(SettingsSectionID.allCases, selection: $selectedSection) { section in
+                NavigationLink(value: section) {
                     Label(section.title, systemImage: section.systemImage)
-                        .tag(section as SettingsSectionID?)
                 }
             }
             .listStyle(.sidebar)
