@@ -6,6 +6,8 @@ import ScreenCaptureKit
 import UniformTypeIdentifiers
 
 struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
+    private static let overlayDismissalDelay: Duration = .milliseconds(120)
+
     func captureSelection() async throws -> CapturedScreenRegion {
         guard CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess() else {
             throw TranslationFailure.permissionDenied(.screenRecording)
@@ -15,6 +17,9 @@ struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
         guard rect.width >= 4, rect.height >= 4 else {
             throw TranslationFailure.captureCancelled
         }
+
+        // Give the selection overlay a frame to leave the WindowServer before capturing underlying content.
+        try await Task.sleep(for: Self.overlayDismissalDelay)
 
         let image = try await captureImage(in: rect)
         let imageData = try pngData(from: image)
