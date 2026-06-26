@@ -288,12 +288,14 @@ private extension SettingsView {
         @ViewBuilder content: () -> some View
     ) -> some View {
         ScrollView {
-            content()
-                .frame(maxWidth: SettingsLayout.contentWidth, alignment: .leading)
-                .padding(.horizontal, SettingsLayout.horizontalPadding)
-                .padding(.top, SettingsLayout.topPadding)
-                .padding(.bottom, SettingsLayout.bottomPadding)
-                .frame(maxWidth: .infinity, alignment: .center)
+            VStack(alignment: .leading, spacing: 0) {
+                content()
+            }
+            .frame(maxWidth: SettingsLayout.contentWidth, alignment: .topLeading)
+            .padding(.horizontal, SettingsLayout.horizontalPadding)
+            .padding(.top, SettingsLayout.topPadding)
+            .padding(.bottom, SettingsLayout.bottomPadding)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .scrollIndicators(.visible)
         .background(Color(nsColor: .windowBackgroundColor))
