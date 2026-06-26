@@ -26,6 +26,8 @@ struct SettingsView: View {
             }
             .tag(SettingsTab.advanced)
         }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .containerBackground(Color(nsColor: .windowBackgroundColor), for: .window)
         .focusable(false)
         .frame(width: 560, height: 520)
         .task {
@@ -247,6 +249,7 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
         }
         .scrollIndicators(.visible)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private func settingsSection(
@@ -340,7 +343,7 @@ struct SettingsSectionCard<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 RoundedRectangle(cornerRadius: SettingsLayout.cardCornerRadius, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+                    .fill(Color(nsColor: .underPageBackgroundColor))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: SettingsLayout.cardCornerRadius, style: .continuous)
