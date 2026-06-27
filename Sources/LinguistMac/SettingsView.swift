@@ -12,48 +12,15 @@ struct SettingsView: View {
     @State private var readinessRefreshTrigger = 0
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $selectedSection) {
-                ForEach(filteredSidebarSections) { section in
-                    NavigationLink(value: section) {
-                        Label(section.title, systemImage: section.systemImage)
-                    }
-                }
+        HStack(spacing: 0) {
+            settingsSidebar
 
-                if filteredSidebarSections.isEmpty {
-                    Text("No Results")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .listStyle(.sidebar)
-            .searchable(text: $sidebarSearchText, placement: .sidebar, prompt: "Search")
-            .navigationTitle("Settings")
-            .navigationSplitViewColumnWidth(min: 128, ideal: 144, max: 176)
-        } detail: {
             detailPane(for: selectedSection ?? .general)
         }
+        .ignoresSafeArea(.container, edges: .top)
         .focusable(false)
-        .frame(width: 760, height: 560)
-        .toolbar {
-            ToolbarItemGroup(placement: .navigation) {
-                Button {
-                    navigateBack()
-                } label: {
-                    Image(systemName: "chevron.left")
-                }
-                .disabled(!canNavigateBack)
-                .help("Back")
-
-                Button {
-                    navigateForward()
-                } label: {
-                    Image(systemName: "chevron.right")
-                }
-                .disabled(!canNavigateForward)
-                .help("Forward")
-            }
-        }
-        .toolbar(removing: .sidebarToggle)
+        .frame(width: 680, height: 560)
+        .background(Color(nsColor: .windowBackgroundColor))
         .background(SettingsWindowConfigurator())
         .onChange(of: selectedSection) { _, newValue in
             guard let newValue else {
@@ -70,6 +37,75 @@ struct SettingsView: View {
 }
 
 private extension SettingsView {
+    var settingsSidebar: some View {
+        VStack(spacing: 0) {
+            SidebarTrafficLights()
+                .padding(.top, 14)
+                .padding(.bottom, 22)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 18)
+
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+
+                TextField("Search", text: $sidebarSearchText)
+                    .textFieldStyle(.plain)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 26)
+            .background {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 12)
+
+            VStack(spacing: 4) {
+                ForEach(filteredSidebarSections) { section in
+                    Button {
+                        selectedSection = section
+                    } label: {
+                        Label(section.title, systemImage: section.systemImage)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 10)
+                    .frame(height: 28)
+                    .background {
+                        if selectedSection == section {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color.accentColor)
+                        }
+                    }
+                    .foregroundStyle(selectedSection == section ? .white : .primary)
+                    .accessibilityAddTraits(selectedSection == section ? .isSelected : [])
+                }
+
+                if filteredSidebarSections.isEmpty {
+                    Text("No Results")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.top, 6)
+                }
+            }
+            .padding(.horizontal, 10)
+
+            Spacer(minLength: 0)
+        }
+        .frame(width: 176)
+        .background {
+            SidebarMaterialBackground()
+        }
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color(nsColor: .separatorColor).opacity(0.7))
+                .frame(width: 1)
+        }
+    }
+
     @ViewBuilder
     func detailPane(for section: SettingsSectionID) -> some View {
         switch section {
@@ -102,7 +138,7 @@ private extension SettingsView {
 
     var generalSettings: some View {
         VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
-            settingsSection("General") {
+            settingsSection("App") {
                 settingsRow("App language") {
                     Picker("", selection: appLanguageBinding) {
                         ForEach(AppLanguage.allCases, id: \.rawValue) { language in
@@ -114,13 +150,13 @@ private extension SettingsView {
                     .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
                 }
                 SettingsDivider()
-                settingsSwitchRow("Auto-copy result", isOn: $model.settings.autoCopyEnabled)
+                settingsSwitchRow("Launch at login", isOn: launchAtLoginBinding)
                 SettingsDivider()
-                settingsSwitchRow("Cmd+C+C translation", isOn: $model.settings.doubleCopyTranslationEnabled)
+                settingsSwitchRow("Auto copy result to clipboard", isOn: $model.settings.autoCopyEnabled)
                 SettingsDivider()
                 settingsSwitchRow("Drag translation", isOn: $model.settings.dragTranslationEnabled)
                 SettingsDivider()
-                settingsSwitchRow("Launch at login", isOn: launchAtLoginBinding)
+                settingsSwitchRow("Selected text translation", isOn: $model.settings.doubleCopyTranslationEnabled)
                 if let message = model.appPreferenceMessage {
                     Text(message)
                         .font(.caption)
@@ -129,9 +165,9 @@ private extension SettingsView {
                 }
             }
 
-            settingsSection("Shortcuts") {
+            settingsSection("Short cut") {
                 ShortcutRow(
-                    title: "Screen Translate",
+                    title: "Screen translate",
                     shortcut: shortcutBinding(\.screenTranslationShortcut),
                     defaultShortcut: .screenTranslationDefault,
                     result: shortcutResult(for: .screenTranslation),
@@ -139,18 +175,18 @@ private extension SettingsView {
                 )
                 SettingsDivider()
                 ShortcutRow(
-                    title: "Selected Text",
-                    shortcut: shortcutBinding(\.textSelectionShortcut),
-                    defaultShortcut: .textSelectionDefault,
-                    result: shortcutResult(for: .textSelectionTranslation),
+                    title: "Quick translate",
+                    shortcut: shortcutBinding(\.quickTranslateShortcut),
+                    defaultShortcut: .quickTranslateDefault,
+                    result: shortcutResult(for: .quickTranslate),
                     onChange: refreshShortcuts
                 )
                 SettingsDivider()
                 ShortcutRow(
-                    title: "Quick Translate",
-                    shortcut: shortcutBinding(\.quickTranslateShortcut),
-                    defaultShortcut: .quickTranslateDefault,
-                    result: shortcutResult(for: .quickTranslate),
+                    title: "Selected text translate",
+                    shortcut: shortcutBinding(\.textSelectionShortcut),
+                    defaultShortcut: .textSelectionDefault,
+                    result: shortcutResult(for: .textSelectionTranslation),
                     onChange: refreshShortcuts
                 )
             }
@@ -364,19 +400,28 @@ private extension SettingsView {
         _ section: SettingsSectionID,
         @ViewBuilder content: () -> some View
     ) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                content()
+        VStack(spacing: 0) {
+            SettingsDetailHeader(
+                title: section.title,
+                canNavigateBack: canNavigateBack,
+                canNavigateForward: canNavigateForward,
+                navigateBack: navigateBack,
+                navigateForward: navigateForward
+            )
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    content()
+                }
+                .frame(maxWidth: SettingsLayout.contentWidth, alignment: .topLeading)
+                .padding(.horizontal, SettingsLayout.horizontalPadding)
+                .padding(.top, SettingsLayout.topPadding)
+                .padding(.bottom, SettingsLayout.bottomPadding)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .frame(maxWidth: SettingsLayout.contentWidth, alignment: .topLeading)
-            .padding(.horizontal, SettingsLayout.horizontalPadding)
-            .padding(.top, SettingsLayout.topPadding)
-            .padding(.bottom, SettingsLayout.bottomPadding)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .scrollIndicators(.visible)
         }
-        .scrollIndicators(.visible)
         .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle(section.title)
     }
 
     func settingsSection(
@@ -524,6 +569,38 @@ private enum PopupFontOption: String, CaseIterable, Identifiable {
     }
 }
 
+private struct SidebarTrafficLights: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            trafficLight(.red, accessibilityLabel: "Close") {
+                NSApp.keyWindow?.close()
+            }
+
+            trafficLight(.yellow, accessibilityLabel: "Minimize") {
+                NSApp.keyWindow?.miniaturize(nil)
+            }
+
+            trafficLight(.green, accessibilityLabel: "Zoom") {
+                NSApp.keyWindow?.zoom(nil)
+            }
+        }
+    }
+
+    private func trafficLight(
+        _ color: Color,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Circle()
+                .fill(color)
+                .frame(width: 12, height: 12)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
 private struct SettingsWindowConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         SettingsWindowConfiguratorView()
@@ -538,6 +615,22 @@ private struct SettingsWindowConfigurator: NSViewRepresentable {
     }
 }
 
+private struct SidebarMaterialBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .sidebar
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = .sidebar
+        nsView.blendingMode = .behindWindow
+        nsView.state = .active
+    }
+}
+
 private final class SettingsWindowConfiguratorView: NSView {
     private weak var configuredWindow: NSWindow?
 
@@ -547,14 +640,45 @@ private final class SettingsWindowConfiguratorView: NSView {
     }
 
     func configureWindowIfNeeded() {
-        guard let window, configuredWindow !== window else {
+        guard let window else {
             return
         }
 
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = false
-        window.toolbarStyle = .unified
-        window.styleMask.remove(.fullSizeContentView)
-        configuredWindow = window
+        if configuredWindow !== window {
+            window.title = ""
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            window.styleMask.remove(.titled)
+            window.styleMask.insert(.fullSizeContentView)
+            window.isMovableByWindowBackground = true
+            configuredWindow = window
+        }
+
+        window.title = ""
+        window.toolbar = nil
+        window.isMovableByWindowBackground = true
+        hideStandardWindowButtons(in: window)
+
+        DispatchQueue.main.async { [weak self, weak window] in
+            window?.title = ""
+            window?.toolbar = nil
+            window?.isMovableByWindowBackground = true
+            if let window {
+                self?.hideStandardWindowButtons(in: window)
+            }
+        }
+    }
+
+    private func hideStandardWindowButtons(in window: NSWindow) {
+        let buttons = [
+            window.standardWindowButton(.closeButton),
+            window.standardWindowButton(.miniaturizeButton),
+            window.standardWindowButton(.zoomButton)
+        ]
+        .compactMap(\.self)
+
+        for button in buttons {
+            button.isHidden = true
+        }
     }
 }

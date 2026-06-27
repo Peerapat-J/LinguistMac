@@ -89,9 +89,61 @@ struct SettingsDivider: View {
     }
 }
 
+struct SettingsDetailHeader: View {
+    let title: String
+    let canNavigateBack: Bool
+    let canNavigateForward: Bool
+    let navigateBack: () -> Void
+    let navigateForward: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 0) {
+                headerButton(systemImage: "chevron.left", isEnabled: canNavigateBack, action: navigateBack)
+
+                Divider()
+                    .frame(height: 18)
+
+                headerButton(systemImage: "chevron.right", isEnabled: canNavigateForward, action: navigateForward)
+            }
+            .frame(height: 30)
+            .background {
+                Capsule(style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.7))
+            }
+            .overlay {
+                Capsule(style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.6), lineWidth: 1)
+            }
+
+            Text(title)
+                .font(.headline)
+
+            Spacer()
+        }
+        .padding(.leading, 18)
+        .padding(.trailing, SettingsLayout.horizontalPadding)
+        .padding(.top, 18)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func headerButton(systemImage: String, isEnabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 28, height: 24)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .foregroundStyle(isEnabled ? .primary : .tertiary)
+    }
+}
+
 enum SettingsLayout {
-    static let contentWidth: CGFloat = 520
-    static let controlWidth: CGFloat = 240
+    static let contentWidth: CGFloat = 430
+    static let controlWidth: CGFloat = 150
     static let rowSpacing: CGFloat = 10
     static let rowVerticalPadding: CGFloat = 7
     static let sectionSpacing: CGFloat = 20
@@ -208,7 +260,7 @@ struct ShortcutRow: View {
                     .fixedSize(horizontal: true, vertical: false)
             }
 
-            if let result {
+            if let result, result.issue != nil {
                 HStack(spacing: 6) {
                     Image(systemName: result.isRegistered ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                         .foregroundStyle(result.isRegistered ? .green : .orange)
