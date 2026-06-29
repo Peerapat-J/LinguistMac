@@ -10,6 +10,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var menuBarIcon: MenuBarIcon
     public var doubleCopyTranslationEnabled: Bool
     public var dragTranslationEnabled: Bool
+    public var shortcutsEnabled: Bool
     public var screenTranslationShortcut: KeyboardShortcut
     public var textSelectionShortcut: KeyboardShortcut
     public var quickTranslateShortcut: KeyboardShortcut
@@ -32,6 +33,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         menuBarIcon: MenuBarIcon = .default,
         doubleCopyTranslationEnabled: Bool = false,
         dragTranslationEnabled: Bool = false,
+        shortcutsEnabled: Bool = true,
         screenTranslationShortcut: KeyboardShortcut = .screenTranslationDefault,
         textSelectionShortcut: KeyboardShortcut = .textSelectionDefault,
         quickTranslateShortcut: KeyboardShortcut = .quickTranslateDefault,
@@ -53,6 +55,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.menuBarIcon = menuBarIcon
         self.doubleCopyTranslationEnabled = doubleCopyTranslationEnabled
         self.dragTranslationEnabled = dragTranslationEnabled
+        self.shortcutsEnabled = shortcutsEnabled
         self.screenTranslationShortcut = screenTranslationShortcut
         self.textSelectionShortcut = textSelectionShortcut
         self.quickTranslateShortcut = quickTranslateShortcut

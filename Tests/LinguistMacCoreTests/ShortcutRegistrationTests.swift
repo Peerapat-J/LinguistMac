@@ -17,6 +17,13 @@ final class ShortcutRegistrationTests: XCTestCase {
         XCTAssertTrue(results.allSatisfy(\.isRegistered))
     }
 
+    func testShortcutPlanReturnsNoRegistrationsWhenShortcutsAreDisabled() {
+        let results = ShortcutRegistrationPlan(settings: AppSettings(shortcutsEnabled: false))
+            .validated(accessibilityStatus: .granted)
+
+        XCTAssertTrue(results.isEmpty)
+    }
+
     func testShortcutPlanReportsConflictsAgainstFirstOwner() {
         var settings = AppSettings()
         settings.quickTranslateShortcut = .screenTranslationDefault
@@ -42,6 +49,25 @@ final class ShortcutRegistrationTests: XCTestCase {
         XCTAssertEqual(results.first { $0.action == .quickTranslate }?.issue, .duplicate(.screenTranslation))
         XCTAssertNil(quickTranslateShortcut)
         XCTAssertEqual(screenTranslationShortcut, .screenTranslationDefault)
+    }
+
+    func testShortcutCoordinatorUnregistersAllActionsWhenShortcutsAreDisabled() async {
+        let registry = RecordingShortcutRegistry()
+        let coordinator = ShortcutRegistrationCoordinator(registry: registry)
+        _ = await coordinator.refresh(settings: AppSettings(), accessibilityStatus: .granted)
+
+        let results = await coordinator.refresh(
+            settings: AppSettings(shortcutsEnabled: false),
+            accessibilityStatus: .granted
+        )
+        let quickTranslateShortcut = await registry.registeredShortcut(for: .quickTranslate)
+        let screenTranslationShortcut = await registry.registeredShortcut(for: .screenTranslation)
+        let textSelectionShortcut = await registry.registeredShortcut(for: .textSelectionTranslation)
+
+        XCTAssertTrue(results.isEmpty)
+        XCTAssertNil(quickTranslateShortcut)
+        XCTAssertNil(screenTranslationShortcut)
+        XCTAssertNil(textSelectionShortcut)
     }
 
     func testDoubleCopyDetectorTriggersOnlyInsideWindowAndResetsAfterTrigger() {

@@ -15,6 +15,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.menuBarIcon, .asterisk)
         XCTAssertFalse(settings.doubleCopyTranslationEnabled)
         XCTAssertFalse(settings.dragTranslationEnabled)
+        XCTAssertTrue(settings.shortcutsEnabled)
     }
 
     func testDefaultShortcutsCoverPrimaryInputModes() {
@@ -71,6 +72,7 @@ final class AppSettingsTests: XCTestCase {
         settings.appLanguage = .korean
         settings.menuBarIcon = .characterMagnify
         settings.doubleCopyTranslationEnabled = true
+        settings.shortcutsEnabled = false
         settings.screenTranslationShortcut = KeyboardShortcut(key: "T", modifiers: [.command, .shift])
         settings.popupFontFamily = "Noto Sans Thai"
         settings.popupHeight = 480

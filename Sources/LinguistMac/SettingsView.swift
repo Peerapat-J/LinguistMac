@@ -177,7 +177,9 @@ private extension SettingsView {
                 }
             }
 
-            settingsSection("Short cut") {
+            settingsSection("Shortcut") {
+                settingsSwitchRow("Enable Shortcut", isOn: shortcutsEnabledBinding)
+                SettingsDivider()
                 ShortcutRow(
                     title: "Screen translate",
                     shortcut: shortcutBinding(\.screenTranslationShortcut),
@@ -185,6 +187,7 @@ private extension SettingsView {
                     result: shortcutResult(for: .screenTranslation),
                     onChange: refreshShortcuts
                 )
+                .disabled(!model.settings.shortcutsEnabled)
                 SettingsDivider()
                 ShortcutRow(
                     title: "Quick translate",
@@ -193,6 +196,7 @@ private extension SettingsView {
                     result: shortcutResult(for: .quickTranslate),
                     onChange: refreshShortcuts
                 )
+                .disabled(!model.settings.shortcutsEnabled)
                 SettingsDivider()
                 ShortcutRow(
                     title: "Selected text translate",
@@ -201,6 +205,7 @@ private extension SettingsView {
                     result: shortcutResult(for: .textSelectionTranslation),
                     onChange: refreshShortcuts
                 )
+                .disabled(!model.settings.shortcutsEnabled)
             }
         }
     }
@@ -503,6 +508,15 @@ private extension SettingsView {
             Task {
                 await model.setLaunchAtLoginEnabled(isEnabled)
             }
+        }
+    }
+
+    var shortcutsEnabledBinding: Binding<Bool> {
+        Binding {
+            model.settings.shortcutsEnabled
+        } set: { isEnabled in
+            model.settings.shortcutsEnabled = isEnabled
+            refreshShortcuts()
         }
     }
 

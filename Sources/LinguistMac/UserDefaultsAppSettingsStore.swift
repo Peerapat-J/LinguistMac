@@ -32,6 +32,7 @@ private extension UserDefaults {
         static let menuBarIcon = "LinguistMac.settings.menuBarIcon"
         static let doubleCopyTranslationEnabled = "LinguistMac.settings.doubleCopyTranslationEnabled"
         static let dragTranslationEnabled = "LinguistMac.settings.dragTranslationEnabled"
+        static let shortcutsEnabled = "LinguistMac.settings.shortcutsEnabled"
         static let screenTranslationShortcutKey = "LinguistMac.settings.screenTranslationShortcut.key"
         static let screenTranslationShortcutModifiers = "LinguistMac.settings.screenTranslationShortcut.modifiers"
         static let textSelectionShortcutKey = "LinguistMac.settings.textSelectionShortcut.key"
@@ -79,6 +80,8 @@ private extension UserDefaults {
                 ?? defaults.doubleCopyTranslationEnabled,
             dragTranslationEnabled: object(forKey: Key.dragTranslationEnabled) as? Bool
                 ?? defaults.dragTranslationEnabled,
+            shortcutsEnabled: object(forKey: Key.shortcutsEnabled) as? Bool
+                ?? defaults.shortcutsEnabled,
             screenTranslationShortcut: loadShortcut(
                 keyName: Key.screenTranslationShortcutKey,
                 modifiersName: Key.screenTranslationShortcutModifiers,
@@ -116,6 +119,7 @@ private extension UserDefaults {
         set(settings.menuBarIcon.rawValue, forKey: Key.menuBarIcon)
         set(settings.doubleCopyTranslationEnabled, forKey: Key.doubleCopyTranslationEnabled)
         set(settings.dragTranslationEnabled, forKey: Key.dragTranslationEnabled)
+        set(settings.shortcutsEnabled, forKey: Key.shortcutsEnabled)
         saveShortcut(
             settings.screenTranslationShortcut,
             keyName: Key.screenTranslationShortcutKey,

@@ -35,6 +35,11 @@ public struct ShortcutRegistrationPlan: Equatable, Sendable {
     ]
 
     public init(settings: AppSettings) {
+        guard settings.shortcutsEnabled else {
+            assignments = [:]
+            return
+        }
+
         assignments = [
             .screenTranslation: settings.screenTranslationShortcut,
             .textSelectionTranslation: settings.textSelectionShortcut,
