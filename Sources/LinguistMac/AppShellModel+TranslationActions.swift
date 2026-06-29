@@ -26,12 +26,27 @@ extension AppShellModel {
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
             await persistRecentTranslation(result)
+            await handleScreenTranslationFeedback(for: result)
         case let .failed(failure):
             popupState = .failed(failure, originalText: nil)
         case let .translating(request):
             popupState = .loading(request)
         case .idle, .requestingPermission, .capturing, .recognizing:
             popupState = .loading(loadingRequest)
+        }
+    }
+
+    private func handleScreenTranslationFeedback(for result: TranslationResult) async {
+        if settings.screenTranslationSoundEnabled {
+            await services.screenTranslationSoundPlayer.playSound(named: settings.screenTranslationSoundName)
+        }
+
+        guard settings.screenTranslationNotificationsEnabled else {
+            return
+        }
+
+        if await services.screenTranslationNotifier.authorizationStatus().allowsPosting {
+            await services.screenTranslationNotifier.postScreenTranslation(result: result)
         }
     }
 

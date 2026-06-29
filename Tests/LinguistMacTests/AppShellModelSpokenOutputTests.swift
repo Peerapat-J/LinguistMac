@@ -162,6 +162,107 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
     }
 }
 
+@MainActor
+final class ScreenTranslationFeedbackTests: XCTestCase {
+    func testScreenTranslateSuccessPlaysSoundAndPostsNotificationWhenEnabled() async {
+        let soundPlayer = RecordingScreenTranslationSoundPlayer(soundNames: ["Glass", "Ping"])
+        let notifier = RecordingScreenTranslationNotifier(authorizationStatus: .authorized)
+        let model = AppShellModel(
+            settings: AppSettings(
+                screenTranslationSoundEnabled: true,
+                screenTranslationSoundName: "Ping",
+                screenTranslationNotificationsEnabled: true
+            ),
+            services: makeFeedbackServices(
+                soundPlayer: soundPlayer,
+                notifier: notifier
+            )
+        )
+
+        await model.runScreenTranslation()
+
+        let playedSounds = await soundPlayer.playedSoundNames()
+        let postedResults = await notifier.postedResults()
+        XCTAssertEqual(playedSounds, ["Ping"])
+        XCTAssertEqual(postedResults.map(\.originalText), ["hello"])
+        XCTAssertEqual(postedResults.map(\.translatedText), ["สวัสดี"])
+    }
+
+    func testQuickTranslateDoesNotPlayScreenTranslationFeedback() async {
+        let soundPlayer = RecordingScreenTranslationSoundPlayer(soundNames: ["Glass"])
+        let notifier = RecordingScreenTranslationNotifier(authorizationStatus: .authorized)
+        let model = AppShellModel(
+            settings: AppSettings(
+                screenTranslationSoundEnabled: true,
+                screenTranslationNotificationsEnabled: true
+            ),
+            services: makeFeedbackServices(
+                soundPlayer: soundPlayer,
+                notifier: notifier
+            )
+        )
+        model.quickDraft.sourceText = "hello"
+
+        await model.runQuickTranslate()
+
+        let playedSounds = await soundPlayer.playedSoundNames()
+        let postedResults = await notifier.postedResults()
+        XCTAssertTrue(playedSounds.isEmpty)
+        XCTAssertTrue(postedResults.isEmpty)
+    }
+
+    func testScreenTranslateDoesNotPostNotificationWhenPermissionIsDenied() async {
+        let notifier = RecordingScreenTranslationNotifier(authorizationStatus: .denied)
+        let model = AppShellModel(
+            settings: AppSettings(screenTranslationNotificationsEnabled: true),
+            services: makeFeedbackServices(notifier: notifier)
+        )
+
+        await model.runScreenTranslation()
+
+        let postedResults = await notifier.postedResults()
+        XCTAssertTrue(postedResults.isEmpty)
+    }
+
+    func testEnablingNotificationRevertsSettingWhenPermissionIsDenied() async {
+        let notifier = RecordingScreenTranslationNotifier(
+            authorizationStatus: .notDetermined,
+            requestStatus: .denied
+        )
+        let model = AppShellModel(services: makeFeedbackServices(notifier: notifier))
+
+        await model.setScreenTranslationNotificationsEnabled(true)
+
+        XCTAssertFalse(model.settings.screenTranslationNotificationsEnabled)
+        XCTAssertEqual(
+            model.screenTranslationNotificationMessage,
+            "Notifications are disabled in macOS Settings."
+        )
+    }
+
+    private func makeFeedbackServices(
+        soundPlayer: any ScreenTranslationSoundPlaying = NoOpScreenTranslationSoundPlayer(),
+        notifier: any ScreenTranslationNotificationPosting = NoOpScreenTranslationNotifier()
+    ) -> LinguistServices {
+        LinguistServices(
+            screenCapture: SpokenOutputScreenCaptureService(),
+            ocr: SpokenOutputOCRService(),
+            translatorRegistry: SpokenOutputTranslationProviderRegistry(),
+            languageAvailability: SpokenOutputLanguageAvailabilityChecker(),
+            settingsStore: SpokenOutputAppSettingsStore(),
+            apiKeyStore: SpokenOutputAPIKeyStore(),
+            launchAtLogin: SpokenOutputLaunchAtLoginService(),
+            historyStore: SpokenOutputHistoryStore(),
+            permissionChecker: SpokenOutputGrantedPermissionChecker(),
+            clipboard: SpokenOutputClipboard(),
+            selectedTextCapture: SpokenOutputSelectedTextCapture(),
+            shortcutRegistry: SpokenOutputShortcutRegistry(),
+            screenTranslationSoundPlayer: soundPlayer,
+            screenTranslationNotifier: notifier
+        )
+    }
+}
+
 private func makeSpokenOutputResult(
     translatedText: String,
     targetLanguage: TranslationLanguage
@@ -466,5 +567,59 @@ private actor SpokenOutputShortcutRegistry: ShortcutRegistering {
 
     func unregister(_ action: ShortcutAction) async {
         _ = action
+    }
+}
+
+private actor RecordingScreenTranslationSoundPlayer: ScreenTranslationSoundPlaying {
+    private let soundNames: [String]
+    private var playedSounds: [String] = []
+
+    init(soundNames: [String]) {
+        self.soundNames = soundNames
+    }
+
+    func availableSoundNames() async -> [String] {
+        soundNames
+    }
+
+    func playSound(named soundName: String) async {
+        playedSounds.append(soundName)
+    }
+
+    func playedSoundNames() -> [String] {
+        playedSounds
+    }
+}
+
+private actor RecordingScreenTranslationNotifier: ScreenTranslationNotificationPosting {
+    private var status: ScreenTranslationNotificationStatus
+    private let requestStatusValue: ScreenTranslationNotificationStatus
+    private var results: [TranslationResult] = []
+
+    init(
+        authorizationStatus: ScreenTranslationNotificationStatus,
+        requestStatus: ScreenTranslationNotificationStatus? = nil
+    ) {
+        status = authorizationStatus
+        requestStatusValue = requestStatus ?? authorizationStatus
+    }
+
+    func authorizationStatus() async -> ScreenTranslationNotificationStatus {
+        status
+    }
+
+    func requestAuthorization() async -> ScreenTranslationNotificationStatus {
+        status = requestStatusValue
+        return requestStatusValue
+    }
+
+    func postScreenTranslation(result: TranslationResult) async {
+        results.append(result)
+    }
+
+    func openNotificationSettings() async {}
+
+    func postedResults() -> [TranslationResult] {
+        results
     }
 }

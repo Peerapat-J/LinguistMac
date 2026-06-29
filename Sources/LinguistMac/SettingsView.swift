@@ -31,6 +31,7 @@ struct SettingsView: View {
         .task {
             await model.refreshProviderDescriptors()
             await model.refreshAppPreferences()
+            await model.refreshScreenTranslationSoundNames()
         }
         .readinessRefreshMonitor(model: model, trigger: readinessRefreshTrigger)
     }
@@ -121,6 +122,10 @@ private extension SettingsView {
         case .appearance:
             settingsPane(section) {
                 appearanceSettings
+            }
+        case .notification:
+            settingsPane(section) {
+                notificationSettings
             }
         case .api:
             settingsPane(section) {
@@ -290,6 +295,10 @@ private extension SettingsView {
             SettingsDivider()
             settingsSwitchRow("Match selection width", isOn: $model.settings.matchPopupWidthToSelection)
         }
+    }
+
+    var notificationSettings: some View {
+        NotificationSettingsSection(model: model)
     }
 
     var apiSettings: some View {
@@ -591,120 +600,6 @@ private enum PopupFontOption: String, CaseIterable, Identifiable {
             "Hiragino Sans"
         case .pingFang:
             "PingFang SC"
-        }
-    }
-}
-
-private struct SidebarTrafficLights: View {
-    var body: some View {
-        HStack(spacing: 8) {
-            trafficLight(.red, accessibilityLabel: "Close") {
-                NSApp.keyWindow?.close()
-            }
-
-            trafficLight(.yellow, accessibilityLabel: "Minimize") {
-                NSApp.keyWindow?.miniaturize(nil)
-            }
-
-            trafficLight(.green, accessibilityLabel: "Zoom") {
-                NSApp.keyWindow?.zoom(nil)
-            }
-        }
-    }
-
-    private func trafficLight(
-        _ color: Color,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Circle()
-                .fill(color)
-                .frame(width: 12, height: 12)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-    }
-}
-
-private struct SettingsWindowConfigurator: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        SettingsWindowConfiguratorView()
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        guard let view = nsView as? SettingsWindowConfiguratorView else {
-            return
-        }
-
-        view.configureWindowIfNeeded()
-    }
-}
-
-private struct SidebarMaterialBackground: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .sidebar
-        view.blendingMode = .behindWindow
-        view.state = .active
-        return view
-    }
-
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.material = .sidebar
-        nsView.blendingMode = .behindWindow
-        nsView.state = .active
-    }
-}
-
-private final class SettingsWindowConfiguratorView: NSView {
-    private weak var configuredWindow: NSWindow?
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        configureWindowIfNeeded()
-    }
-
-    func configureWindowIfNeeded() {
-        guard let window else {
-            return
-        }
-
-        if configuredWindow !== window {
-            window.title = ""
-            window.titleVisibility = .hidden
-            window.titlebarAppearsTransparent = true
-            window.styleMask.remove(.titled)
-            window.styleMask.insert(.fullSizeContentView)
-            window.isMovableByWindowBackground = true
-            configuredWindow = window
-        }
-
-        window.title = ""
-        window.toolbar = nil
-        window.isMovableByWindowBackground = true
-        hideStandardWindowButtons(in: window)
-
-        DispatchQueue.main.async { [weak self, weak window] in
-            window?.title = ""
-            window?.toolbar = nil
-            window?.isMovableByWindowBackground = true
-            if let window {
-                self?.hideStandardWindowButtons(in: window)
-            }
-        }
-    }
-
-    private func hideStandardWindowButtons(in window: NSWindow) {
-        let buttons = [
-            window.standardWindowButton(.closeButton),
-            window.standardWindowButton(.miniaturizeButton),
-            window.standardWindowButton(.zoomButton)
-        ]
-        .compactMap(\.self)
-
-        for button in buttons {
-            button.isHidden = true
         }
     }
 }

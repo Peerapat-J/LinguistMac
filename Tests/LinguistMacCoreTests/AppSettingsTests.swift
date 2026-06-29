@@ -16,6 +16,9 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(settings.doubleCopyTranslationEnabled)
         XCTAssertFalse(settings.dragTranslationEnabled)
         XCTAssertTrue(settings.shortcutsEnabled)
+        XCTAssertFalse(settings.screenTranslationSoundEnabled)
+        XCTAssertEqual(settings.screenTranslationSoundName, "Glass")
+        XCTAssertFalse(settings.screenTranslationNotificationsEnabled)
     }
 
     func testDefaultShortcutsCoverPrimaryInputModes() {
@@ -74,6 +77,9 @@ final class AppSettingsTests: XCTestCase {
         settings.doubleCopyTranslationEnabled = true
         settings.shortcutsEnabled = false
         settings.screenTranslationShortcut = KeyboardShortcut(key: "T", modifiers: [.command, .shift])
+        settings.screenTranslationSoundEnabled = true
+        settings.screenTranslationSoundName = "Ping"
+        settings.screenTranslationNotificationsEnabled = true
         settings.popupFontFamily = "Noto Sans Thai"
         settings.popupHeight = 480
         settings.popupOriginX = 120
@@ -98,6 +104,21 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.popupFontSize, 12)
         XCTAssertEqual(settings.popupWidth, 320)
         XCTAssertEqual(settings.popupHeight, 240)
+    }
+
+    func testScreenTranslationSoundPolicyPrefersGlassThenFallsBackToFirstSortedSound() {
+        XCTAssertEqual(
+            ScreenTranslationSoundPolicy.defaultSoundName(from: ["Ping", "Glass", "Funk"]),
+            "Glass"
+        )
+        XCTAssertEqual(
+            ScreenTranslationSoundPolicy.defaultSoundName(from: ["Ping", "Funk"]),
+            "Funk"
+        )
+        XCTAssertEqual(
+            ScreenTranslationSoundPolicy.resolvedSoundName("Missing", from: ["Ping", "Funk"]),
+            "Funk"
+        )
     }
 
     func testAppLanguageMapsToLocaleAndAppleLanguagesOverride() {

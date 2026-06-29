@@ -44,9 +44,32 @@ private extension UserDefaults {
         static let popupWidth = "LinguistMac.settings.popupWidth"
         static let popupHeight = "LinguistMac.settings.popupHeight"
         static let matchPopupWidthToSelection = "LinguistMac.settings.matchPopupWidthToSelection"
+        static let screenTranslationSoundEnabled = "LinguistMac.settings.screenTranslationSoundEnabled"
+        static let screenTranslationSoundName = "LinguistMac.settings.screenTranslationSoundName"
+        static let screenTranslationNotificationsEnabled =
+            "LinguistMac.settings.screenTranslationNotificationsEnabled"
         static let popupOriginX = "LinguistMac.settings.popupOriginX"
         static let popupOriginY = "LinguistMac.settings.popupOriginY"
         static let hasCompletedOnboarding = "LinguistMac.hasCompletedOnboarding"
+    }
+
+    private struct ShortcutSettings {
+        let screenTranslation: KeyboardShortcut
+        let textSelection: KeyboardShortcut
+        let quickTranslate: KeyboardShortcut
+    }
+
+    private struct PresentationSettings {
+        let popupFontSize: Double
+        let popupFontFamily: String
+        let popupWidth: Double
+        let popupHeight: Double
+        let matchPopupWidthToSelection: Bool
+        let screenTranslationSoundEnabled: Bool
+        let screenTranslationSoundName: String
+        let screenTranslationNotificationsEnabled: Bool
+        let popupOriginX: Double?
+        let popupOriginY: Double?
     }
 
     func loadLinguistSettings() -> AppSettings {
@@ -66,47 +89,87 @@ private extension UserDefaults {
         let menuBarIcon = string(forKey: Key.menuBarIcon)
             .flatMap(MenuBarIcon.init(rawValue:))
             ?? defaults.menuBarIcon
+        let shortcuts = loadShortcutSettings(defaults: defaults)
+        let presentation = loadPresentationSettings(defaults: defaults)
 
         return AppSettings(
             sourceLanguage: source,
             targetLanguage: target.canBeTargetLanguage ? target : defaults.targetLanguage,
             selectedProviderID: providerID,
-            autoCopyEnabled: object(forKey: Key.autoCopyEnabled) as? Bool ?? defaults.autoCopyEnabled,
-            launchAtLoginEnabled: object(forKey: Key.launchAtLoginEnabled) as? Bool
-                ?? defaults.launchAtLoginEnabled,
+            autoCopyEnabled: bool(forKey: Key.autoCopyEnabled, default: defaults.autoCopyEnabled),
+            launchAtLoginEnabled: bool(forKey: Key.launchAtLoginEnabled, default: defaults.launchAtLoginEnabled),
             appLanguage: appLanguage,
             menuBarIcon: menuBarIcon,
-            doubleCopyTranslationEnabled: object(forKey: Key.doubleCopyTranslationEnabled) as? Bool
-                ?? defaults.doubleCopyTranslationEnabled,
-            dragTranslationEnabled: object(forKey: Key.dragTranslationEnabled) as? Bool
-                ?? defaults.dragTranslationEnabled,
-            shortcutsEnabled: object(forKey: Key.shortcutsEnabled) as? Bool
-                ?? defaults.shortcutsEnabled,
-            screenTranslationShortcut: loadShortcut(
+            doubleCopyTranslationEnabled: bool(
+                forKey: Key.doubleCopyTranslationEnabled,
+                default: defaults.doubleCopyTranslationEnabled
+            ),
+            dragTranslationEnabled: bool(forKey: Key.dragTranslationEnabled, default: defaults.dragTranslationEnabled),
+            shortcutsEnabled: bool(forKey: Key.shortcutsEnabled, default: defaults.shortcutsEnabled),
+            screenTranslationShortcut: shortcuts.screenTranslation,
+            textSelectionShortcut: shortcuts.textSelection,
+            quickTranslateShortcut: shortcuts.quickTranslate,
+            popupFontSize: presentation.popupFontSize,
+            popupFontFamily: presentation.popupFontFamily,
+            popupWidth: presentation.popupWidth,
+            popupHeight: presentation.popupHeight,
+            matchPopupWidthToSelection: presentation.matchPopupWidthToSelection,
+            screenTranslationSoundEnabled: presentation.screenTranslationSoundEnabled,
+            screenTranslationSoundName: presentation.screenTranslationSoundName,
+            screenTranslationNotificationsEnabled: presentation.screenTranslationNotificationsEnabled,
+            popupOriginX: presentation.popupOriginX,
+            popupOriginY: presentation.popupOriginY,
+            hasCompletedOnboarding: bool(forKey: Key.hasCompletedOnboarding)
+        ).sanitized()
+    }
+
+    private func loadShortcutSettings(defaults: AppSettings) -> ShortcutSettings {
+        ShortcutSettings(
+            screenTranslation: loadShortcut(
                 keyName: Key.screenTranslationShortcutKey,
                 modifiersName: Key.screenTranslationShortcutModifiers,
                 defaultShortcut: defaults.screenTranslationShortcut
             ),
-            textSelectionShortcut: loadShortcut(
+            textSelection: loadShortcut(
                 keyName: Key.textSelectionShortcutKey,
                 modifiersName: Key.textSelectionShortcutModifiers,
                 defaultShortcut: defaults.textSelectionShortcut
             ),
-            quickTranslateShortcut: loadShortcut(
+            quickTranslate: loadShortcut(
                 keyName: Key.quickTranslateShortcutKey,
                 modifiersName: Key.quickTranslateShortcutModifiers,
                 defaultShortcut: defaults.quickTranslateShortcut
-            ),
+            )
+        )
+    }
+
+    private func loadPresentationSettings(defaults: AppSettings) -> PresentationSettings {
+        PresentationSettings(
             popupFontSize: object(forKey: Key.popupFontSize) as? Double ?? defaults.popupFontSize,
             popupFontFamily: string(forKey: Key.popupFontFamily) ?? defaults.popupFontFamily,
             popupWidth: object(forKey: Key.popupWidth) as? Double ?? defaults.popupWidth,
             popupHeight: object(forKey: Key.popupHeight) as? Double ?? defaults.popupHeight,
-            matchPopupWidthToSelection: object(forKey: Key.matchPopupWidthToSelection) as? Bool
-                ?? defaults.matchPopupWidthToSelection,
+            matchPopupWidthToSelection: bool(
+                forKey: Key.matchPopupWidthToSelection,
+                default: defaults.matchPopupWidthToSelection
+            ),
+            screenTranslationSoundEnabled: bool(
+                forKey: Key.screenTranslationSoundEnabled,
+                default: defaults.screenTranslationSoundEnabled
+            ),
+            screenTranslationSoundName: string(forKey: Key.screenTranslationSoundName)
+                ?? defaults.screenTranslationSoundName,
+            screenTranslationNotificationsEnabled: bool(
+                forKey: Key.screenTranslationNotificationsEnabled,
+                default: defaults.screenTranslationNotificationsEnabled
+            ),
             popupOriginX: object(forKey: Key.popupOriginX) as? Double,
-            popupOriginY: object(forKey: Key.popupOriginY) as? Double,
-            hasCompletedOnboarding: bool(forKey: Key.hasCompletedOnboarding)
-        ).sanitized()
+            popupOriginY: object(forKey: Key.popupOriginY) as? Double
+        )
+    }
+
+    private func bool(forKey key: String, default defaultValue: Bool) -> Bool {
+        object(forKey: key) as? Bool ?? defaultValue
     }
 
     func saveLinguistSettings(_ settings: AppSettings) {
@@ -140,6 +203,9 @@ private extension UserDefaults {
         set(settings.popupWidth, forKey: Key.popupWidth)
         set(settings.popupHeight, forKey: Key.popupHeight)
         set(settings.matchPopupWidthToSelection, forKey: Key.matchPopupWidthToSelection)
+        set(settings.screenTranslationSoundEnabled, forKey: Key.screenTranslationSoundEnabled)
+        set(settings.screenTranslationSoundName, forKey: Key.screenTranslationSoundName)
+        set(settings.screenTranslationNotificationsEnabled, forKey: Key.screenTranslationNotificationsEnabled)
         if let popupOriginX = settings.popupOriginX {
             set(popupOriginX, forKey: Key.popupOriginX)
         } else {

@@ -1,3 +1,4 @@
+import AppKit
 import KeyboardShortcuts
 import LinguistMacCore
 import SwiftUI
@@ -6,6 +7,7 @@ enum SettingsSectionID: String, CaseIterable, Identifiable, Hashable {
     case general
     case translation
     case appearance
+    case notification
     case api
     case setup
     case privacy
@@ -22,6 +24,8 @@ enum SettingsSectionID: String, CaseIterable, Identifiable, Hashable {
             "Translation"
         case .appearance:
             "Appearance"
+        case .notification:
+            "Notification"
         case .api:
             "API"
         case .setup:
@@ -39,6 +43,8 @@ enum SettingsSectionID: String, CaseIterable, Identifiable, Hashable {
             "character.bubble"
         case .appearance:
             "paintbrush"
+        case .notification:
+            "bell"
         case .api:
             "key"
         case .setup:
@@ -155,6 +161,116 @@ enum SettingsLayout {
     static let horizontalPadding: CGFloat = 24
     static let topPadding: CGFloat = 18
     static let bottomPadding: CGFloat = 24
+}
+
+struct NotificationSettingsSection: View {
+    @ObservedObject var model: AppShellModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+            SettingsSectionCard("Sound") {
+                switchRow("Enable Sound", isOn: $model.settings.screenTranslationSoundEnabled)
+                SettingsDivider()
+                notificationRow("Screen Translate Sound") {
+                    HStack(spacing: 8) {
+                        Button {
+                            Task {
+                                await model.playSelectedScreenTranslationSound()
+                            }
+                        } label: {
+                            Image(systemName: "play.fill")
+                                .frame(width: 18, height: 18)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!model.settings.screenTranslationSoundEnabled)
+                        .accessibilityLabel("Preview Screen Translate sound")
+
+                        Picker("", selection: $model.settings.screenTranslationSoundName) {
+                            ForEach(soundOptions, id: \.self) { soundName in
+                                Text(soundName)
+                                    .tag(soundName)
+                            }
+                        }
+                        .labelsHidden()
+                        .disabled(!model.settings.screenTranslationSoundEnabled)
+                    }
+                }
+            }
+
+            SettingsSectionCard("System Notification") {
+                switchRow("Enable Notification", isOn: notificationEnabledBinding)
+
+                if let message = model.screenTranslationNotificationMessage {
+                    SettingsDivider()
+                    HStack(alignment: .center, spacing: 12) {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Spacer(minLength: 12)
+
+                        Button("Open Settings") {
+                            Task {
+                                await model.openScreenTranslationNotificationSettings()
+                            }
+                        }
+                        .controlSize(.small)
+                    }
+                    .padding(.vertical, SettingsLayout.rowVerticalPadding)
+                }
+            }
+        }
+    }
+
+    private var soundOptions: [String] {
+        let soundNames = model.screenTranslationSoundNames
+        guard !soundNames.isEmpty else {
+            return [model.settings.screenTranslationSoundName]
+        }
+
+        if soundNames.contains(model.settings.screenTranslationSoundName) {
+            return soundNames
+        }
+
+        return [model.settings.screenTranslationSoundName] + soundNames
+    }
+
+    private var notificationEnabledBinding: Binding<Bool> {
+        Binding {
+            model.settings.screenTranslationNotificationsEnabled
+        } set: { isEnabled in
+            Task {
+                await model.setScreenTranslationNotificationsEnabled(isEnabled)
+            }
+        }
+    }
+
+    private func switchRow(_ title: LocalizedStringKey, isOn: Binding<Bool>) -> some View {
+        notificationRow(title) {
+            Toggle("", isOn: isOn)
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .labelsHidden()
+                .accessibilityLabel(title)
+        }
+    }
+
+    private func notificationRow(
+        _ title: LocalizedStringKey,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        HStack(alignment: .center, spacing: SettingsLayout.rowSpacing) {
+            Text(title)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            content()
+                .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
+        }
+        .padding(.vertical, SettingsLayout.rowVerticalPadding)
+        .accessibilityElement(children: .combine)
+    }
 }
 
 struct ProviderConfigurationRow: View {
@@ -421,6 +537,120 @@ extension PermissionStatus {
             .red
         case .unavailable:
             .orange
+        }
+    }
+}
+
+struct SidebarTrafficLights: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            trafficLight(.red, accessibilityLabel: "Close") {
+                NSApp.keyWindow?.close()
+            }
+
+            trafficLight(.yellow, accessibilityLabel: "Minimize") {
+                NSApp.keyWindow?.miniaturize(nil)
+            }
+
+            trafficLight(.green, accessibilityLabel: "Zoom") {
+                NSApp.keyWindow?.zoom(nil)
+            }
+        }
+    }
+
+    private func trafficLight(
+        _ color: Color,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Circle()
+                .fill(color)
+                .frame(width: 12, height: 12)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+struct SettingsWindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        SettingsWindowConfiguratorView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard let view = nsView as? SettingsWindowConfiguratorView else {
+            return
+        }
+
+        view.configureWindowIfNeeded()
+    }
+}
+
+struct SidebarMaterialBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .sidebar
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = .sidebar
+        nsView.blendingMode = .behindWindow
+        nsView.state = .active
+    }
+}
+
+private final class SettingsWindowConfiguratorView: NSView {
+    private weak var configuredWindow: NSWindow?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        configureWindowIfNeeded()
+    }
+
+    func configureWindowIfNeeded() {
+        guard let window else {
+            return
+        }
+
+        if configuredWindow !== window {
+            window.title = ""
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            window.styleMask.remove(.titled)
+            window.styleMask.insert(.fullSizeContentView)
+            window.isMovableByWindowBackground = true
+            configuredWindow = window
+        }
+
+        window.title = ""
+        window.toolbar = nil
+        window.isMovableByWindowBackground = true
+        hideStandardWindowButtons(in: window)
+
+        DispatchQueue.main.async { [weak self, weak window] in
+            window?.title = ""
+            window?.toolbar = nil
+            window?.isMovableByWindowBackground = true
+            if let window {
+                self?.hideStandardWindowButtons(in: window)
+            }
+        }
+    }
+
+    private func hideStandardWindowButtons(in window: NSWindow) {
+        let buttons = [
+            window.standardWindowButton(.closeButton),
+            window.standardWindowButton(.miniaturizeButton),
+            window.standardWindowButton(.zoomButton)
+        ]
+        .compactMap(\.self)
+
+        for button in buttons {
+            button.isHidden = true
         }
     }
 }

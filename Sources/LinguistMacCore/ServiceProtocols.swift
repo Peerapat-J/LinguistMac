@@ -229,6 +229,64 @@ public protocol ShortcutRegistering: Sendable {
     func unregister(_ action: ShortcutAction) async
 }
 
+public protocol ScreenTranslationSoundPlaying: Sendable {
+    func availableSoundNames() async -> [String]
+    func playSound(named soundName: String) async
+}
+
+public enum ScreenTranslationNotificationStatus: Equatable, Sendable {
+    case notDetermined
+    case authorized
+    case denied
+    case unavailable
+
+    public var allowsPosting: Bool {
+        switch self {
+        case .authorized:
+            true
+        case .notDetermined, .denied, .unavailable:
+            false
+        }
+    }
+}
+
+public protocol ScreenTranslationNotificationPosting: Sendable {
+    func authorizationStatus() async -> ScreenTranslationNotificationStatus
+    func requestAuthorization() async -> ScreenTranslationNotificationStatus
+    func postScreenTranslation(result: TranslationResult) async
+    func openNotificationSettings() async
+}
+
 public protocol CloudTranslationClient: Sendable {
     func perform(_ request: CloudTranslationHTTPRequest) async throws -> CloudTranslationHTTPResponse
+}
+
+public struct NoOpScreenTranslationSoundPlayer: ScreenTranslationSoundPlaying {
+    public init() {}
+
+    public func availableSoundNames() async -> [String] {
+        []
+    }
+
+    public func playSound(named soundName: String) async {
+        _ = soundName
+    }
+}
+
+public struct NoOpScreenTranslationNotifier: ScreenTranslationNotificationPosting {
+    public init() {}
+
+    public func authorizationStatus() async -> ScreenTranslationNotificationStatus {
+        .unavailable
+    }
+
+    public func requestAuthorization() async -> ScreenTranslationNotificationStatus {
+        .unavailable
+    }
+
+    public func postScreenTranslation(result: TranslationResult) async {
+        _ = result
+    }
+
+    public func openNotificationSettings() async {}
 }

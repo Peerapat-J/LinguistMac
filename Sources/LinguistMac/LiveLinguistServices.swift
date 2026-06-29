@@ -6,6 +6,7 @@ import Foundation
 import KeyboardShortcuts
 import LinguistMacCore
 import Speech
+import UserNotifications
 
 enum LiveLinguistServices {
     @MainActor
@@ -43,7 +44,9 @@ enum LiveLinguistServices {
             shortcutRegistry: shortcutRegistry,
             wordLookupProvider: ProviderBackedWordLookupService(translatorRegistry: translatorRegistry),
             speechToText: AppleSpeechToTextService(),
-            spokenOutput: AppleSpokenOutputService()
+            spokenOutput: AppleSpokenOutputService(),
+            screenTranslationSoundPlayer: SystemScreenTranslationSoundPlayer(),
+            screenTranslationNotifier: SystemScreenTranslationNotifier()
         )
     }
 
@@ -243,6 +246,125 @@ private enum SystemShortcutRegistryError: LocalizedError {
         case let .unsupportedKey(key):
             "Unsupported hot key: \(key)."
         }
+    }
+}
+
+struct SystemScreenTranslationSoundPlayer: ScreenTranslationSoundPlaying {
+    private let soundsDirectory: URL
+
+    init(
+        soundsDirectory: URL = URL(fileURLWithPath: "/System/Library/Sounds", isDirectory: true)
+    ) {
+        self.soundsDirectory = soundsDirectory
+    }
+
+    func availableSoundNames() async -> [String] {
+        let soundExtensions = Set(["aiff", "aif", "wav", "mp3", "m4a"])
+        let soundURLs = (try? FileManager.default.contentsOfDirectory(
+            at: soundsDirectory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )) ?? []
+
+        return soundURLs
+            .filter { soundExtensions.contains($0.pathExtension.lowercased()) }
+            .map { $0.deletingPathExtension().lastPathComponent }
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+
+    func playSound(named soundName: String) async {
+        let soundNames = await availableSoundNames()
+        let resolvedSoundName = ScreenTranslationSoundPolicy.resolvedSoundName(soundName, from: soundNames)
+
+        await MainActor.run {
+            _ = NSSound(named: NSSound.Name(resolvedSoundName))?.play()
+        }
+    }
+}
+
+final class SystemScreenTranslationNotifier: NSObject, ScreenTranslationNotificationPosting, @unchecked Sendable {
+    private let notificationCenter: UNUserNotificationCenter
+    private let notificationSettingsURL = URL(
+        string: "x-apple.systempreferences:com.apple.preference.notifications"
+    )
+
+    init(notificationCenter: UNUserNotificationCenter = .current()) {
+        self.notificationCenter = notificationCenter
+        super.init()
+        notificationCenter.delegate = self
+    }
+
+    func authorizationStatus() async -> ScreenTranslationNotificationStatus {
+        let settings = await notificationCenter.notificationSettings()
+        return Self.authorizationStatus(from: settings.authorizationStatus)
+    }
+
+    func requestAuthorization() async -> ScreenTranslationNotificationStatus {
+        do {
+            _ = try await notificationCenter.requestAuthorization(options: [.alert])
+            return await authorizationStatus()
+        } catch {
+            return .unavailable
+        }
+    }
+
+    func postScreenTranslation(result: TranslationResult) async {
+        guard await authorizationStatus().allowsPosting else {
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Screen Translate"
+        content.body = Self.notificationBody(for: result)
+
+        let request = UNNotificationRequest(
+            identifier: "screen-translation-\(result.id.uuidString)",
+            content: content,
+            trigger: nil
+        )
+        try? await notificationCenter.add(request)
+    }
+
+    func openNotificationSettings() async {
+        guard let notificationSettingsURL else {
+            return
+        }
+
+        await MainActor.run {
+            _ = NSWorkspace.shared.open(notificationSettingsURL)
+        }
+    }
+
+    private static func authorizationStatus(
+        from status: UNAuthorizationStatus
+    ) -> ScreenTranslationNotificationStatus {
+        switch status {
+        case .authorized, .provisional:
+            .authorized
+        case .notDetermined:
+            .notDetermined
+        case .denied:
+            .denied
+        case .ephemeral:
+            .authorized
+        @unknown default:
+            .unavailable
+        }
+    }
+
+    private static func notificationBody(for result: TranslationResult) -> String {
+        "Original: \(result.originalText)\nTranslation: \(result.translatedText)"
+    }
+}
+
+extension SystemScreenTranslationNotifier: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        _ = center
+        _ = notification
+        return [.banner, .list]
     }
 }
 
