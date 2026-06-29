@@ -151,6 +151,17 @@ private extension SettingsView {
                     .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
                 }
                 SettingsDivider()
+                settingsRow("Menu Bar Icon") {
+                    Picker("", selection: $model.settings.menuBarIcon) {
+                        ForEach(MenuBarIcon.allCases, id: \.rawValue) { icon in
+                            Label(icon.displayName, systemImage: icon.systemImage)
+                                .tag(icon)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
+                }
+                SettingsDivider()
                 settingsSwitchRow("Launch at login", isOn: launchAtLoginBinding)
                 SettingsDivider()
                 settingsSwitchRow("Auto copy result to clipboard", isOn: $model.settings.autoCopyEnabled)

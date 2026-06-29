@@ -7,6 +7,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var autoCopyEnabled: Bool
     public var launchAtLoginEnabled: Bool
     public var appLanguage: AppLanguage
+    public var menuBarIcon: MenuBarIcon
     public var doubleCopyTranslationEnabled: Bool
     public var dragTranslationEnabled: Bool
     public var screenTranslationShortcut: KeyboardShortcut
@@ -28,6 +29,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         autoCopyEnabled: Bool = false,
         launchAtLoginEnabled: Bool = false,
         appLanguage: AppLanguage = .system,
+        menuBarIcon: MenuBarIcon = .default,
         doubleCopyTranslationEnabled: Bool = false,
         dragTranslationEnabled: Bool = false,
         screenTranslationShortcut: KeyboardShortcut = .screenTranslationDefault,
@@ -48,6 +50,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.autoCopyEnabled = autoCopyEnabled
         self.launchAtLoginEnabled = launchAtLoginEnabled
         self.appLanguage = appLanguage
+        self.menuBarIcon = menuBarIcon
         self.doubleCopyTranslationEnabled = doubleCopyTranslationEnabled
         self.dragTranslationEnabled = dragTranslationEnabled
         self.screenTranslationShortcut = screenTranslationShortcut
@@ -129,6 +132,30 @@ public enum AppLanguage: String, CaseIterable, Codable, Sendable {
 
     public var appleLanguages: [String]? {
         localeIdentifier.map { [$0] }
+    }
+}
+
+public enum MenuBarIcon: String, CaseIterable, Codable, Sendable {
+    case asterisk
+    case lassoBadgeSparkles = "lasso.badge.sparkles"
+    case timelapse
+    case aqiMedium = "aqi.medium"
+    case appSpecular = "app.specular"
+    case handRaysFill = "hand.rays.fill"
+    case bonjour
+    case textQuote = "text.quote"
+    case characterPhonetic = "character.phonetic"
+    case characterMagnify = "character.magnify"
+    case tSquareFill = "t.square.fill"
+
+    public static let `default`: MenuBarIcon = .asterisk
+
+    public var systemImage: String {
+        rawValue
+    }
+
+    public var displayName: String {
+        rawValue
     }
 }
 

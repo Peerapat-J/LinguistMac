@@ -29,6 +29,7 @@ private extension UserDefaults {
         static let autoCopyEnabled = "LinguistMac.settings.autoCopyEnabled"
         static let launchAtLoginEnabled = "LinguistMac.settings.launchAtLoginEnabled"
         static let appLanguage = "LinguistMac.settings.appLanguage"
+        static let menuBarIcon = "LinguistMac.settings.menuBarIcon"
         static let doubleCopyTranslationEnabled = "LinguistMac.settings.doubleCopyTranslationEnabled"
         static let dragTranslationEnabled = "LinguistMac.settings.dragTranslationEnabled"
         static let screenTranslationShortcutKey = "LinguistMac.settings.screenTranslationShortcut.key"
@@ -61,6 +62,9 @@ private extension UserDefaults {
         let appLanguage = string(forKey: Key.appLanguage)
             .flatMap(AppLanguage.init(rawValue:))
             ?? defaults.appLanguage
+        let menuBarIcon = string(forKey: Key.menuBarIcon)
+            .flatMap(MenuBarIcon.init(rawValue:))
+            ?? defaults.menuBarIcon
 
         return AppSettings(
             sourceLanguage: source,
@@ -70,6 +74,7 @@ private extension UserDefaults {
             launchAtLoginEnabled: object(forKey: Key.launchAtLoginEnabled) as? Bool
                 ?? defaults.launchAtLoginEnabled,
             appLanguage: appLanguage,
+            menuBarIcon: menuBarIcon,
             doubleCopyTranslationEnabled: object(forKey: Key.doubleCopyTranslationEnabled) as? Bool
                 ?? defaults.doubleCopyTranslationEnabled,
             dragTranslationEnabled: object(forKey: Key.dragTranslationEnabled) as? Bool
@@ -108,6 +113,7 @@ private extension UserDefaults {
         set(settings.autoCopyEnabled, forKey: Key.autoCopyEnabled)
         set(settings.launchAtLoginEnabled, forKey: Key.launchAtLoginEnabled)
         set(settings.appLanguage.rawValue, forKey: Key.appLanguage)
+        set(settings.menuBarIcon.rawValue, forKey: Key.menuBarIcon)
         set(settings.doubleCopyTranslationEnabled, forKey: Key.doubleCopyTranslationEnabled)
         set(settings.dragTranslationEnabled, forKey: Key.dragTranslationEnabled)
         saveShortcut(

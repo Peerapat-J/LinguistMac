@@ -12,6 +12,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(settings.autoCopyEnabled)
         XCTAssertFalse(settings.launchAtLoginEnabled)
         XCTAssertEqual(settings.appLanguage, .system)
+        XCTAssertEqual(settings.menuBarIcon, .asterisk)
         XCTAssertFalse(settings.doubleCopyTranslationEnabled)
         XCTAssertFalse(settings.dragTranslationEnabled)
     }
@@ -68,6 +69,7 @@ final class AppSettingsTests: XCTestCase {
         settings.autoCopyEnabled = true
         settings.launchAtLoginEnabled = true
         settings.appLanguage = .korean
+        settings.menuBarIcon = .characterMagnify
         settings.doubleCopyTranslationEnabled = true
         settings.screenTranslationShortcut = KeyboardShortcut(key: "T", modifiers: [.command, .shift])
         settings.popupFontFamily = "Noto Sans Thai"
