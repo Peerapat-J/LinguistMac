@@ -68,10 +68,11 @@ private extension SettingsView {
                     } label: {
                         Label(section.title, systemImage: section.systemImage)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 10)
+                            .frame(height: 28)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 10)
-                    .frame(height: 28)
                     .background {
                         if selectedSection == section {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
