@@ -542,34 +542,62 @@ extension PermissionStatus {
 }
 
 struct SidebarTrafficLights: View {
+    @State private var isHovering = false
+
     var body: some View {
         HStack(spacing: 8) {
-            trafficLight(.red, accessibilityLabel: "Close") {
+            trafficLight(
+                .red,
+                symbolName: "xmark",
+                accessibilityLabel: "Close",
+                isEnabled: true
+            ) {
                 NSApp.keyWindow?.close()
             }
 
-            trafficLight(.yellow, accessibilityLabel: "Minimize") {
-                NSApp.keyWindow?.miniaturize(nil)
-            }
+            trafficLight(
+                .yellow,
+                symbolName: "minus",
+                accessibilityLabel: "Minimize",
+                isEnabled: false
+            ) {}
 
-            trafficLight(.green, accessibilityLabel: "Zoom") {
-                NSApp.keyWindow?.zoom(nil)
-            }
+            trafficLight(
+                .green,
+                symbolName: "plus",
+                accessibilityLabel: "Zoom",
+                isEnabled: false
+            ) {}
         }
+        .onHover { isHovering = $0 }
     }
 
     private func trafficLight(
         _ color: Color,
+        symbolName: String,
         accessibilityLabel: String,
+        isEnabled: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Circle()
-                .fill(color)
-                .frame(width: 12, height: 12)
+            ZStack {
+                Circle()
+                    .fill(isEnabled ? color : disabledTrafficLightColor)
+
+                Image(systemName: symbolName)
+                    .font(.system(size: 7, weight: .bold))
+                    .foregroundStyle(Color.black.opacity(isEnabled ? 0.58 : 0.28))
+                    .opacity(isHovering ? 1 : 0)
+            }
+            .frame(width: 12, height: 12)
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var disabledTrafficLightColor: Color {
+        Color(nsColor: .tertiaryLabelColor)
     }
 }
 
