@@ -615,19 +615,30 @@ struct SettingsWindowConfigurator: NSViewRepresentable {
     }
 }
 
-struct SidebarMaterialBackground: NSViewRepresentable {
+struct SidebarTranslucentBackground: View {
+    var body: some View {
+        SidebarVisualEffectBackground()
+            .overlay(Color.black.opacity(0.16))
+            .overlay(Color.white.opacity(0.06))
+    }
+}
+
+private struct SidebarVisualEffectBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.material = .sidebar
-        view.blendingMode = .behindWindow
-        view.state = .active
+        configure(view)
         return view
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.material = .sidebar
-        nsView.blendingMode = .behindWindow
-        nsView.state = .active
+        configure(nsView)
+    }
+
+    private func configure(_ view: NSVisualEffectView) {
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.isEmphasized = true
     }
 }
 
@@ -648,6 +659,8 @@ private final class SettingsWindowConfiguratorView: NSView {
             window.title = ""
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
+            window.isOpaque = false
+            window.backgroundColor = .clear
             window.styleMask.remove(.titled)
             window.styleMask.insert(.fullSizeContentView)
             window.isMovableByWindowBackground = true
@@ -656,12 +669,15 @@ private final class SettingsWindowConfiguratorView: NSView {
 
         window.title = ""
         window.toolbar = nil
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.isMovableByWindowBackground = true
         hideStandardWindowButtons(in: window)
 
         DispatchQueue.main.async { [weak self, weak window] in
-            window?.title = ""
             window?.toolbar = nil
+            window?.isOpaque = false
+            window?.backgroundColor = .clear
             window?.isMovableByWindowBackground = true
             if let window {
                 self?.hideStandardWindowButtons(in: window)

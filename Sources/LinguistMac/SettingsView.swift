@@ -20,7 +20,6 @@ struct SettingsView: View {
         .ignoresSafeArea(.container, edges: .top)
         .focusable(false)
         .frame(width: 680, height: 560)
-        .background(Color(nsColor: .windowBackgroundColor))
         .background(SettingsWindowConfigurator())
         .onChange(of: selectedSection) { _, newValue in
             guard let newValue else {
@@ -99,11 +98,11 @@ private extension SettingsView {
         }
         .frame(width: 176)
         .background {
-            SidebarMaterialBackground()
+            SidebarTranslucentBackground()
         }
         .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(Color(nsColor: .separatorColor).opacity(0.7))
+                .fill(Color(nsColor: .separatorColor).opacity(0.16))
                 .frame(width: 1)
         }
     }
