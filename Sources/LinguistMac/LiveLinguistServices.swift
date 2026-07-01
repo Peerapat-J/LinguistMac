@@ -277,7 +277,13 @@ struct SystemScreenTranslationSoundPlayer: ScreenTranslationSoundPlaying {
         let resolvedSoundName = ScreenTranslationSoundPolicy.resolvedSoundName(soundName, from: soundNames)
 
         await MainActor.run {
-            _ = NSSound(named: NSSound.Name(resolvedSoundName))?.play()
+            guard let sound = NSSound(named: NSSound.Name(resolvedSoundName)) else {
+                return
+            }
+
+            sound.stop()
+            sound.currentTime = 0
+            sound.play()
         }
     }
 }

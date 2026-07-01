@@ -174,9 +174,7 @@ struct NotificationSettingsSection: View {
                 notificationRow("Screen Translate Sound") {
                     HStack(spacing: 8) {
                         Button {
-                            Task {
-                                await model.playSelectedScreenTranslationSound()
-                            }
+                            Task { await model.playSelectedScreenTranslationSound() }
                         } label: {
                             Image(systemName: "play.fill")
                                 .frame(width: 18, height: 18)
@@ -193,6 +191,9 @@ struct NotificationSettingsSection: View {
                         }
                         .labelsHidden()
                         .disabled(!model.settings.screenTranslationSoundEnabled)
+                        .onChange(of: model.settings.screenTranslationSoundName) {
+                            Task { await model.playSelectedScreenTranslationSound() }
+                        }
                     }
                 }
             }
@@ -229,11 +230,9 @@ struct NotificationSettingsSection: View {
             return [model.settings.screenTranslationSoundName]
         }
 
-        if soundNames.contains(model.settings.screenTranslationSoundName) {
-            return soundNames
-        }
-
-        return [model.settings.screenTranslationSoundName] + soundNames
+        return soundNames.contains(model.settings.screenTranslationSoundName)
+            ? soundNames
+            : [model.settings.screenTranslationSoundName] + soundNames
     }
 
     private var notificationEnabledBinding: Binding<Bool> {
