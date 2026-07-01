@@ -19,7 +19,7 @@ struct SettingsView: View {
         }
         .ignoresSafeArea(.container, edges: .top)
         .focusable(false)
-        .frame(width: 680, height: 560)
+        .frame(width: 654, height: 560)
         .background(SettingsWindowConfigurator())
         .onChange(of: selectedSection) { _, newValue in
             guard let newValue else {

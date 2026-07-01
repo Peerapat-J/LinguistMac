@@ -16,6 +16,7 @@
 		B10000000000000000000007 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000007 /* SettingsView.swift */; };
 		B10000000000000000000054 /* SettingsSupportViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000054 /* SettingsSupportViews.swift */; };
 		B10000000000000000000055 /* KeyboardShortcutIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000055 /* KeyboardShortcutIntegration.swift */; };
+		B10000000000000000000056 /* NotificationSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000056 /* NotificationSettingsSection.swift */; };
 		B10000000000000000000053 /* PrivacySettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000053 /* PrivacySettingsSection.swift */; };
 		B10000000000000000000008 /* TranslationPopupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000008 /* TranslationPopupView.swift */; };
 		B10000000000000000000009 /* QuickTranslateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000009 /* QuickTranslateView.swift */; };
@@ -119,6 +120,7 @@
 		B20000000000000000000007 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B20000000000000000000054 /* SettingsSupportViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSupportViews.swift; sourceTree = "<group>"; };
 		B20000000000000000000055 /* KeyboardShortcutIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShortcutIntegration.swift; sourceTree = "<group>"; };
+		B20000000000000000000056 /* NotificationSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsSection.swift; sourceTree = "<group>"; };
 		B20000000000000000000053 /* PrivacySettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsSection.swift; sourceTree = "<group>"; };
 		B20000000000000000000008 /* TranslationPopupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPopupView.swift; sourceTree = "<group>"; };
 		B20000000000000000000009 /* QuickTranslateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickTranslateView.swift; sourceTree = "<group>"; };
@@ -256,6 +258,7 @@
 				B20000000000000000000007 /* SettingsView.swift */,
 				B20000000000000000000054 /* SettingsSupportViews.swift */,
 				B20000000000000000000055 /* KeyboardShortcutIntegration.swift */,
+				B20000000000000000000056 /* NotificationSettingsSection.swift */,
 				B20000000000000000000053 /* PrivacySettingsSection.swift */,
 				B20000000000000000000008 /* TranslationPopupView.swift */,
 				B20000000000000000000009 /* QuickTranslateView.swift */,
@@ -535,6 +538,7 @@
 				B10000000000000000000007 /* SettingsView.swift in Sources */,
 				B10000000000000000000054 /* SettingsSupportViews.swift in Sources */,
 				B10000000000000000000055 /* KeyboardShortcutIntegration.swift in Sources */,
+				B10000000000000000000056 /* NotificationSettingsSection.swift in Sources */,
 				B10000000000000000000053 /* PrivacySettingsSection.swift in Sources */,
 				B10000000000000000000008 /* TranslationPopupView.swift in Sources */,
 				B10000000000000000000009 /* QuickTranslateView.swift in Sources */,
