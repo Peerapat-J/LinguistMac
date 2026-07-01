@@ -274,23 +274,19 @@ private extension SettingsView {
                 .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
             }
             SettingsDivider()
-            settingsRow("Width") {
-                VStack(alignment: .trailing, spacing: 6) {
-                    Text("\(Int(model.settings.popupWidth)) px")
-                        .foregroundStyle(.secondary)
-                    Slider(value: $model.settings.popupWidth, in: 320 ... 720, step: 20)
-                        .frame(maxWidth: .infinity)
-                }
-            }
+            settingsSliderRow(
+                "Width",
+                value: $model.settings.popupWidth,
+                range: 320 ... 720,
+                unit: "px"
+            )
             SettingsDivider()
-            settingsRow("Height") {
-                VStack(alignment: .trailing, spacing: 6) {
-                    Text("\(Int(model.settings.popupHeight)) px")
-                        .foregroundStyle(.secondary)
-                    Slider(value: $model.settings.popupHeight, in: 240 ... 640, step: 20)
-                        .frame(maxWidth: .infinity)
-                }
-            }
+            settingsSliderRow(
+                "Height",
+                value: $model.settings.popupHeight,
+                range: 240 ... 640,
+                unit: "px"
+            )
             SettingsDivider()
             settingsSwitchRow("Match selection width", isOn: $model.settings.matchPopupWidthToSelection)
         }
@@ -484,6 +480,29 @@ private extension SettingsView {
                 .labelsHidden()
                 .accessibilityLabel(title)
         }
+    }
+
+    func settingsSliderRow(
+        _ title: LocalizedStringKey,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        unit: String
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: SettingsLayout.rowSpacing) {
+            Text(title)
+                .lineLimit(1)
+                .frame(width: 92, alignment: .leading)
+
+            Slider(value: value, in: range, step: 20)
+                .frame(maxWidth: .infinity)
+
+            Text("\(Int(value.wrappedValue)) \(unit)")
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .frame(width: 48, alignment: .trailing)
+        }
+        .padding(.vertical, SettingsLayout.rowVerticalPadding)
+        .accessibilityElement(children: .combine)
     }
 
     var sourceLanguageBinding: Binding<TranslationLanguage> {
