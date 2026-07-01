@@ -334,7 +334,9 @@ private extension SettingsView {
     }
 
     var privacySettings: some View {
-        PrivacySettingsSection()
+        PrivacySettingsSection {
+            selectedSection = .api
+        }
     }
 
     var apiKeyProviders: [TranslationProviderDescriptor] {

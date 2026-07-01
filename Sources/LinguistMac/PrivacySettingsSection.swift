@@ -3,27 +3,14 @@ import LinguistMacCore
 import SwiftUI
 
 struct PrivacySettingsSection: View {
+    let openAPISettings: () -> Void
+
     var body: some View {
         SettingsSectionCard("Privacy") {
             PrivacyInfoRow(
-                title: "Default translation",
-                detail: "Apple Translation and OCR run on this Mac by default. "
-                    + "Text is sent to a cloud provider only after you choose a cloud engine and save a key."
-            )
-
-            SettingsDivider()
-
-            PrivacyInfoRow(
-                title: "Local data",
-                detail: "Settings and shortcuts use macOS preferences for "
-                    + "\(AppIdentity.linguistMac.bundleIdentifier). Recent translations use the history store below."
-            )
-
-            SettingsDivider()
-
-            PrivacyInfoRow(
                 title: "History store",
                 detail: "Recent translation history keeps up to \(TranslationHistoryPolicy.defaultLimit) items.",
+                warningDetail: "Avoid editing this file directly.",
                 footnote: Self.historyStoreDisplayPath
             ) {
                 Button("Show") {
@@ -38,8 +25,13 @@ struct PrivacySettingsSection: View {
 
             PrivacyInfoRow(
                 title: "Provider keys",
-                detail: "API keys and Azure region are stored in macOS Keychain. Clear them from Provider Keys."
-            )
+                detail: "API keys and Azure region are stored in macOS Keychain. Manage or clear them in API settings."
+            ) {
+                Button("Open API Settings", action: openAPISettings)
+                    .controlSize(.small)
+                    .accessibilityLabel("Open API settings")
+                    .help("Open API settings")
+            }
         }
     }
 
@@ -71,47 +63,58 @@ struct PrivacySettingsSection: View {
 private struct PrivacyInfoRow<Accessory: View>: View {
     let title: LocalizedStringKey
     let detail: String
+    let warningDetail: String?
     let footnote: String?
     let accessory: Accessory
 
     init(
         title: LocalizedStringKey,
         detail: String,
+        warningDetail: String? = nil,
         footnote: String? = nil,
         @ViewBuilder accessory: () -> Accessory = { EmptyView() }
     ) {
         self.title = title
         self.detail = detail
+        self.warningDetail = warningDetail
         self.footnote = footnote
         self.accessory = accessory()
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(title)
                     .font(.callout.weight(.semibold))
 
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 12)
 
-                if let footnote {
-                    Text(footnote)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .textSelection(.enabled)
-                }
+                accessory
+                    .fixedSize(horizontal: true, vertical: false)
             }
-            .layoutPriority(1)
 
-            Spacer(minLength: 12)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            accessory
+            if let warningDetail {
+                Text(warningDetail)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let footnote {
+                Text(footnote)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
         }
+        .padding(.vertical, SettingsLayout.rowVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
