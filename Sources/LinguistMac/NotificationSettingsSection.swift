@@ -2,10 +2,11 @@ import SwiftUI
 
 struct NotificationSettingsSection: View {
     @ObservedObject var model: AppShellModel
+    let searchText: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
-            SettingsSectionCard("Sound") {
+            SettingsSectionCard("Sound", searchText: searchText) {
                 switchRow(
                     "Play completion sound",
                     detail: "Play sound when translation completes",
@@ -42,7 +43,7 @@ struct NotificationSettingsSection: View {
                 }
             }
 
-            SettingsSectionCard("System Notification") {
+            SettingsSectionCard("System Notification", searchText: searchText) {
                 switchRow(
                     "Show completion notification",
                     detail: "Show notification when translation completes",
@@ -52,7 +53,7 @@ struct NotificationSettingsSection: View {
                 if let message = model.screenTranslationNotificationMessage {
                     SettingsDivider()
                     HStack(alignment: .center, spacing: 12) {
-                        Text(message)
+                        SettingsSearchHighlightedText(message, searchText: searchText)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -94,8 +95,8 @@ struct NotificationSettingsSection: View {
     }
 
     private func switchRow(
-        _ title: LocalizedStringKey,
-        detail: LocalizedStringKey? = nil,
+        _ title: String,
+        detail: String? = nil,
         isOn: Binding<Bool>
     ) -> some View {
         notificationRow(title, detail: detail) {
@@ -108,16 +109,16 @@ struct NotificationSettingsSection: View {
     }
 
     private func notificationRow(
-        _ title: LocalizedStringKey,
-        detail: LocalizedStringKey? = nil,
+        _ title: String,
+        detail: String? = nil,
         @ViewBuilder content: () -> some View
     ) -> some View {
         HStack(alignment: .center, spacing: SettingsLayout.rowSpacing) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                SettingsSearchHighlightedText(title, searchText: searchText)
                     .lineLimit(1)
                 if let detail {
-                    Text(detail)
+                    SettingsSearchHighlightedText(detail, searchText: searchText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

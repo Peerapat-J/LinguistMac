@@ -3,15 +3,17 @@ import LinguistMacCore
 import SwiftUI
 
 struct PrivacySettingsSection: View {
+    let searchText: String
     let openAPISettings: () -> Void
 
     var body: some View {
-        SettingsSectionCard("Privacy") {
+        SettingsSectionCard("Privacy", searchText: searchText) {
             PrivacyInfoRow(
                 title: "History store",
                 detail: "Recent translation history keeps up to \(TranslationHistoryPolicy.defaultLimit) items.",
                 warningDetail: "Avoid editing this file directly.",
-                footnote: Self.historyStoreDisplayPath
+                footnote: Self.historyStoreDisplayPath,
+                searchText: searchText
             ) {
                 Button("Show") {
                     revealHistoryStore()
@@ -25,7 +27,8 @@ struct PrivacySettingsSection: View {
 
             PrivacyInfoRow(
                 title: "Provider keys",
-                detail: "API keys and Azure region are stored in macOS Keychain. Manage or clear them in API settings."
+                detail: "API keys and Azure region are stored in macOS Keychain. Manage or clear them in API settings.",
+                searchText: searchText
             ) {
                 Button("Open API Settings", action: openAPISettings)
                     .controlSize(.small)
@@ -61,30 +64,33 @@ struct PrivacySettingsSection: View {
 }
 
 private struct PrivacyInfoRow<Accessory: View>: View {
-    let title: LocalizedStringKey
+    let title: String
     let detail: String
     let warningDetail: String?
     let footnote: String?
+    let searchText: String
     let accessory: Accessory
 
     init(
-        title: LocalizedStringKey,
+        title: String,
         detail: String,
         warningDetail: String? = nil,
         footnote: String? = nil,
+        searchText: String,
         @ViewBuilder accessory: () -> Accessory = { EmptyView() }
     ) {
         self.title = title
         self.detail = detail
         self.warningDetail = warningDetail
         self.footnote = footnote
+        self.searchText = searchText
         self.accessory = accessory()
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(title)
+                SettingsSearchHighlightedText(title, searchText: searchText)
                     .font(.callout.weight(.semibold))
 
                 Spacer(minLength: 12)
@@ -93,20 +99,20 @@ private struct PrivacyInfoRow<Accessory: View>: View {
                     .fixedSize(horizontal: true, vertical: false)
             }
 
-            Text(detail)
+            SettingsSearchHighlightedText(detail, searchText: searchText)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let warningDetail {
-                Text(warningDetail)
+                SettingsSearchHighlightedText(warningDetail, searchText: searchText)
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             if let footnote {
-                Text(footnote)
+                SettingsSearchHighlightedText(footnote, searchText: searchText)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

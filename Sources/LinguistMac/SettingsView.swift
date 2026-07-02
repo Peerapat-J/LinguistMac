@@ -27,6 +27,9 @@ struct SettingsView: View {
             }
             recordSectionSelection(newValue)
         }
+        .onChange(of: sidebarSearchText) {
+            updateSectionSelectionForSearch()
+        }
         .task {
             await model.refreshProviderDescriptors()
             await model.refreshAppPreferences()
@@ -66,11 +69,15 @@ private extension SettingsView {
                     Button {
                         selectedSection = section
                     } label: {
-                        Label(section.title, systemImage: section.systemImage)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 10)
-                            .frame(height: 28)
-                            .contentShape(Rectangle())
+                        HStack(spacing: 8) {
+                            Image(systemName: section.systemImage)
+                                .frame(width: 16)
+                            SettingsSearchHighlightedText(section.title, searchText: sidebarSearchText)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .frame(height: 28)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .background {
@@ -186,6 +193,7 @@ private extension SettingsView {
                 SettingsDivider()
                 ShortcutRow(
                     title: "Screen translate",
+                    searchText: sidebarSearchText,
                     shortcut: shortcutBinding(\.screenTranslationShortcut),
                     defaultShortcut: .screenTranslationDefault,
                     result: shortcutResult(for: .screenTranslation),
@@ -195,6 +203,7 @@ private extension SettingsView {
                 SettingsDivider()
                 ShortcutRow(
                     title: "Quick translate",
+                    searchText: sidebarSearchText,
                     shortcut: shortcutBinding(\.quickTranslateShortcut),
                     defaultShortcut: .quickTranslateDefault,
                     result: shortcutResult(for: .quickTranslate),
@@ -204,6 +213,7 @@ private extension SettingsView {
                 SettingsDivider()
                 ShortcutRow(
                     title: "Selected text translate",
+                    searchText: sidebarSearchText,
                     shortcut: shortcutBinding(\.textSelectionShortcut),
                     defaultShortcut: .textSelectionDefault,
                     result: shortcutResult(for: .textSelectionTranslation),
@@ -293,7 +303,7 @@ private extension SettingsView {
     }
 
     var notificationSettings: some View {
-        NotificationSettingsSection(model: model)
+        NotificationSettingsSection(model: model, searchText: sidebarSearchText)
     }
 
     var apiSettings: some View {
@@ -302,7 +312,7 @@ private extension SettingsView {
                 if index > 0 {
                     SettingsDivider()
                 }
-                ProviderConfigurationRow(model: model, provider: provider)
+                ProviderConfigurationRow(model: model, provider: provider, searchText: sidebarSearchText)
             }
         }
     }
@@ -312,7 +322,7 @@ private extension SettingsView {
             settingsSection("Setup") {
                 ForEach(Array(model.readiness.items.enumerated()), id: \.element.id) { index, item in
                     if index > 0 { SettingsDivider() }
-                    ReadinessRow(item: item) {
+                    ReadinessRow(item: item, searchText: sidebarSearchText) {
                         handleReadinessAction(for: item)
                     }
                 }
@@ -330,7 +340,7 @@ private extension SettingsView {
     }
 
     var privacySettings: some View {
-        PrivacySettingsSection {
+        PrivacySettingsSection(searchText: sidebarSearchText) {
             selectedSection = .api
         }
     }
@@ -344,9 +354,7 @@ private extension SettingsView {
         guard !query.isEmpty else {
             return SettingsSectionID.allCases
         }
-        return SettingsSectionID.allCases.filter {
-            $0.title.localizedCaseInsensitiveContains(query)
-        }
+        return SettingsSectionID.allCases.filter { $0.matchesSearch(query) }
     }
 
     var canNavigateBack: Bool {
@@ -371,6 +379,24 @@ private extension SettingsView {
         sectionHistory = Array(sectionHistory.prefix(sectionHistoryIndex + 1))
         sectionHistory.append(section)
         sectionHistoryIndex = sectionHistory.count - 1
+    }
+
+    func updateSectionSelectionForSearch() {
+        let query = sidebarSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return
+        }
+
+        let matchingSections = filteredSidebarSections
+        guard let firstMatch = matchingSections.first else {
+            return
+        }
+
+        if let selectedSection, matchingSections.contains(selectedSection) {
+            return
+        }
+
+        selectedSection = firstMatch
     }
 
     func navigateBack() {
@@ -448,20 +474,20 @@ private extension SettingsView {
     }
 
     func settingsSection(
-        _ title: LocalizedStringKey,
+        _ title: String,
         @ViewBuilder content: () -> some View
     ) -> some View {
-        SettingsSectionCard(title) {
+        SettingsSectionCard(title, searchText: sidebarSearchText) {
             content()
         }
     }
 
     func settingsRow(
-        _ title: LocalizedStringKey,
+        _ title: String,
         @ViewBuilder content: () -> some View
     ) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: SettingsLayout.rowSpacing) {
-            Text(title)
+            SettingsSearchHighlightedText(title, searchText: sidebarSearchText)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -472,7 +498,7 @@ private extension SettingsView {
         .accessibilityElement(children: .combine)
     }
 
-    func settingsSwitchRow(_ title: LocalizedStringKey, isOn: Binding<Bool>) -> some View {
+    func settingsSwitchRow(_ title: String, isOn: Binding<Bool>) -> some View {
         settingsRow(title) {
             Toggle("", isOn: isOn)
                 .toggleStyle(.switch)
@@ -483,13 +509,13 @@ private extension SettingsView {
     }
 
     func settingsSliderRow(
-        _ title: LocalizedStringKey,
+        _ title: String,
         value: Binding<Double>,
         range: ClosedRange<Double>,
         unit: String
     ) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: SettingsLayout.rowSpacing) {
-            Text(title)
+            SettingsSearchHighlightedText(title, searchText: sidebarSearchText)
                 .lineLimit(1)
                 .frame(width: 92, alignment: .leading)
 

@@ -56,17 +56,19 @@ enum SettingsSectionID: String, CaseIterable, Identifiable, Hashable {
 }
 
 struct SettingsSectionCard<Content: View>: View {
-    let title: LocalizedStringKey
+    let title: String
+    let searchText: String
     let content: Content
 
-    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
+    init(_ title: String, searchText: String = "", @ViewBuilder content: () -> Content) {
         self.title = title
+        self.searchText = searchText
         self.content = content()
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: SettingsLayout.cardTitleSpacing) {
-            Text(title)
+            SettingsSearchHighlightedText(title, searchText: searchText)
                 .font(.headline)
                 .padding(.leading, SettingsLayout.cardTitleInset)
 
@@ -159,13 +161,14 @@ enum SettingsLayout {
 struct ProviderConfigurationRow: View {
     @ObservedObject var model: AppShellModel
     let provider: TranslationProviderDescriptor
+    let searchText: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(provider.displayName)
-                    Text(provider.detail)
+                    SettingsSearchHighlightedText(provider.displayName, searchText: searchText)
+                    SettingsSearchHighlightedText(provider.detail, searchText: searchText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -239,6 +242,7 @@ struct ProviderConfigurationRow: View {
 
 struct ShortcutRow: View {
     let title: String
+    let searchText: String
     @Binding var shortcut: LinguistMacCore.KeyboardShortcut
     let defaultShortcut: LinguistMacCore.KeyboardShortcut
     let result: ShortcutRegistrationResult?
@@ -247,7 +251,7 @@ struct ShortcutRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(title)
+                SettingsSearchHighlightedText(title, searchText: searchText)
                 Spacer()
                 KeyboardShortcuts.Recorder(shortcut: keyboardShortcutBinding)
                     .shortcutValidation { keyboardShortcut in
@@ -296,6 +300,7 @@ struct ShortcutRow: View {
 
 struct ReadinessRow: View {
     let item: OnboardingReadinessItem
+    let searchText: String
     let action: () -> Void
 
     var body: some View {
@@ -306,12 +311,12 @@ struct ReadinessRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(item.title)
-                    Text(item.statusText)
+                    SettingsSearchHighlightedText(item.title, searchText: searchText)
+                    SettingsSearchHighlightedText(item.statusText, searchText: searchText)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(item.status.tint)
                 }
-                Text(item.detail)
+                SettingsSearchHighlightedText(item.detail, searchText: searchText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
