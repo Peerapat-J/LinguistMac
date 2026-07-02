@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 struct SettingsSearchHighlightedText: View {
@@ -28,37 +27,31 @@ private extension String {
             return AttributedString(self)
         }
 
-        let highlightedString = NSMutableAttributedString(string: self)
-        let searchableString = self as NSString
+        var highlightedString = AttributedString(self)
 
         for token in tokens {
-            var searchRange = NSRange(location: 0, length: searchableString.length)
+            var searchStart = startIndex
 
-            while searchRange.location < searchableString.length {
-                let foundRange = searchableString.range(
+            while searchStart < endIndex {
+                guard let foundRange = range(
                     of: token,
                     options: [.caseInsensitive, .diacriticInsensitive],
-                    range: searchRange
-                )
-
-                guard foundRange.location != NSNotFound else {
+                    range: searchStart ..< endIndex
+                ) else {
                     break
                 }
 
-                highlightedString.addAttribute(
-                    .backgroundColor,
-                    value: NSColor.systemYellow.withAlphaComponent(0.38),
-                    range: foundRange
-                )
+                let lowerBound = AttributedString.Index(foundRange.lowerBound, within: highlightedString)
+                let upperBound = AttributedString.Index(foundRange.upperBound, within: highlightedString)
 
-                let nextLocation = foundRange.location + max(foundRange.length, 1)
-                searchRange = NSRange(
-                    location: nextLocation,
-                    length: searchableString.length - nextLocation
-                )
+                if let lowerBound, let upperBound {
+                    highlightedString[lowerBound ..< upperBound].backgroundColor = .yellow.opacity(0.38)
+                }
+
+                searchStart = foundRange.isEmpty ? index(after: foundRange.lowerBound) : foundRange.upperBound
             }
         }
 
-        return AttributedString(highlightedString)
+        return highlightedString
     }
 }
