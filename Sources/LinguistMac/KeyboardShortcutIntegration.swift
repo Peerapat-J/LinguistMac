@@ -3,6 +3,12 @@ import Carbon.HIToolbox
 import KeyboardShortcuts
 import LinguistMacCore
 
+extension ShortcutAction {
+    var keyboardShortcutsName: KeyboardShortcuts.Name {
+        KeyboardShortcuts.Name("LinguistMac.\(rawValue)")
+    }
+}
+
 extension LinguistMacCore.KeyboardShortcut {
     init?(_ shortcut: KeyboardShortcuts.Shortcut) {
         guard let key = ShortcutKeyCode.label(for: shortcut.carbonKeyCode) else {

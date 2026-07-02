@@ -245,6 +245,7 @@ struct ProviderConfigurationRow: View {
 struct ShortcutRow: View {
     let title: String
     let searchText: String
+    let action: ShortcutAction
     @Binding var shortcut: LinguistMacCore.KeyboardShortcut
     let defaultShortcut: LinguistMacCore.KeyboardShortcut
     let result: ShortcutRegistrationResult?
@@ -255,14 +256,10 @@ struct ShortcutRow: View {
             HStack {
                 SettingsSearchHighlightedText(title, searchText: searchText)
                 Spacer()
-                KeyboardShortcuts.Recorder(shortcut: keyboardShortcutBinding)
-                    .shortcutValidation { keyboardShortcut in
-                        guard LinguistMacCore.KeyboardShortcut(keyboardShortcut) != nil else {
-                            return .disallow(reason: "This key is not supported yet.")
-                        }
-                        return .allow
-                    }
-                    .fixedSize(horizontal: true, vertical: false)
+                KeyboardShortcuts.Recorder(for: action.keyboardShortcutsName) { keyboardShortcut in
+                    updateShortcut(keyboardShortcut)
+                }
+                .fixedSize(horizontal: true, vertical: false)
             }
 
             if let result, result.issue != nil {
@@ -278,25 +275,30 @@ struct ShortcutRow: View {
         }
         .accessibilityElement(children: .combine)
         .padding(.vertical, SettingsLayout.rowVerticalPadding)
+        .onAppear {
+            syncRecorderShortcut()
+        }
     }
 
-    private var keyboardShortcutBinding: Binding<KeyboardShortcuts.Shortcut?> {
-        Binding {
-            shortcut.keyboardShortcutsShortcut
-        } set: { newValue in
-            guard let newValue else {
-                shortcut = defaultShortcut
-                onChange()
-                return
-            }
-
-            if let appShortcut = LinguistMacCore.KeyboardShortcut(newValue) {
-                shortcut = appShortcut
-            } else {
-                shortcut = defaultShortcut
-            }
+    private func updateShortcut(_ keyboardShortcut: KeyboardShortcuts.Shortcut?) {
+        guard let keyboardShortcut else {
+            shortcut = defaultShortcut
+            syncRecorderShortcut()
             onChange()
+            return
         }
+
+        if let appShortcut = LinguistMacCore.KeyboardShortcut(keyboardShortcut) {
+            shortcut = appShortcut
+        } else {
+            shortcut = defaultShortcut
+            syncRecorderShortcut()
+        }
+        onChange()
+    }
+
+    private func syncRecorderShortcut() {
+        KeyboardShortcuts.setShortcut(shortcut.keyboardShortcutsShortcut, for: action.keyboardShortcutsName)
     }
 }
 

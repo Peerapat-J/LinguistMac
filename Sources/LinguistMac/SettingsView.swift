@@ -210,6 +210,7 @@ private extension SettingsView {
                 ShortcutRow(
                     title: "Screen translate",
                     searchText: sidebarSearchText,
+                    action: .screenTranslation,
                     shortcut: shortcutBinding(\.screenTranslationShortcut),
                     defaultShortcut: .screenTranslationDefault,
                     result: shortcutResult(for: .screenTranslation),
@@ -220,6 +221,7 @@ private extension SettingsView {
                 ShortcutRow(
                     title: "Quick translate",
                     searchText: sidebarSearchText,
+                    action: .quickTranslate,
                     shortcut: shortcutBinding(\.quickTranslateShortcut),
                     defaultShortcut: .quickTranslateDefault,
                     result: shortcutResult(for: .quickTranslate),
@@ -230,6 +232,7 @@ private extension SettingsView {
                 ShortcutRow(
                     title: "Selected text translate",
                     searchText: sidebarSearchText,
+                    action: .textSelectionTranslation,
                     shortcut: shortcutBinding(\.textSelectionShortcut),
                     defaultShortcut: .textSelectionDefault,
                     result: shortcutResult(for: .textSelectionTranslation),

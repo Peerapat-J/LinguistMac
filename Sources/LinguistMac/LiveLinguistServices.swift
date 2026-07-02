@@ -221,10 +221,12 @@ final class SystemShortcutRegistry: ShortcutRegistering, @unchecked Sendable {
         guard let keyboardShortcut = shortcut.keyboardShortcutsShortcut else {
             throw SystemShortcutRegistryError.unsupportedKey(shortcut.key)
         }
+        let shortcutName = action.keyboardShortcutsName
 
         tasksByAction[action]?.cancel()
+        KeyboardShortcuts.setShortcut(keyboardShortcut, for: shortcutName)
         tasksByAction[action] = Task { [weak self] in
-            for await _ in KeyboardShortcuts.events(.keyUp, for: keyboardShortcut) {
+            for await _ in KeyboardShortcuts.events(.keyUp, for: shortcutName) {
                 await MainActor.run {
                     self?.onAction?(action)
                 }
