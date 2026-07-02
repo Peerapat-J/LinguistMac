@@ -82,6 +82,7 @@ private extension SettingsView {
             VStack(spacing: 4) {
                 ForEach(filteredSidebarSections) { section in
                     Button {
+                        clearTextInputFocus()
                         selectedSection = section
                     } label: {
                         HStack(spacing: 8) {
@@ -356,6 +357,7 @@ private extension SettingsView {
 
     var privacySettings: some View {
         PrivacySettingsSection(searchText: sidebarSearchText) {
+            clearTextInputFocus()
             selectedSection = .api
         }
     }
@@ -419,6 +421,7 @@ private extension SettingsView {
             return
         }
 
+        clearTextInputFocus()
         sectionHistoryIndex -= 1
         selectedSection = sectionHistory[sectionHistoryIndex]
     }
@@ -428,6 +431,7 @@ private extension SettingsView {
             return
         }
 
+        clearTextInputFocus()
         sectionHistoryIndex += 1
         selectedSection = sectionHistory[sectionHistoryIndex]
     }
@@ -444,9 +448,11 @@ private extension SettingsView {
             model.openSystemSettings(for: .speechRecognition)
         case .appleTranslation:
             model.record(.settings)
+            clearTextInputFocus()
             selectedSection = .translation
         case .cloudProvider:
             model.record(.settings)
+            clearTextInputFocus()
             selectedSection = .api
         }
 
@@ -454,6 +460,7 @@ private extension SettingsView {
     }
 
     func openSetupGuide() {
+        clearTextInputFocus()
         model.reopenOnboarding()
         openWindow(id: AppWindow.onboarding.rawValue)
         NSApp.activate(ignoringOtherApps: true)
@@ -606,6 +613,10 @@ private extension SettingsView {
         Task {
             await model.refreshShortcutRegistrations()
         }
+    }
+
+    func clearTextInputFocus() {
+        NSApp.keyWindow?.makeFirstResponder(nil)
     }
 
     func shortcutResult(for action: ShortcutAction) -> ShortcutRegistrationResult? {
