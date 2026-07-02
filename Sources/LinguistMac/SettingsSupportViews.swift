@@ -433,6 +433,8 @@ extension PermissionStatus {
 
 struct SidebarTrafficLights: View {
     @State private var isHovering = false
+    private let buttonHitSize: CGFloat = 18
+    private let trafficLightSize: CGFloat = 14
 
     var body: some View {
         HStack(spacing: 8) {
@@ -473,13 +475,15 @@ struct SidebarTrafficLights: View {
             ZStack {
                 Circle()
                     .fill(isEnabled ? color : disabledTrafficLightColor)
+                    .frame(width: trafficLightSize, height: trafficLightSize)
 
                 Image(systemName: symbolName)
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(Color.black.opacity(isEnabled ? 0.58 : 0.28))
                     .opacity(isHovering ? 1 : 0)
             }
-            .frame(width: 12, height: 12)
+            .frame(width: buttonHitSize, height: buttonHitSize)
+            .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
