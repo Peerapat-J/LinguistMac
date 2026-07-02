@@ -164,7 +164,7 @@ struct ProviderConfigurationRow: View {
     let searchText: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     SettingsSearchHighlightedText(provider.displayName, searchText: searchText)
@@ -183,13 +183,15 @@ struct ProviderConfigurationRow: View {
                     .lineLimit(1)
             }
 
-            SecureField("API key", text: apiKeyDraftBinding)
+            VStack(alignment: .leading, spacing: 6) {
+                SecureField("API key", text: apiKeyDraftBinding)
 
-            if provider.id == .microsoftAzure {
-                TextField("Region", text: apiRegionDraftBinding)
+                if provider.id == .microsoftAzure {
+                    TextField("Region", text: apiRegionDraftBinding)
+                }
             }
 
-            HStack {
+            HStack(spacing: 8) {
                 Button("Save") {
                     Task {
                         await model.saveAPIKey(for: provider.id)
@@ -219,7 +221,7 @@ struct ProviderConfigurationRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, SettingsLayout.rowVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
