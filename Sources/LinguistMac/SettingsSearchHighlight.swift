@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SettingsSearchHighlightedText: View {
+struct SettingsSearchHighlightedText: SwiftUI.View {
     let text: String
     let searchText: String
 
@@ -9,8 +9,8 @@ struct SettingsSearchHighlightedText: View {
         self.searchText = searchText
     }
 
-    var body: some View {
-        Text(text.highlightedForSettingsSearch(searchText))
+    var body: some SwiftUI.View {
+        SwiftUI.Text(text.highlightedForSettingsSearch(searchText))
     }
 }
 
@@ -45,7 +45,7 @@ private extension String {
                 let upperBound = AttributedString.Index(foundRange.upperBound, within: highlightedString)
 
                 if let lowerBound, let upperBound {
-                    highlightedString[lowerBound ..< upperBound].backgroundColor = .yellow.opacity(0.38)
+                    highlightedString[lowerBound ..< upperBound].backgroundColor = SwiftUI.Color.yellow.opacity(0.38)
                 }
 
                 searchStart = foundRange.isEmpty ? index(after: foundRange.lowerBound) : foundRange.upperBound
