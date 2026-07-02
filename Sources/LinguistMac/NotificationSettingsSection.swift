@@ -18,16 +18,6 @@ struct NotificationSettingsSection: View {
                     detail: "Choose the sound played after Screen Translate completes."
                 ) {
                     HStack(spacing: 8) {
-                        Button {
-                            Task { await model.playSelectedScreenTranslationSound() }
-                        } label: {
-                            Image(systemName: "play.fill")
-                                .frame(width: 18, height: 18)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!model.settings.screenTranslationSoundEnabled)
-                        .accessibilityLabel("Preview Screen Translate sound")
-
                         Picker("", selection: $model.settings.screenTranslationSoundName) {
                             ForEach(soundOptions, id: \.self) { soundName in
                                 Text(soundName)
@@ -39,6 +29,18 @@ struct NotificationSettingsSection: View {
                         .onChange(of: model.settings.screenTranslationSoundName) {
                             Task { await model.playSelectedScreenTranslationSound() }
                         }
+
+                        Button {
+                            Task { await model.playSelectedScreenTranslationSound() }
+                        } label: {
+                            Image(systemName: "play.circle")
+                                .font(.system(size: 16, weight: .medium))
+                                .symbolRenderingMode(.hierarchical)
+                                .frame(width: 20, height: 20)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!model.settings.screenTranslationSoundEnabled)
+                        .accessibilityLabel("Preview Screen Translate sound")
                     }
                 }
             }
