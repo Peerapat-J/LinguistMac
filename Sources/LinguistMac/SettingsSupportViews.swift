@@ -532,10 +532,37 @@ private struct SidebarVisualEffectBackground: NSViewRepresentable {
 
 private final class SettingsWindowConfiguratorView: NSView {
     private weak var configuredWindow: NSWindow?
+    private var cursorTrackingArea: NSTrackingArea?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         configureWindowIfNeeded()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+
+        if let cursorTrackingArea {
+            removeTrackingArea(cursorTrackingArea)
+        }
+
+        let trackingArea = NSTrackingArea(
+            rect: .zero,
+            options: [.activeInKeyWindow, .inVisibleRect, .mouseMoved, .mouseEnteredAndExited],
+            owner: self
+        )
+        addTrackingArea(trackingArea)
+        cursorTrackingArea = trackingArea
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        resetStaleTextCursorIfNeeded(for: event)
+        super.mouseMoved(with: event)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        resetStaleTextCursorIfNeeded(for: event)
+        super.mouseExited(with: event)
     }
 
     func configureWindowIfNeeded() {
@@ -560,6 +587,7 @@ private final class SettingsWindowConfiguratorView: NSView {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.isMovableByWindowBackground = true
+        window.acceptsMouseMovedEvents = true
         hideStandardWindowButtons(in: window)
 
         DispatchQueue.main.async { [weak self, weak window] in
@@ -567,9 +595,24 @@ private final class SettingsWindowConfiguratorView: NSView {
             window?.isOpaque = false
             window?.backgroundColor = .clear
             window?.isMovableByWindowBackground = true
+            window?.acceptsMouseMovedEvents = true
             if let window {
                 self?.hideStandardWindowButtons(in: window)
             }
+        }
+    }
+
+    private func resetStaleTextCursorIfNeeded(for event: NSEvent) {
+        guard let contentView = window?.contentView else {
+            return
+        }
+
+        guard !contentView.containsTextInput(atWindowPoint: event.locationInWindow) else {
+            return
+        }
+
+        if NSCursor.current.isEqual(NSCursor.iBeam) {
+            NSCursor.arrow.set()
         }
     }
 
@@ -584,5 +627,20 @@ private final class SettingsWindowConfiguratorView: NSView {
         for button in buttons {
             button.isHidden = true
         }
+    }
+}
+
+private extension NSView {
+    func containsTextInput(atWindowPoint point: NSPoint) -> Bool {
+        let localPoint = convert(point, from: nil)
+        guard bounds.contains(localPoint) else {
+            return false
+        }
+
+        if self is NSTextField || self is NSTextView {
+            return true
+        }
+
+        return subviews.contains { $0.containsTextInput(atWindowPoint: point) }
     }
 }
