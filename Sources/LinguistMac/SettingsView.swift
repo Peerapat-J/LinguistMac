@@ -54,6 +54,21 @@ private extension SettingsView {
 
                 TextField("Search", text: $sidebarSearchText)
                     .textFieldStyle(.plain)
+                    .frame(maxWidth: .infinity)
+
+                if !sidebarSearchText.isEmpty {
+                    Button {
+                        sidebarSearchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12, weight: .medium))
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
+                    .help("Clear search")
+                }
             }
             .padding(.horizontal, 8)
             .frame(height: 26)
