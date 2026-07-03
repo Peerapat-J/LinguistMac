@@ -246,6 +246,7 @@ struct ShortcutRow: View {
     let title: String
     let searchText: String
     let action: ShortcutAction
+    let isEnabled: Bool
     @Binding var shortcut: LinguistMacCore.KeyboardShortcut
     let defaultShortcut: LinguistMacCore.KeyboardShortcut
     let result: ShortcutRegistrationResult?
@@ -278,6 +279,9 @@ struct ShortcutRow: View {
         .onAppear {
             syncRecorderShortcut()
         }
+        .onChange(of: isEnabled) {
+            syncRecorderShortcut()
+        }
     }
 
     private func updateShortcut(_ keyboardShortcut: KeyboardShortcuts.Shortcut?) {
@@ -298,6 +302,11 @@ struct ShortcutRow: View {
     }
 
     private func syncRecorderShortcut() {
+        guard isEnabled else {
+            KeyboardShortcuts.disable(action.keyboardShortcutsName)
+            return
+        }
+
         KeyboardShortcuts.setShortcut(shortcut.keyboardShortcutsShortcut, for: action.keyboardShortcutsName)
     }
 }

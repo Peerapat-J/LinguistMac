@@ -237,6 +237,7 @@ final class SystemShortcutRegistry: ShortcutRegistering, @unchecked Sendable {
     func unregister(_ action: ShortcutAction) async {
         tasksByAction[action]?.cancel()
         tasksByAction[action] = nil
+        KeyboardShortcuts.disable(action.keyboardShortcutsName)
     }
 }
 
