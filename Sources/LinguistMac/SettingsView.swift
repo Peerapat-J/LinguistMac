@@ -195,7 +195,7 @@ private extension SettingsView {
                 SettingsDivider()
                 settingsSwitchRow("Drag translation", isOn: $model.settings.dragTranslationEnabled)
                 SettingsDivider()
-                settingsSwitchRow("Selected text translation", isOn: $model.settings.doubleCopyTranslationEnabled)
+                settingsSwitchRow("Cmd+C+C translation", isOn: $model.settings.doubleCopyTranslationEnabled)
                 if let message = model.appPreferenceMessage {
                     Text(message)
                         .font(.caption)
