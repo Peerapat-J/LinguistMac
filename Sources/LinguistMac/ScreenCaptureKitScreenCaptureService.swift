@@ -80,7 +80,7 @@ private final class RegionSelectionOverlayController {
     static let shared = RegionSelectionOverlayController()
 
     private var continuation: CheckedContinuation<CGRect, Error>?
-    private var windows: [NSWindow] = []
+    private var windows: [RegionSelectionOverlayWindow] = []
 
     func selectRegion() async throws -> CGRect {
         guard continuation == nil else {
@@ -95,13 +95,7 @@ private final class RegionSelectionOverlayController {
 
     private func showOverlayWindows() {
         windows = NSScreen.screens.map { screen in
-            let window = NSWindow(
-                contentRect: screen.frame,
-                styleMask: .borderless,
-                backing: .buffered,
-                defer: false,
-                screen: screen
-            )
+            let window = RegionSelectionOverlayWindow(screen: screen)
             let view = RegionSelectionOverlayView(
                 screenFrame: screen.frame,
                 onComplete: { [weak self] rect in
@@ -119,7 +113,8 @@ private final class RegionSelectionOverlayController {
             window.level = .screenSaver
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
             window.ignoresMouseEvents = false
-            window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
+            window.makeKey()
             window.makeFirstResponder(view)
             return window
         }
@@ -141,6 +136,29 @@ private final class RegionSelectionOverlayController {
         let continuation = continuation
         self.continuation = nil
         return continuation
+    }
+}
+
+private final class RegionSelectionOverlayWindow: NSPanel {
+    init(screen: NSScreen) {
+        super.init(
+            contentRect: screen.frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+
+        hidesOnDeactivate = false
+        isFloatingPanel = true
+        isReleasedWhenClosed = false
+    }
+
+    override var canBecomeKey: Bool {
+        true
+    }
+
+    override var canBecomeMain: Bool {
+        false
     }
 }
 
