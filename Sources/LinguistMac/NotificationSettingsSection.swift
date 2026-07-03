@@ -8,7 +8,7 @@ struct NotificationSettingsSection: View {
         VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
             SettingsSectionCard("Sound", searchText: searchText) {
                 switchRow(
-                    "Play completion sound",
+                    "Play Completion Sound",
                     detail: "Play sound when translation completes",
                     isOn: $model.settings.screenTranslationSoundEnabled
                 )
@@ -41,14 +41,14 @@ struct NotificationSettingsSection: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(!model.settings.screenTranslationSoundEnabled)
-                        .accessibilityLabel("Preview Screen Translate sound")
+                        .accessibilityLabel("Preview Screen Translate Sound")
                     }
                 }
             }
 
             SettingsSectionCard("System Notification", searchText: searchText) {
                 switchRow(
-                    "Show completion notification",
+                    "Show Completion Notification",
                     detail: "Show notification when translation completes",
                     isOn: notificationEnabledBinding
                 )

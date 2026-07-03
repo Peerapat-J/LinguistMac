@@ -129,7 +129,7 @@ public enum TranslationProviderConfigurationStatus: Equatable, Sendable {
         case .ready:
             "Ready"
         case .needsAPIKey:
-            "API key required"
+            "API Key Required"
         case let .unavailable(reason):
             reason
         }

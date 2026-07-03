@@ -5,22 +5,22 @@ extension SettingsSectionID {
             [
                 title,
                 "App",
-                "App language",
+                "App Language",
                 "Language",
                 "Menu Bar Icon",
-                "Launch at login",
-                "Auto copy result to clipboard",
-                "Auto-copy",
-                "Drag translation",
-                "Double copy",
+                "Launch at Login",
+                "Auto Copy Result to Clipboard",
+                "Auto Copy",
+                "Drag Translation",
+                "Double Copy",
                 "Cmd+C+C",
-                "Cmd+C+C translation",
-                "Clipboard translation",
+                "Cmd+C+C Translation",
+                "Clipboard Translation",
                 "Shortcut",
                 "Enable Shortcut",
-                "Screen translate",
-                "Quick translate",
-                "Selected text translate"
+                "Screen Translate",
+                "Quick Translate",
+                "Selected Text Translate"
             ]
         case .translation:
             [
@@ -29,43 +29,43 @@ extension SettingsSectionID {
                 "Engine",
                 "Provider",
                 "Apple Translation",
-                "Cloud translation",
-                "Source language",
+                "Cloud Translation",
+                "Source Language",
                 "Source",
-                "Target language",
+                "Target Language",
                 "Target",
                 "Language"
             ]
         case .appearance:
             [
                 title,
-                "Font family",
-                "Font size",
+                "Font Family",
+                "Font Size",
                 "Font",
                 "Width",
                 "Height",
                 "Popup",
-                "Match selection width"
+                "Match Selection Width"
             ]
         case .notification:
             [
                 title,
                 "Sound",
-                "Play completion sound",
+                "Play Completion Sound",
                 "Screen Translate Sound",
                 "System Notification",
-                "Show completion notification",
+                "Show Completion Notification",
                 "Badge Notification"
             ]
         case .api:
             [
                 title,
                 "Provider Keys",
-                "API key",
+                "API Key",
                 "DeepL",
                 "Google Cloud Translation",
                 "Microsoft Azure Translator",
-                "Azure region",
+                "Azure Region",
                 "Region",
                 "Save",
                 "Test",
@@ -74,7 +74,7 @@ extension SettingsSectionID {
         case .setup:
             [
                 title,
-                "Setup guide",
+                "Setup Guide",
                 "Open Setup Guide",
                 "Screen Translation",
                 "Screen Recording",
@@ -86,17 +86,17 @@ extension SettingsSectionID {
                 "Cloud Providers",
                 "Permission",
                 "Ready",
-                "Not set up"
+                "Not Set Up"
             ]
         case .privacy:
             [
                 title,
-                "History store",
-                "Translation history",
-                "Provider keys",
+                "History Store",
+                "Translation History",
+                "Provider Keys",
                 "Keychain",
-                "API settings",
-                "Local data",
+                "API Settings",
+                "Local Data",
                 "Application Support"
             ]
         }

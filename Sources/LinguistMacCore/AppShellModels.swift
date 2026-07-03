@@ -586,7 +586,7 @@ public struct OnboardingReadinessSnapshot: Equatable, Sendable {
         case .ready:
             "Ready"
         case .needsDownload:
-            "Needs download"
+            "Needs Download"
         case .unavailable:
             "Unsupported"
         }
@@ -610,7 +610,7 @@ public struct OnboardingReadinessSnapshot: Equatable, Sendable {
         case .granted:
             "Ready"
         case .notDetermined:
-            "Not set up"
+            "Not Set Up"
         case .denied:
             "Denied"
         case .restricted:

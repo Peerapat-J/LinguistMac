@@ -44,10 +44,10 @@ extension AppShellModel {
         do {
             try await services.launchAtLogin.setEnabled(isEnabled)
             settings.launchAtLoginEnabled = await services.launchAtLogin.isEnabled()
-            appPreferenceMessage = isEnabled ? "Launch at login enabled." : "Launch at login disabled."
+            appPreferenceMessage = isEnabled ? "Launch at Login Enabled." : "Launch at Login Disabled."
         } catch {
             settings.launchAtLoginEnabled = await services.launchAtLogin.isEnabled()
-            appPreferenceMessage = "Launch at login could not be updated."
+            appPreferenceMessage = "Launch at Login Could Not Be Updated."
         }
     }
 

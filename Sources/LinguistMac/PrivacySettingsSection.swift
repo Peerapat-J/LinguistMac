@@ -9,7 +9,7 @@ struct PrivacySettingsSection: View {
     var body: some View {
         SettingsSectionCard("Privacy", searchText: searchText) {
             PrivacyInfoRow(
-                title: "History store",
+                title: "History Store",
                 detail: "Recent translation history keeps up to \(TranslationHistoryPolicy.defaultLimit) items.",
                 warningDetail: "Avoid editing this file directly.",
                 footnote: TranslationHistoryStoreLocation.displayPath,
@@ -19,21 +19,21 @@ struct PrivacySettingsSection: View {
                     revealHistoryStore()
                 }
                 .controlSize(.small)
-                .accessibilityLabel("Show translation history store in Finder")
-                .help("Show translation history store in Finder")
+                .accessibilityLabel("Show Translation History Store in Finder")
+                .help("Show Translation History Store in Finder")
             }
 
             SettingsDivider()
 
             PrivacyInfoRow(
-                title: "Provider keys",
+                title: "Provider Keys",
                 detail: "API keys and Azure region are stored in macOS Keychain. Manage or clear them in API settings.",
                 searchText: searchText
             ) {
                 Button("Open API Settings", action: openAPISettings)
                     .controlSize(.small)
-                    .accessibilityLabel("Open API settings")
-                    .help("Open API settings")
+                    .accessibilityLabel("Open API Settings")
+                    .help("Open API Settings")
             }
         }
     }

@@ -135,7 +135,7 @@ final class AppShellModelsTests: XCTestCase {
         let downloadItems = Dictionary(uniqueKeysWithValues: needsDownload.items.map { ($0.kind, $0) })
         let unsupportedItems = Dictionary(uniqueKeysWithValues: unsupported.items.map { ($0.kind, $0) })
 
-        XCTAssertEqual(downloadItems[.appleTranslation]?.statusText, "Needs download")
+        XCTAssertEqual(downloadItems[.appleTranslation]?.statusText, "Needs Download")
         XCTAssertEqual(downloadItems[.appleTranslation]?.status, .notDetermined)
         XCTAssertEqual(unsupportedItems[.appleTranslation]?.statusText, "Unsupported")
         XCTAssertEqual(unsupportedItems[.cloudProvider]?.statusText, "Ready")

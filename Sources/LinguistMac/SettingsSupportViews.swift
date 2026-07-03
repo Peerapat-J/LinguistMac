@@ -200,7 +200,7 @@ struct ProviderConfigurationRow: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                SecureField("API key", text: apiKeyDraftBinding)
+                SecureField("API Key", text: apiKeyDraftBinding)
 
                 if provider.id == .microsoftAzure {
                     TextField("Region", text: apiRegionDraftBinding)
@@ -370,7 +370,7 @@ extension TranslationProviderDescriptor {
     var pickerTitle: String {
         isConfigured || !requiresAPIKey
             ? displayName
-            : "\(displayName) - API key required"
+            : "\(displayName) - API Key Required"
     }
 
     var statusImage: String {

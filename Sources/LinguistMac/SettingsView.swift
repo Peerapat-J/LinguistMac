@@ -66,8 +66,8 @@ private extension SettingsView {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Clear search")
-                    .help("Clear search")
+                    .accessibilityLabel("Clear Search")
+                    .help("Clear Search")
                 }
             }
             .padding(.horizontal, 8)
@@ -167,7 +167,7 @@ private extension SettingsView {
     var generalSettings: some View {
         VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
             settingsSection("App") {
-                settingsRow("App language") {
+                settingsRow("App Language") {
                     Picker("", selection: appLanguageBinding) {
                         ForEach(AppLanguage.allCases, id: \.rawValue) { language in
                             Text(LocalizedStringKey(language.displayName))
@@ -189,13 +189,13 @@ private extension SettingsView {
                     .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
                 }
                 SettingsDivider()
-                settingsSwitchRow("Launch at login", isOn: launchAtLoginBinding)
+                settingsSwitchRow("Launch at Login", isOn: launchAtLoginBinding)
                 SettingsDivider()
-                settingsSwitchRow("Auto copy result to clipboard", isOn: $model.settings.autoCopyEnabled)
+                settingsSwitchRow("Auto Copy Result to Clipboard", isOn: $model.settings.autoCopyEnabled)
                 SettingsDivider()
-                settingsSwitchRow("Drag translation", isOn: $model.settings.dragTranslationEnabled)
+                settingsSwitchRow("Drag Translation", isOn: $model.settings.dragTranslationEnabled)
                 SettingsDivider()
-                settingsSwitchRow("Cmd+C+C translation", isOn: $model.settings.doubleCopyTranslationEnabled)
+                settingsSwitchRow("Cmd+C+C Translation", isOn: $model.settings.doubleCopyTranslationEnabled)
                 if let message = model.appPreferenceMessage {
                     Text(message)
                         .font(.caption)
@@ -208,7 +208,7 @@ private extension SettingsView {
                 settingsSwitchRow("Enable Shortcut", isOn: shortcutsEnabledBinding)
                 SettingsDivider()
                 ShortcutRow(
-                    title: "Screen translate",
+                    title: "Screen Translate",
                     searchText: sidebarSearchText,
                     action: .screenTranslation,
                     isEnabled: model.settings.shortcutsEnabled,
@@ -220,7 +220,7 @@ private extension SettingsView {
                 .disabled(!model.settings.shortcutsEnabled)
                 SettingsDivider()
                 ShortcutRow(
-                    title: "Quick translate",
+                    title: "Quick Translate",
                     searchText: sidebarSearchText,
                     action: .quickTranslate,
                     isEnabled: model.settings.shortcutsEnabled,
@@ -232,7 +232,7 @@ private extension SettingsView {
                 .disabled(!model.settings.shortcutsEnabled)
                 SettingsDivider()
                 ShortcutRow(
-                    title: "Selected text translate",
+                    title: "Selected Text Translate",
                     searchText: sidebarSearchText,
                     action: .textSelectionTranslation,
                     isEnabled: model.settings.shortcutsEnabled,
@@ -259,7 +259,7 @@ private extension SettingsView {
                 .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
             }
             SettingsDivider()
-            settingsRow("Source language") {
+            settingsRow("Source Language") {
                 Picker("", selection: sourceLanguageBinding) {
                     ForEach(model.availableLanguages, id: \.id) { language in
                         Text(LocalizedStringKey(language.displayName))
@@ -270,7 +270,7 @@ private extension SettingsView {
                 .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
             }
             SettingsDivider()
-            settingsRow("Target language") {
+            settingsRow("Target Language") {
                 Picker("", selection: targetLanguageBinding) {
                     ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
                         Text(LocalizedStringKey(language.displayName))
@@ -285,7 +285,7 @@ private extension SettingsView {
 
     var appearanceSettings: some View {
         settingsSection("Appearance") {
-            settingsRow("Font family") {
+            settingsRow("Font Family") {
                 Picker("", selection: $model.settings.popupFontFamily) {
                     ForEach(PopupFontOption.allCases) { option in
                         Text(option.displayName)
@@ -296,7 +296,7 @@ private extension SettingsView {
                 .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
             }
             SettingsDivider()
-            settingsRow("Font size") {
+            settingsRow("Font Size") {
                 Stepper(
                     "\(Int(model.settings.popupFontSize)) pt",
                     value: $model.settings.popupFontSize,
@@ -320,7 +320,7 @@ private extension SettingsView {
                 unit: "px"
             )
             SettingsDivider()
-            settingsSwitchRow("Match selection width", isOn: $model.settings.matchPopupWidthToSelection)
+            settingsSwitchRow("Match Selection Width", isOn: $model.settings.matchPopupWidthToSelection)
         }
     }
 
