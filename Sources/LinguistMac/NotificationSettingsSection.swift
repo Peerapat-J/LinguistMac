@@ -25,6 +25,7 @@ struct NotificationSettingsSection: View {
                             }
                         }
                         .labelsHidden()
+                        .accessibilityLabel("Screen Translate Sound")
                         .disabled(!model.settings.screenTranslationSoundEnabled)
                         .onChange(of: model.settings.screenTranslationSoundName) {
                             Task { await model.playSelectedScreenTranslationSound() }
