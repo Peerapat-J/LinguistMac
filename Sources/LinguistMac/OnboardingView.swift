@@ -5,6 +5,7 @@ struct OnboardingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var model: AppShellModel
+    @State private var readinessRefreshTrigger = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -20,19 +21,8 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(model.readiness.items) { item in
                         SetupStatusCard(item: item) {
-                            switch item.kind {
-                            case .screenTranslation:
-                                model.openSystemSettings(for: .screenRecording)
-                            case .accessibility:
-                                model.openSystemSettings(for: .accessibility)
-                            case .voiceMicrophone:
-                                model.openSystemSettings(for: .microphone)
-                            case .speechRecognition:
-                                model.openSystemSettings(for: .speechRecognition)
-                            case .appleTranslation:
-                                openLinguistSettings(model: model, using: openSettings)
-                            case .cloudProvider:
-                                openLinguistSettings(model: model, using: openSettings)
+                            Task {
+                                await handleReadinessAction(for: item)
                             }
                         }
                     }
@@ -51,6 +41,7 @@ struct OnboardingView: View {
             HStack {
                 Button("Open Settings") {
                     openLinguistSettings(model: model, using: openSettings)
+                    readinessRefreshTrigger += 1
                 }
 
                 Spacer()
@@ -69,9 +60,24 @@ struct OnboardingView: View {
         }
         .padding(24)
         .frame(width: 620, height: 560)
-        .task {
-            await model.refreshReadiness()
+        .readinessRefreshMonitor(model: model, trigger: readinessRefreshTrigger)
+    }
+
+    private func handleReadinessAction(for item: OnboardingReadinessItem) async {
+        switch item.kind {
+        case .screenTranslation:
+            model.openSystemSettings(for: .screenRecording)
+        case .accessibility:
+            model.openSystemSettings(for: .accessibility)
+        case .voiceMicrophone:
+            await model.handleVoicePermissionSetupAction(for: .microphone, currentStatus: item.status)
+        case .speechRecognition:
+            await model.handleVoicePermissionSetupAction(for: .speechRecognition, currentStatus: item.status)
+        case .appleTranslation, .cloudProvider:
+            openLinguistSettings(model: model, using: openSettings)
         }
+
+        readinessRefreshTrigger += 1
     }
 }
 
@@ -95,6 +101,9 @@ private struct SetupStatusCard: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    Text(item.statusText)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(item.status.tint)
                 }
 
                 Text(item.detail)
@@ -108,9 +117,75 @@ private struct SetupStatusCard: View {
                 Button("Open") {
                     action()
                 }
+                .fixedSize(horizontal: true, vertical: false)
             }
         }
         .padding(14)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
+}
+
+extension View {
+    func readinessRefreshMonitor(model: AppShellModel, trigger: Int) -> some View {
+        modifier(ReadinessRefreshMonitor(model: model, trigger: trigger))
+    }
+}
+
+private struct ReadinessRefreshMonitor: ViewModifier {
+    @Environment(\.scenePhase) private var scenePhase
+    let model: AppShellModel
+    let trigger: Int
+    @State private var monitorTask: Task<Void, Never>?
+
+    func body(content: Content) -> some View {
+        content
+            .task {
+                startMonitoring()
+            }
+            .onChange(of: trigger) { _, _ in
+                startMonitoring()
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active else {
+                    return
+                }
+                startMonitoring()
+            }
+            .onDisappear {
+                monitorTask?.cancel()
+                monitorTask = nil
+            }
+    }
+
+    private func startMonitoring() {
+        monitorTask?.cancel()
+        monitorTask = Task { [model] in
+            await refreshUntilTimeout(model: model)
+        }
+    }
+
+    private func refreshUntilTimeout(model: AppShellModel) async {
+        for attempt in 0 ... ReadinessRefreshSchedule.maxRefreshAttempts {
+            guard !Task.isCancelled else {
+                return
+            }
+
+            await model.refreshReadiness()
+
+            guard attempt < ReadinessRefreshSchedule.maxRefreshAttempts else {
+                return
+            }
+
+            do {
+                try await Task.sleep(nanoseconds: ReadinessRefreshSchedule.intervalNanoseconds)
+            } catch {
+                return
+            }
+        }
+    }
+}
+
+private enum ReadinessRefreshSchedule {
+    static let intervalNanoseconds: UInt64 = 2_000_000_000
+    static let maxRefreshAttempts = 45
 }

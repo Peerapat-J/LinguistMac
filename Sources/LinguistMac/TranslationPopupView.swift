@@ -39,16 +39,6 @@ struct TranslationPopupView: View {
         HStack {
             Label("Translation", systemImage: "text.bubble")
                 .font(.headline)
-
-            Spacer()
-
-            Button {
-                dismiss()
-            } label: {
-                Label("Close", systemImage: "xmark")
-                    .labelStyle(.iconOnly)
-            }
-            .buttonStyle(.borderless)
         }
     }
 

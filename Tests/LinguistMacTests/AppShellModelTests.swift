@@ -314,7 +314,9 @@ final class AppShellModelTests: XCTestCase {
         historyStore: any TranslationHistoryStoring = TestTranslationHistoryStore(),
         apiKeyStore: any APIKeyStoring = TestAPIKeyStore(),
         permissionChecker: any PermissionChecking = TestPermissionChecker(),
-        clipboard: TestClipboard = TestClipboard()
+        clipboard: TestClipboard = TestClipboard(),
+        soundPlayer: any ScreenTranslationSoundPlaying = NoOpScreenTranslationSoundPlayer(),
+        notifier: any ScreenTranslationNotificationPosting = NoOpScreenTranslationNotifier()
     ) -> LinguistServices {
         LinguistServices(
             screenCapture: TestScreenCaptureService(),
@@ -328,7 +330,9 @@ final class AppShellModelTests: XCTestCase {
             permissionChecker: permissionChecker,
             clipboard: clipboard,
             selectedTextCapture: TestSelectedTextCapture(),
-            shortcutRegistry: TestShortcutRegistry()
+            shortcutRegistry: TestShortcutRegistry(),
+            screenTranslationSoundPlayer: soundPlayer,
+            screenTranslationNotifier: notifier
         )
     }
 }

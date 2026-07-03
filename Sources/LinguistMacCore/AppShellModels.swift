@@ -155,7 +155,7 @@ public extension TranslationFailure {
         case let .permissionDenied(kind):
             TranslationFailurePresentation(
                 title: "Permission Required",
-                message: "\(kind.displayName) permission is needed before this workflow can run.",
+                message: Self.permissionDeniedMessage(for: kind),
                 recoveryAction: .openSystemSettings(kind)
             )
         case .captureCancelled:
@@ -246,6 +246,16 @@ public extension TranslationFailure {
                 message: "The translation provider could not complete the request. Check configuration or try again.",
                 recoveryAction: .openSettings
             )
+        }
+    }
+
+    private static func permissionDeniedMessage(for kind: PermissionKind) -> String {
+        switch kind {
+        case .screenRecording:
+            "\(kind.displayName) permission is needed before this workflow can run. "
+                + "If it is already enabled in System Settings, quit and reopen LinguistMac so macOS applies it."
+        case .accessibility, .microphone, .speechRecognition, .keychain, .network:
+            "\(kind.displayName) permission is needed before this workflow can run."
         }
     }
 }
@@ -419,6 +429,7 @@ public struct OnboardingReadinessItem: Identifiable, Equatable, Sendable {
     public let title: String
     public let detail: String
     public let status: PermissionStatus
+    public let statusText: String
     public let isRequiredForDefaultWorkflow: Bool
 
     public var id: SetupReadinessKind {
@@ -426,16 +437,7 @@ public struct OnboardingReadinessItem: Identifiable, Equatable, Sendable {
     }
 
     public var showsRecoveryAction: Bool {
-        guard status != .granted else {
-            return false
-        }
-
-        switch kind {
-        case .voiceMicrophone, .speechRecognition:
-            return status == .denied || status == .restricted
-        case .screenTranslation, .accessibility, .appleTranslation, .cloudProvider:
-            return true
-        }
+        status != .granted
     }
 
     public init(
@@ -443,12 +445,14 @@ public struct OnboardingReadinessItem: Identifiable, Equatable, Sendable {
         title: String,
         detail: String,
         status: PermissionStatus,
+        statusText: String,
         isRequiredForDefaultWorkflow: Bool
     ) {
         self.kind = kind
         self.title = title
         self.detail = detail
         self.status = status
+        self.statusText = statusText
         self.isRequiredForDefaultWorkflow = isRequiredForDefaultWorkflow
     }
 }
@@ -476,62 +480,115 @@ public struct OnboardingReadinessSnapshot: Equatable, Sendable {
     ) -> OnboardingReadinessSnapshot {
         OnboardingReadinessSnapshot(
             items: [
-                OnboardingReadinessItem(
-                    kind: .screenTranslation,
-                    title: "Screen Translation",
-                    detail: "Screen Recording is needed before selected-region OCR can run.",
-                    status: screenRecording,
-                    isRequiredForDefaultWorkflow: true
-                ),
-                OnboardingReadinessItem(
-                    kind: .appleTranslation,
-                    title: "Apple Translation",
-                    detail: languagePackDetail(for: appleTranslation),
-                    status: permissionStatus(for: appleTranslation),
-                    isRequiredForDefaultWorkflow: true
-                ),
-                OnboardingReadinessItem(
-                    kind: .accessibility,
-                    title: "Text Selection",
-                    detail: "Accessibility unlocks selected-text, double-copy, and drag workflows later.",
-                    status: accessibility,
-                    isRequiredForDefaultWorkflow: false
-                ),
-                OnboardingReadinessItem(
-                    kind: .voiceMicrophone,
-                    title: "Voice Microphone",
-                    detail: "Microphone access will be needed for explicit push-to-talk voice capture.",
-                    status: microphone,
-                    isRequiredForDefaultWorkflow: false
-                ),
-                OnboardingReadinessItem(
-                    kind: .speechRecognition,
-                    title: "Speech Recognition",
-                    detail: "Speech Recognition will turn short spoken phrases into translatable text.",
-                    status: speechRecognition,
-                    isRequiredForDefaultWorkflow: false
-                ),
-                OnboardingReadinessItem(
-                    kind: .cloudProvider,
-                    title: "Cloud Providers",
-                    detail: "Optional BYOK providers stay disabled until you configure them.",
-                    status: cloudProviderConfigured ? .granted : .notDetermined,
-                    isRequiredForDefaultWorkflow: false
-                )
+                screenTranslationItem(status: screenRecording),
+                appleTranslationItem(readiness: appleTranslation),
+                textSelectionItem(status: accessibility),
+                voiceMicrophoneItem(status: microphone),
+                speechRecognitionItem(status: speechRecognition),
+                cloudProviderItem(isConfigured: cloudProviderConfigured)
             ]
         )
+    }
+
+    private static func screenTranslationItem(status: PermissionStatus) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .screenTranslation,
+            title: "Screen Translation",
+            detail: screenRecordingDetail(for: status),
+            status: status,
+            statusText: permissionStatusText(for: status),
+            isRequiredForDefaultWorkflow: true
+        )
+    }
+
+    private static func appleTranslationItem(readiness: LanguagePackReadiness) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .appleTranslation,
+            title: "Apple Translation",
+            detail: languagePackDetail(for: readiness),
+            status: permissionStatus(for: readiness),
+            statusText: languagePackStatusText(for: readiness),
+            isRequiredForDefaultWorkflow: true
+        )
+    }
+
+    private static func textSelectionItem(status: PermissionStatus) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .accessibility,
+            title: "Text Selection",
+            detail: "Accessibility unlocks selected-text, double-copy, and drag workflows later.",
+            status: status,
+            statusText: permissionStatusText(for: status),
+            isRequiredForDefaultWorkflow: false
+        )
+    }
+
+    private static func voiceMicrophoneItem(status: PermissionStatus) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .voiceMicrophone,
+            title: "Voice Microphone",
+            detail: "Microphone access will be needed for explicit push-to-talk voice capture.",
+            status: status,
+            statusText: permissionStatusText(for: status),
+            isRequiredForDefaultWorkflow: false
+        )
+    }
+
+    private static func speechRecognitionItem(status: PermissionStatus) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .speechRecognition,
+            title: "Speech Recognition",
+            detail: "Speech Recognition will turn short spoken phrases into translatable text.",
+            status: status,
+            statusText: permissionStatusText(for: status),
+            isRequiredForDefaultWorkflow: false
+        )
+    }
+
+    private static func cloudProviderItem(isConfigured: Bool) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .cloudProvider,
+            title: "Cloud Providers",
+            detail: "Optional BYOK providers stay disabled until you configure them.",
+            status: isConfigured ? .granted : .notDetermined,
+            statusText: isConfigured ? "Ready" : "Optional",
+            isRequiredForDefaultWorkflow: false
+        )
+    }
+
+    private static func screenRecordingDetail(for status: PermissionStatus) -> String {
+        switch status {
+        case .granted:
+            "Screen Recording is ready for selected-region OCR."
+        case .notDetermined, .denied, .restricted, .unavailable:
+            "Screen Recording is needed before selected-region OCR can run. "
+                + "If this stays pending after enabling it, restart LinguistMac."
+        }
     }
 
     private static func languagePackDetail(for readiness: LanguagePackReadiness) -> String {
         switch readiness {
         case .unknown:
-            "Language pack status will be checked when Apple Translation wiring lands."
+            "Choose a source language or run a translation so Apple Translation can check this language pair."
         case .ready:
             "On-device Apple Translation language packs are ready."
         case .needsDownload:
             "Download the needed language packs before offline translation."
         case .unavailable:
             "Apple Translation is not available for this language pair yet."
+        }
+    }
+
+    private static func languagePackStatusText(for readiness: LanguagePackReadiness) -> String {
+        switch readiness {
+        case .unknown:
+            "Checking"
+        case .ready:
+            "Ready"
+        case .needsDownload:
+            "Needs Download"
+        case .unavailable:
+            "Unsupported"
         }
     }
 
@@ -545,6 +602,21 @@ public struct OnboardingReadinessSnapshot: Equatable, Sendable {
             .notDetermined
         case .unavailable:
             .unavailable
+        }
+    }
+
+    private static func permissionStatusText(for status: PermissionStatus) -> String {
+        switch status {
+        case .granted:
+            "Ready"
+        case .notDetermined:
+            "Not Set Up"
+        case .denied:
+            "Denied"
+        case .restricted:
+            "Restricted"
+        case .unavailable:
+            "Unavailable"
         }
     }
 }

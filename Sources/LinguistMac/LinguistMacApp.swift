@@ -23,7 +23,7 @@ struct LinguistMacApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("LinguistMac", systemImage: "character.book.closed") {
+        MenuBarExtra("LinguistMac", systemImage: model.settings.menuBarIcon.systemImage) {
             MenuBarMenuView(model: model)
                 .environment(\.locale, model.settings.appLanguage.locale)
         }
@@ -55,6 +55,7 @@ struct LinguistMacApp: App {
                 .environment(\.locale, model.settings.appLanguage.locale)
         }
         .defaultSize(width: 460, height: 320)
+        .restorationBehavior(.disabled)
 
         Window("Setup Guide", id: AppWindow.onboarding.rawValue) {
             OnboardingView(model: model)

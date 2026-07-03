@@ -35,6 +35,11 @@ public struct ShortcutRegistrationPlan: Equatable, Sendable {
     ]
 
     public init(settings: AppSettings) {
+        guard settings.shortcutsEnabled else {
+            assignments = [:]
+            return
+        }
+
         assignments = [
             .screenTranslation: settings.screenTranslationShortcut,
             .textSelectionTranslation: settings.textSelectionShortcut,
@@ -43,6 +48,7 @@ public struct ShortcutRegistrationPlan: Equatable, Sendable {
     }
 
     public func validated(accessibilityStatus: PermissionStatus) -> [ShortcutRegistrationResult] {
+        _ = accessibilityStatus
         let duplicates = duplicateOwners()
 
         return assignments
@@ -52,13 +58,6 @@ public struct ShortcutRegistrationPlan: Equatable, Sendable {
             }
             .map { action in
                 let shortcut = assignments[action] ?? .screenTranslationDefault
-                if accessibilityStatus != .granted {
-                    return ShortcutRegistrationResult(
-                        action: action,
-                        shortcut: shortcut,
-                        issue: .permissionDenied(.accessibility)
-                    )
-                }
                 if let duplicate = duplicates[action] {
                     return ShortcutRegistrationResult(
                         action: action,

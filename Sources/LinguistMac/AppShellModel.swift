@@ -50,6 +50,8 @@ final class AppShellModel: ObservableObject {
     @Published var providerAPIRegionDrafts: [TranslationProviderID: String]
     @Published var providerConfigurationMessages: [TranslationProviderID: String]
     @Published var appPreferenceMessage: String?
+    @Published var screenTranslationSoundNames: [String]
+    @Published var screenTranslationNotificationMessage: String?
     @Published var historyLoadError: HistoryLoadErrorState?
     @Published private(set) var lastCommand: AppShellCommand?
 
@@ -106,6 +108,8 @@ final class AppShellModel: ObservableObject {
         providerAPIRegionDrafts = [:]
         providerConfigurationMessages = [:]
         appPreferenceMessage = nil
+        screenTranslationSoundNames = []
+        screenTranslationNotificationMessage = nil
         historyLoadError = nil
         self.services = services
         shortcutRegistrationCoordinator = ShortcutRegistrationCoordinator(registry: services.shortcutRegistry)
@@ -188,12 +192,74 @@ final class AppShellModel: ObservableObject {
         )
     }
 
+    func handleVoicePermissionSetupAction(
+        for kind: PermissionKind,
+        currentStatus: PermissionStatus
+    ) async {
+        guard kind == .microphone || kind == .speechRecognition else {
+            openSystemSettings(for: kind)
+            return
+        }
+
+        guard currentStatus == .notDetermined else {
+            openSystemSettings(for: kind)
+            return
+        }
+
+        _ = await services.permissionChecker.request(for: kind)
+        await refreshReadiness()
+    }
+
     func refreshShortcutRegistrations() async {
         let accessibility = await services.permissionChecker.status(for: .accessibility)
         shortcutRegistrationResults = await shortcutRegistrationCoordinator.refresh(
             settings: settings,
             accessibilityStatus: accessibility
         )
+    }
+
+    func refreshScreenTranslationSoundNames() async {
+        let soundNames = await services.screenTranslationSoundPlayer.availableSoundNames()
+        screenTranslationSoundNames = soundNames
+        let resolvedSoundName = ScreenTranslationSoundPolicy.resolvedSoundName(
+            settings.screenTranslationSoundName,
+            from: soundNames
+        )
+        if settings.screenTranslationSoundName != resolvedSoundName {
+            settings.screenTranslationSoundName = resolvedSoundName
+        }
+    }
+
+    func playSelectedScreenTranslationSound() async {
+        await services.screenTranslationSoundPlayer.playSound(named: settings.screenTranslationSoundName)
+    }
+
+    func setScreenTranslationNotificationsEnabled(_ isEnabled: Bool) async {
+        guard isEnabled else {
+            settings.screenTranslationNotificationsEnabled = false
+            screenTranslationNotificationMessage = nil
+            return
+        }
+
+        let status = await services.screenTranslationNotifier.requestAuthorization()
+        switch status {
+        case .authorized:
+            settings.screenTranslationNotificationsEnabled = true
+            screenTranslationNotificationMessage = nil
+        case .denied:
+            settings.screenTranslationNotificationsEnabled = false
+            screenTranslationNotificationMessage = "Notifications are disabled in macOS Settings."
+        case .notDetermined:
+            settings.screenTranslationNotificationsEnabled = false
+            screenTranslationNotificationMessage = "Notification permission is still waiting for a system response."
+        case .unavailable:
+            settings.screenTranslationNotificationsEnabled = false
+            screenTranslationNotificationMessage = "Notifications are unavailable on this Mac."
+        }
+    }
+
+    func openScreenTranslationNotificationSettings() async {
+        await services.screenTranslationNotifier.openNotificationSettings()
     }
 
     func speakTranslation(_ result: TranslationResult) {

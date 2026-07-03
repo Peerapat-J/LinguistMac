@@ -2,6 +2,46 @@ import Foundation
 import LinguistMacCore
 import SwiftData
 
+enum TranslationHistoryStoreLocation {
+    static let storeName = "LinguistMacTranslationHistory"
+    static let storeFileName = "\(storeName).store"
+
+    static var storeURL: URL? {
+        applicationSupportDirectory?.appendingPathComponent(storeFileName)
+    }
+
+    static var displayPath: String {
+        guard let storeURL else {
+            return storeFileName
+        }
+
+        let homeDirectoryPath = FileManager.default.homeDirectoryForCurrentUser.path
+        let storePath = storeURL.path
+        guard storePath.hasPrefix(homeDirectoryPath + "/") else {
+            return storePath
+        }
+
+        return "~/" + storePath.dropFirst(homeDirectoryPath.count + 1)
+    }
+
+    static func prepareStoreDirectory() throws -> URL {
+        guard let storeURL else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+
+        let directoryURL = storeURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+        return storeURL
+    }
+
+    private static var applicationSupportDirectory: URL? {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+    }
+}
+
 @Model
 final class TranslationHistoryRecord {
     var id: UUID
@@ -143,9 +183,10 @@ actor SwiftDataTranslationHistoryStore: TranslationHistoryStoring {
         trimLimit: Int = TranslationHistoryPolicy.defaultLimit
     ) throws -> any TranslationHistoryStoring {
         do {
+            let storeURL = try TranslationHistoryStoreLocation.prepareStoreDirectory()
             let configuration = ModelConfiguration(
-                "LinguistMacTranslationHistory",
-                isStoredInMemoryOnly: false
+                TranslationHistoryStoreLocation.storeName,
+                url: storeURL
             )
             let container = try ModelContainer(
                 for: TranslationHistoryRecord.self,

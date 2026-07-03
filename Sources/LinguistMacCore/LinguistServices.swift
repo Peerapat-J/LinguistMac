@@ -14,6 +14,8 @@ public struct LinguistServices: Sendable {
     public let wordLookupProvider: any WordLookupProviding
     public let speechToText: any SpeechToTextServicing
     public let spokenOutput: any SpokenOutputServicing
+    public let screenTranslationSoundPlayer: any ScreenTranslationSoundPlaying
+    public let screenTranslationNotifier: any ScreenTranslationNotificationPosting
 
     public init(
         screenCapture: any ScreenCaptureServicing,
@@ -30,7 +32,9 @@ public struct LinguistServices: Sendable {
         shortcutRegistry: any ShortcutRegistering,
         wordLookupProvider: any WordLookupProviding = UnavailableWordLookupProvider(),
         speechToText: any SpeechToTextServicing = UnavailableSpeechToTextService(),
-        spokenOutput: any SpokenOutputServicing = UnavailableSpokenOutputService()
+        spokenOutput: any SpokenOutputServicing = UnavailableSpokenOutputService(),
+        screenTranslationSoundPlayer: any ScreenTranslationSoundPlaying = NoOpScreenTranslationSoundPlayer(),
+        screenTranslationNotifier: any ScreenTranslationNotificationPosting = NoOpScreenTranslationNotifier()
     ) {
         self.screenCapture = screenCapture
         self.ocr = ocr
@@ -47,5 +51,7 @@ public struct LinguistServices: Sendable {
         self.wordLookupProvider = wordLookupProvider
         self.speechToText = speechToText
         self.spokenOutput = spokenOutput
+        self.screenTranslationSoundPlayer = screenTranslationSoundPlayer
+        self.screenTranslationNotifier = screenTranslationNotifier
     }
 }

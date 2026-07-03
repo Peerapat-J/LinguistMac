@@ -12,8 +12,13 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(settings.autoCopyEnabled)
         XCTAssertFalse(settings.launchAtLoginEnabled)
         XCTAssertEqual(settings.appLanguage, .system)
+        XCTAssertEqual(settings.menuBarIcon, .asterisk)
         XCTAssertFalse(settings.doubleCopyTranslationEnabled)
         XCTAssertFalse(settings.dragTranslationEnabled)
+        XCTAssertTrue(settings.shortcutsEnabled)
+        XCTAssertFalse(settings.screenTranslationSoundEnabled)
+        XCTAssertEqual(settings.screenTranslationSoundName, "Glass")
+        XCTAssertFalse(settings.screenTranslationNotificationsEnabled)
     }
 
     func testDefaultShortcutsCoverPrimaryInputModes() {
@@ -22,6 +27,28 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.screenTranslationShortcut, .screenTranslationDefault)
         XCTAssertEqual(settings.textSelectionShortcut, .textSelectionDefault)
         XCTAssertEqual(settings.quickTranslateShortcut, .quickTranslateDefault)
+    }
+
+    func testMenuBarIconDisplayNamesAreHumanReadable() {
+        let displayNames: [MenuBarIcon: String] = [
+            .asterisk: "Asterisk",
+            .lassoBadgeSparkles: "Lasso",
+            .timelapse: "Timelapse",
+            .aqiMedium: "Air Quality",
+            .appSpecular: "App Icon",
+            .handRaysFill: "Hand Rays",
+            .bonjour: "Bonjour",
+            .textQuote: "Text Quote",
+            .characterPhonetic: "Phonetic",
+            .characterMagnify: "Magnifier",
+            .tSquareFill: "T-Square"
+        ]
+
+        for icon in MenuBarIcon.allCases {
+            XCTAssertEqual(icon.systemImage, icon.rawValue)
+            XCTAssertEqual(icon.displayName, displayNames[icon])
+            XCTAssertNotEqual(icon.displayName, icon.rawValue)
+        }
     }
 
     func testSettingsFallbackToAvailableProvider() {
@@ -68,8 +95,13 @@ final class AppSettingsTests: XCTestCase {
         settings.autoCopyEnabled = true
         settings.launchAtLoginEnabled = true
         settings.appLanguage = .korean
+        settings.menuBarIcon = .characterMagnify
         settings.doubleCopyTranslationEnabled = true
+        settings.shortcutsEnabled = false
         settings.screenTranslationShortcut = KeyboardShortcut(key: "T", modifiers: [.command, .shift])
+        settings.screenTranslationSoundEnabled = true
+        settings.screenTranslationSoundName = "Ping"
+        settings.screenTranslationNotificationsEnabled = true
         settings.popupFontFamily = "Noto Sans Thai"
         settings.popupHeight = 480
         settings.popupOriginX = 120
@@ -94,6 +126,21 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.popupFontSize, 12)
         XCTAssertEqual(settings.popupWidth, 320)
         XCTAssertEqual(settings.popupHeight, 240)
+    }
+
+    func testScreenTranslationSoundPolicyPrefersGlassThenFallsBackToFirstSortedSound() {
+        XCTAssertEqual(
+            ScreenTranslationSoundPolicy.defaultSoundName(from: ["Ping", "Glass", "Funk"]),
+            "Glass"
+        )
+        XCTAssertEqual(
+            ScreenTranslationSoundPolicy.defaultSoundName(from: ["Ping", "Funk"]),
+            "Funk"
+        )
+        XCTAssertEqual(
+            ScreenTranslationSoundPolicy.resolvedSoundName("Missing", from: ["Ping", "Funk"]),
+            "Funk"
+        )
     }
 
     func testAppLanguageMapsToLocaleAndAppleLanguagesOverride() {
