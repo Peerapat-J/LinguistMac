@@ -191,7 +191,30 @@ public enum MenuBarIcon: String, CaseIterable, Codable, Sendable {
     }
 
     public var displayName: String {
-        rawValue
+        switch self {
+        case .asterisk:
+            "Asterisk"
+        case .lassoBadgeSparkles:
+            "Lasso"
+        case .timelapse:
+            "Timelapse"
+        case .aqiMedium:
+            "Air Quality"
+        case .appSpecular:
+            "App Icon"
+        case .handRaysFill:
+            "Hand Rays"
+        case .bonjour:
+            "Bonjour"
+        case .textQuote:
+            "Text Quote"
+        case .characterPhonetic:
+            "Phonetic"
+        case .characterMagnify:
+            "Magnifier"
+        case .tSquareFill:
+            "T-Square"
+        }
     }
 }
 

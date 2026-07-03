@@ -29,6 +29,28 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.quickTranslateShortcut, .quickTranslateDefault)
     }
 
+    func testMenuBarIconDisplayNamesAreHumanReadable() {
+        let displayNames: [MenuBarIcon: String] = [
+            .asterisk: "Asterisk",
+            .lassoBadgeSparkles: "Lasso",
+            .timelapse: "Timelapse",
+            .aqiMedium: "Air Quality",
+            .appSpecular: "App Icon",
+            .handRaysFill: "Hand Rays",
+            .bonjour: "Bonjour",
+            .textQuote: "Text Quote",
+            .characterPhonetic: "Phonetic",
+            .characterMagnify: "Magnifier",
+            .tSquareFill: "T-Square"
+        ]
+
+        for icon in MenuBarIcon.allCases {
+            XCTAssertEqual(icon.systemImage, icon.rawValue)
+            XCTAssertEqual(icon.displayName, displayNames[icon])
+            XCTAssertNotEqual(icon.displayName, icon.rawValue)
+        }
+    }
+
     func testSettingsFallbackToAvailableProvider() {
         let appleProvider = TranslationProviderDescriptor(
             id: .apple,
