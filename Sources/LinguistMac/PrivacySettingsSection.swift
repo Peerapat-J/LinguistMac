@@ -12,7 +12,7 @@ struct PrivacySettingsSection: View {
                 title: "History store",
                 detail: "Recent translation history keeps up to \(TranslationHistoryPolicy.defaultLimit) items.",
                 warningDetail: "Avoid editing this file directly.",
-                footnote: Self.historyStoreDisplayPath,
+                footnote: TranslationHistoryStoreLocation.displayPath,
                 searchText: searchText
             ) {
                 Button("Show") {
@@ -39,28 +39,16 @@ struct PrivacySettingsSection: View {
     }
 
     private func revealHistoryStore() {
-        guard let applicationSupportURL = Self.applicationSupportURL else {
+        guard let storeURL = TranslationHistoryStoreLocation.storeURL else {
             return
         }
 
-        let storeURL = Self.historyStoreURL(in: applicationSupportURL)
         if FileManager.default.fileExists(atPath: storeURL.path) {
             NSWorkspace.shared.activateFileViewerSelecting([storeURL])
         } else {
-            NSWorkspace.shared.open(applicationSupportURL)
+            NSWorkspace.shared.open(storeURL.deletingLastPathComponent())
         }
     }
-
-    private static func historyStoreURL(in applicationSupportURL: URL) -> URL {
-        applicationSupportURL.appendingPathComponent(historyStoreFileName)
-    }
-
-    private static var applicationSupportURL: URL? {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-    }
-
-    private static let historyStoreFileName = "LinguistMacTranslationHistory.store"
-    private static let historyStoreDisplayPath = "~/Library/Application Support/\(historyStoreFileName)"
 }
 
 private struct PrivacyInfoRow<Accessory: View>: View {
