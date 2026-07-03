@@ -252,13 +252,15 @@ private enum SystemShortcutRegistryError: LocalizedError {
     }
 }
 
-struct SystemScreenTranslationSoundPlayer: ScreenTranslationSoundPlaying {
+final class SystemScreenTranslationSoundPlayer: NSObject, @unchecked Sendable {
     private let soundsDirectory: URL
+    private var playingSound: NSSound?
 
     init(
         soundsDirectory: URL = URL(fileURLWithPath: "/System/Library/Sounds", isDirectory: true)
     ) {
         self.soundsDirectory = soundsDirectory
+        super.init()
     }
 
     func availableSoundNames() async -> [String] {
@@ -280,16 +282,30 @@ struct SystemScreenTranslationSoundPlayer: ScreenTranslationSoundPlaying {
         let resolvedSoundName = ScreenTranslationSoundPolicy.resolvedSoundName(soundName, from: soundNames)
 
         await MainActor.run {
+            guard playingSound?.isPlaying != true else {
+                return
+            }
             guard let sound = NSSound(named: NSSound.Name(resolvedSoundName)) else {
                 return
             }
 
-            sound.stop()
+            sound.delegate = self
+            playingSound = sound
             sound.currentTime = 0
-            sound.play()
+            if !sound.play() {
+                playingSound = nil
+            }
+        }
+    }
+
+    func sound(_ sound: NSSound, didFinishPlaying finishedPlaying: Bool) {
+        if playingSound === sound {
+            playingSound = nil
         }
     }
 }
+
+extension SystemScreenTranslationSoundPlayer: ScreenTranslationSoundPlaying, NSSoundDelegate {}
 
 final class SystemScreenTranslationNotifier: NSObject, ScreenTranslationNotificationPosting, @unchecked Sendable {
     private let notificationCenter: UNUserNotificationCenter
