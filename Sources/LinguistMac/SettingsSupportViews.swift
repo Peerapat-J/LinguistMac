@@ -107,12 +107,22 @@ struct SettingsDetailHeader: View {
     var body: some View {
         HStack(spacing: 10) {
             HStack(spacing: 0) {
-                headerButton(systemImage: "chevron.left", isEnabled: canNavigateBack, action: navigateBack)
+                headerButton(
+                    systemImage: "chevron.left",
+                    accessibilityLabel: "Back",
+                    isEnabled: canNavigateBack,
+                    action: navigateBack
+                )
 
                 Divider()
                     .frame(height: 18)
 
-                headerButton(systemImage: "chevron.right", isEnabled: canNavigateForward, action: navigateForward)
+                headerButton(
+                    systemImage: "chevron.right",
+                    accessibilityLabel: "Forward",
+                    isEnabled: canNavigateForward,
+                    action: navigateForward
+                )
             }
             .frame(height: 30)
             .background {
@@ -136,7 +146,12 @@ struct SettingsDetailHeader: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func headerButton(systemImage: String, isEnabled: Bool, action: @escaping () -> Void) -> some View {
+    private func headerButton(
+        systemImage: String,
+        accessibilityLabel: String,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 13, weight: .semibold))
@@ -146,6 +161,7 @@ struct SettingsDetailHeader: View {
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .foregroundStyle(isEnabled ? .primary : .tertiary)
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 
