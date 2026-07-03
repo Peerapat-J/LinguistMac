@@ -345,7 +345,9 @@ private extension SettingsView {
                 ForEach(Array(model.readiness.items.enumerated()), id: \.element.id) { index, item in
                     if index > 0 { SettingsDivider() }
                     ReadinessRow(item: item, searchText: sidebarSearchText) {
-                        handleReadinessAction(for: item)
+                        Task {
+                            await handleReadinessAction(for: item)
+                        }
                     }
                 }
             }
@@ -442,16 +444,16 @@ private extension SettingsView {
         selectedSection = sectionHistory[sectionHistoryIndex]
     }
 
-    func handleReadinessAction(for item: OnboardingReadinessItem) {
+    func handleReadinessAction(for item: OnboardingReadinessItem) async {
         switch item.kind {
         case .screenTranslation:
             model.openSystemSettings(for: .screenRecording)
         case .accessibility:
             model.openSystemSettings(for: .accessibility)
         case .voiceMicrophone:
-            model.openSystemSettings(for: .microphone)
+            await model.handleVoicePermissionSetupAction(for: .microphone, currentStatus: item.status)
         case .speechRecognition:
-            model.openSystemSettings(for: .speechRecognition)
+            await model.handleVoicePermissionSetupAction(for: .speechRecognition, currentStatus: item.status)
         case .appleTranslation:
             model.record(.settings)
             clearTextInputFocus()

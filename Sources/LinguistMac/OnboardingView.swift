@@ -21,7 +21,9 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(model.readiness.items) { item in
                         SetupStatusCard(item: item) {
-                            handleReadinessAction(for: item)
+                            Task {
+                                await handleReadinessAction(for: item)
+                            }
                         }
                     }
                 }
@@ -61,16 +63,16 @@ struct OnboardingView: View {
         .readinessRefreshMonitor(model: model, trigger: readinessRefreshTrigger)
     }
 
-    private func handleReadinessAction(for item: OnboardingReadinessItem) {
+    private func handleReadinessAction(for item: OnboardingReadinessItem) async {
         switch item.kind {
         case .screenTranslation:
             model.openSystemSettings(for: .screenRecording)
         case .accessibility:
             model.openSystemSettings(for: .accessibility)
         case .voiceMicrophone:
-            model.openSystemSettings(for: .microphone)
+            await model.handleVoicePermissionSetupAction(for: .microphone, currentStatus: item.status)
         case .speechRecognition:
-            model.openSystemSettings(for: .speechRecognition)
+            await model.handleVoicePermissionSetupAction(for: .speechRecognition, currentStatus: item.status)
         case .appleTranslation, .cloudProvider:
             openLinguistSettings(model: model, using: openSettings)
         }

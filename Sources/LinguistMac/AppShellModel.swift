@@ -192,6 +192,24 @@ final class AppShellModel: ObservableObject {
         )
     }
 
+    func handleVoicePermissionSetupAction(
+        for kind: PermissionKind,
+        currentStatus: PermissionStatus
+    ) async {
+        guard kind == .microphone || kind == .speechRecognition else {
+            openSystemSettings(for: kind)
+            return
+        }
+
+        guard currentStatus == .notDetermined else {
+            openSystemSettings(for: kind)
+            return
+        }
+
+        _ = await services.permissionChecker.request(for: kind)
+        await refreshReadiness()
+    }
+
     func refreshShortcutRegistrations() async {
         let accessibility = await services.permissionChecker.status(for: .accessibility)
         shortcutRegistrationResults = await shortcutRegistrationCoordinator.refresh(
