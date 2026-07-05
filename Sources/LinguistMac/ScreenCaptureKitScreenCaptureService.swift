@@ -13,20 +13,55 @@ struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
             throw TranslationFailure.permissionDenied(.screenRecording)
         }
 
-        let rect = try await requestRegionSelection()
-        guard rect.width >= 4, rect.height >= 4 else {
+        let selection = try await requestRegionSelection()
+        guard selection.rect.width >= 4, selection.rect.height >= 4 else {
             throw TranslationFailure.captureCancelled
         }
 
         // Give the selection overlay a frame to leave the WindowServer before capturing underlying content.
         try await Task.sleep(for: Self.overlayDismissalDelay)
 
-        let image = try await captureImage(in: rect)
+        let captureRect = try await displaySpaceRect(for: selection)
+        let image = try await captureImage(in: captureRect)
         let imageData = try pngData(from: image)
         return CapturedScreenRegion(
             imageData: imageData,
-            scale: Double(image.width) / max(rect.width, 1)
+            scale: Double(image.width) / max(captureRect.width, 1)
         )
+    }
+
+    private func displaySpaceRect(for selection: ScreenSelection) async throws -> CGRect {
+        guard let displayFrame = await displayFrame(for: selection.displayID) else {
+            throw TranslationFailure.providerFailed("Could not resolve selected display bounds.")
+        }
+
+        return ScreenCaptureDisplaySpaceRectMapper.displaySpaceRect(
+            appKitRect: selection.rect,
+            appKitScreenFrame: selection.screenFrame,
+            displayFrame: displayFrame
+        )
+    }
+
+    private func displayFrame(for displayID: CGDirectDisplayID?) async -> CGRect? {
+        guard let displayID else {
+            return nil
+        }
+
+        do {
+            let shareableContent = try await SCShareableContent.current
+            if let displayFrame = shareableContent.displays.first(where: { $0.displayID == displayID })?.frame {
+                return displayFrame
+            }
+        } catch {
+            // Fall back to CoreGraphics bounds below. AppKit NSScreen frames are not display-space rects.
+        }
+
+        let displayBounds = CGDisplayBounds(displayID)
+        guard displayBounds.width > 0, displayBounds.height > 0 else {
+            return nil
+        }
+
+        return displayBounds
     }
 
     private func captureImage(in rect: CGRect) async throws -> CGImage {
@@ -71,18 +106,45 @@ struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
 }
 
 @MainActor
-private func requestRegionSelection() async throws -> CGRect {
+private func requestRegionSelection() async throws -> ScreenSelection {
     try await RegionSelectionOverlayController.shared.selectRegion()
+}
+
+struct ScreenSelection: Equatable {
+    let rect: CGRect
+    let screenFrame: CGRect
+    let displayID: CGDirectDisplayID?
+}
+
+enum ScreenCaptureDisplaySpaceRectMapper {
+    static func displaySpaceRect(
+        appKitRect: CGRect,
+        appKitScreenFrame: CGRect,
+        displayFrame: CGRect
+    ) -> CGRect {
+        guard appKitScreenFrame.width > 0, appKitScreenFrame.height > 0 else {
+            return appKitRect
+        }
+
+        let xScale = displayFrame.width / appKitScreenFrame.width
+        let yScale = displayFrame.height / appKitScreenFrame.height
+        return CGRect(
+            x: displayFrame.minX + ((appKitRect.minX - appKitScreenFrame.minX) * xScale),
+            y: displayFrame.minY + ((appKitScreenFrame.maxY - appKitRect.maxY) * yScale),
+            width: appKitRect.width * xScale,
+            height: appKitRect.height * yScale
+        )
+    }
 }
 
 @MainActor
 private final class RegionSelectionOverlayController {
     static let shared = RegionSelectionOverlayController()
 
-    private var continuation: CheckedContinuation<CGRect, Error>?
-    private var windows: [NSWindow] = []
+    private var continuation: CheckedContinuation<ScreenSelection, Error>?
+    private var windows: [RegionSelectionOverlayWindow] = []
 
-    func selectRegion() async throws -> CGRect {
+    func selectRegion() async throws -> ScreenSelection {
         guard continuation == nil else {
             throw TranslationFailure.providerFailed("A screen selection is already active.")
         }
@@ -95,15 +157,10 @@ private final class RegionSelectionOverlayController {
 
     private func showOverlayWindows() {
         windows = NSScreen.screens.map { screen in
-            let window = NSWindow(
-                contentRect: screen.frame,
-                styleMask: .borderless,
-                backing: .buffered,
-                defer: false,
-                screen: screen
-            )
+            let window = RegionSelectionOverlayWindow(screen: screen)
             let view = RegionSelectionOverlayView(
                 screenFrame: screen.frame,
+                displayID: screen.displayID,
                 onComplete: { [weak self] rect in
                     self?.complete(with: rect)
                 },
@@ -119,15 +176,16 @@ private final class RegionSelectionOverlayController {
             window.level = .screenSaver
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
             window.ignoresMouseEvents = false
-            window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
+            window.makeKey()
             window.makeFirstResponder(view)
             return window
         }
     }
 
-    private func complete(with rect: CGRect) {
+    private func complete(with selection: ScreenSelection) {
         let continuation = finishOverlay()
-        continuation?.resume(returning: rect)
+        continuation?.resume(returning: selection)
     }
 
     private func cancel() {
@@ -135,7 +193,7 @@ private final class RegionSelectionOverlayController {
         continuation?.resume(throwing: TranslationFailure.captureCancelled)
     }
 
-    private func finishOverlay() -> CheckedContinuation<CGRect, Error>? {
+    private func finishOverlay() -> CheckedContinuation<ScreenSelection, Error>? {
         windows.forEach { $0.orderOut(nil) }
         windows.removeAll()
         let continuation = continuation
@@ -144,19 +202,45 @@ private final class RegionSelectionOverlayController {
     }
 }
 
+private final class RegionSelectionOverlayWindow: NSPanel {
+    init(screen: NSScreen) {
+        super.init(
+            contentRect: screen.frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+
+        hidesOnDeactivate = false
+        isFloatingPanel = true
+        isReleasedWhenClosed = false
+    }
+
+    override var canBecomeKey: Bool {
+        true
+    }
+
+    override var canBecomeMain: Bool {
+        false
+    }
+}
+
 private final class RegionSelectionOverlayView: NSView {
     private let screenFrame: CGRect
-    private let onComplete: (CGRect) -> Void
+    private let displayID: CGDirectDisplayID?
+    private let onComplete: (ScreenSelection) -> Void
     private let onCancel: () -> Void
     private var startPoint: CGPoint?
     private var currentPoint: CGPoint?
 
     init(
         screenFrame: CGRect,
-        onComplete: @escaping (CGRect) -> Void,
+        displayID: CGDirectDisplayID?,
+        onComplete: @escaping (ScreenSelection) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.screenFrame = screenFrame
+        self.displayID = displayID
         self.onComplete = onComplete
         self.onCancel = onCancel
         super.init(frame: CGRect(origin: .zero, size: screenFrame.size))
@@ -208,7 +292,7 @@ private final class RegionSelectionOverlayView: NSView {
             return
         }
 
-        onComplete(selection)
+        onComplete(ScreenSelection(rect: selection, screenFrame: screenFrame, displayID: displayID))
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -262,5 +346,15 @@ private final class RegionSelectionOverlayView: NSView {
             width: rect.width,
             height: rect.height
         )
+    }
+}
+
+private extension NSScreen {
+    var displayID: CGDirectDisplayID? {
+        guard let screenNumber = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            return nil
+        }
+
+        return CGDirectDisplayID(screenNumber.uint32Value)
     }
 }

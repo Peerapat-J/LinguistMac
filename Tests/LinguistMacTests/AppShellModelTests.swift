@@ -662,3 +662,25 @@ private actor TestShortcutRegistry: ShortcutRegistering {
         _ = action
     }
 }
+
+final class ScreenCaptureDisplaySpaceRectMapperTests: XCTestCase {
+    func testMapperFlipsSelectionVerticallyWithinMainDisplay() {
+        let rect = ScreenCaptureDisplaySpaceRectMapper.displaySpaceRect(
+            appKitRect: CGRect(x: 420, y: 610, width: 140, height: 32),
+            appKitScreenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            displayFrame: CGRect(x: 0, y: 0, width: 1440, height: 900)
+        )
+
+        XCTAssertEqual(rect, CGRect(x: 420, y: 258, width: 140, height: 32))
+    }
+
+    func testMapperPreservesDisplayOffsetAndScale() {
+        let rect = ScreenCaptureDisplaySpaceRectMapper.displaySpaceRect(
+            appKitRect: CGRect(x: -1100, y: 500, width: 120, height: 40),
+            appKitScreenFrame: CGRect(x: -1200, y: 300, width: 600, height: 400),
+            displayFrame: CGRect(x: 1440, y: 0, width: 1200, height: 800)
+        )
+
+        XCTAssertEqual(rect, CGRect(x: 1640, y: 320, width: 240, height: 80))
+    }
+}
