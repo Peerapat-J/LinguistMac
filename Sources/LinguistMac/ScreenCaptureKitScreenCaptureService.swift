@@ -21,7 +21,7 @@ struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
         // Give the selection overlay a frame to leave the WindowServer before capturing underlying content.
         try await Task.sleep(for: Self.overlayDismissalDelay)
 
-        let captureRect = await displaySpaceRect(for: selection)
+        let captureRect = try await displaySpaceRect(for: selection)
         let image = try await captureImage(in: captureRect)
         let imageData = try pngData(from: image)
         return CapturedScreenRegion(
@@ -30,8 +30,11 @@ struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
         )
     }
 
-    private func displaySpaceRect(for selection: ScreenSelection) async -> CGRect {
-        let displayFrame = await displayFrame(for: selection.displayID) ?? selection.screenFrame
+    private func displaySpaceRect(for selection: ScreenSelection) async throws -> CGRect {
+        guard let displayFrame = await displayFrame(for: selection.displayID) else {
+            throw TranslationFailure.providerFailed("Could not resolve selected display bounds.")
+        }
+
         return ScreenCaptureDisplaySpaceRectMapper.displaySpaceRect(
             appKitRect: selection.rect,
             appKitScreenFrame: selection.screenFrame,
@@ -46,10 +49,19 @@ struct ScreenCaptureKitScreenCaptureService: ScreenCaptureServicing {
 
         do {
             let shareableContent = try await SCShareableContent.current
-            return shareableContent.displays.first { $0.displayID == displayID }?.frame
+            if let displayFrame = shareableContent.displays.first(where: { $0.displayID == displayID })?.frame {
+                return displayFrame
+            }
         } catch {
+            // Fall back to CoreGraphics bounds below. AppKit NSScreen frames are not display-space rects.
+        }
+
+        let displayBounds = CGDisplayBounds(displayID)
+        guard displayBounds.width > 0, displayBounds.height > 0 else {
             return nil
         }
+
+        return displayBounds
     }
 
     private func captureImage(in rect: CGRect) async throws -> CGImage {
