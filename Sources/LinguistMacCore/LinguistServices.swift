@@ -2,29 +2,56 @@ public struct LinguistServices: Sendable {
     public let screenCapture: any ScreenCaptureServicing
     public let ocr: any OCRServicing
     public let translatorRegistry: any TranslationProviderRegistry
+    public let languageAvailability: any LanguageAvailabilityChecking
     public let settingsStore: any AppSettingsStoring
+    public let apiKeyStore: any APIKeyStoring
+    public let launchAtLogin: any LaunchAtLoginServicing
     public let historyStore: any TranslationHistoryStoring
     public let permissionChecker: any PermissionChecking
     public let clipboard: any ClipboardServicing
+    public let selectedTextCapture: any SelectedTextCapturing
     public let shortcutRegistry: any ShortcutRegistering
+    public let wordLookupProvider: any WordLookupProviding
+    public let speechToText: any SpeechToTextServicing
+    public let spokenOutput: any SpokenOutputServicing
+    public let screenTranslationSoundPlayer: any ScreenTranslationSoundPlaying
+    public let screenTranslationNotifier: any ScreenTranslationNotificationPosting
 
     public init(
         screenCapture: any ScreenCaptureServicing,
         ocr: any OCRServicing,
         translatorRegistry: any TranslationProviderRegistry,
+        languageAvailability: any LanguageAvailabilityChecking,
         settingsStore: any AppSettingsStoring,
+        apiKeyStore: any APIKeyStoring,
+        launchAtLogin: any LaunchAtLoginServicing,
         historyStore: any TranslationHistoryStoring,
         permissionChecker: any PermissionChecking,
         clipboard: any ClipboardServicing,
-        shortcutRegistry: any ShortcutRegistering
+        selectedTextCapture: any SelectedTextCapturing,
+        shortcutRegistry: any ShortcutRegistering,
+        wordLookupProvider: any WordLookupProviding = UnavailableWordLookupProvider(),
+        speechToText: any SpeechToTextServicing = UnavailableSpeechToTextService(),
+        spokenOutput: any SpokenOutputServicing = UnavailableSpokenOutputService(),
+        screenTranslationSoundPlayer: any ScreenTranslationSoundPlaying = NoOpScreenTranslationSoundPlayer(),
+        screenTranslationNotifier: any ScreenTranslationNotificationPosting = NoOpScreenTranslationNotifier()
     ) {
         self.screenCapture = screenCapture
         self.ocr = ocr
         self.translatorRegistry = translatorRegistry
+        self.languageAvailability = languageAvailability
         self.settingsStore = settingsStore
+        self.apiKeyStore = apiKeyStore
+        self.launchAtLogin = launchAtLogin
         self.historyStore = historyStore
         self.permissionChecker = permissionChecker
         self.clipboard = clipboard
+        self.selectedTextCapture = selectedTextCapture
         self.shortcutRegistry = shortcutRegistry
+        self.wordLookupProvider = wordLookupProvider
+        self.speechToText = speechToText
+        self.spokenOutput = spokenOutput
+        self.screenTranslationSoundPlayer = screenTranslationSoundPlayer
+        self.screenTranslationNotifier = screenTranslationNotifier
     }
 }

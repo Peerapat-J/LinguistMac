@@ -1,0 +1,622 @@
+import Foundation
+
+public enum TranslationPopupState: Equatable, Sendable {
+    case empty
+    case loading(TranslationRequest)
+    case success(
+        TranslationResult,
+        showsOriginal: Bool,
+        wordCard: TranslationPopupWordCardState? = nil
+    )
+    case failed(TranslationFailure, originalText: String?)
+
+    public var copyableText: String? {
+        switch self {
+        case let .success(result, _, _):
+            result.translatedText
+        case .empty, .loading, .failed:
+            nil
+        }
+    }
+
+    public var result: TranslationResult? {
+        switch self {
+        case let .success(result, _, _):
+            result
+        case .empty, .loading, .failed:
+            nil
+        }
+    }
+
+    public var showsOriginal: Bool {
+        switch self {
+        case let .success(_, showsOriginal, _):
+            showsOriginal
+        case .empty, .loading, .failed:
+            false
+        }
+    }
+
+    public var wordCard: TranslationPopupWordCardState? {
+        switch self {
+        case let .success(_, _, wordCard):
+            wordCard
+        case .empty, .loading, .failed:
+            nil
+        }
+    }
+
+    public func toggledOriginalVisibility() -> TranslationPopupState {
+        switch self {
+        case let .success(result, showsOriginal, wordCard):
+            .success(result, showsOriginal: !showsOriginal, wordCard: wordCard)
+        case .empty, .loading, .failed:
+            self
+        }
+    }
+
+    public func updatingWordCard(_ wordCard: TranslationPopupWordCardState?) -> TranslationPopupState {
+        switch self {
+        case let .success(result, showsOriginal, _):
+            .success(result, showsOriginal: showsOriginal, wordCard: wordCard)
+        case .empty, .loading, .failed:
+            self
+        }
+    }
+}
+
+public struct TranslationPopupWordCardState: Equatable, Sendable {
+    public let wordTranslation: WordTranslation
+    public let wordIndex: Int?
+    public let lookupState: WordLookupState
+
+    public init(
+        wordTranslation: WordTranslation,
+        wordIndex: Int? = nil,
+        lookupState: WordLookupState
+    ) {
+        self.wordTranslation = wordTranslation
+        self.wordIndex = wordIndex
+        self.lookupState = lookupState
+    }
+
+    public init(
+        shownContent: ShownWordCardContent,
+        result: TranslationResult
+    ) {
+        let request = WordLookupRequest(
+            sourceText: shownContent.wordTranslation.sourceText,
+            sentenceContext: shownContent.sentenceContext ?? "",
+            sourceLanguage: result.request.sourceLanguage,
+            targetLanguage: result.request.targetLanguage,
+            providerID: result.request.providerID,
+            inputMode: result.request.inputMode
+        )
+        let lookupResult = WordLookupResult(
+            request: request,
+            translatedText: shownContent.translatedText,
+            definition: shownContent.definition,
+            example: shownContent.example
+        )
+
+        self.init(
+            wordTranslation: shownContent.wordTranslation,
+            wordIndex: shownContent.wordIndex,
+            lookupState: .completed(lookupResult)
+        )
+    }
+
+    public var shownContent: ShownWordCardContent? {
+        guard case let .completed(result) = lookupState else {
+            return nil
+        }
+
+        return ShownWordCardContent(
+            wordTranslation: wordTranslation,
+            wordIndex: wordIndex,
+            lookupResult: result
+        )
+    }
+
+    public func matches(_ wordTranslation: WordTranslation, at index: Int) -> Bool {
+        if let wordIndex {
+            return wordIndex == index
+        }
+
+        return self.wordTranslation == wordTranslation
+    }
+}
+
+public enum TranslationRecoveryAction: Equatable, Sendable {
+    case openSystemSettings(PermissionKind)
+    case openSettings
+    case retry
+}
+
+public struct TranslationFailurePresentation: Equatable, Sendable {
+    public let title: String
+    public let message: String
+    public let recoveryAction: TranslationRecoveryAction?
+
+    public init(
+        title: String,
+        message: String,
+        recoveryAction: TranslationRecoveryAction? = nil
+    ) {
+        self.title = title
+        self.message = message
+        self.recoveryAction = recoveryAction
+    }
+}
+
+public extension TranslationFailure {
+    var presentation: TranslationFailurePresentation {
+        switch self {
+        case let .permissionDenied(kind):
+            TranslationFailurePresentation(
+                title: "Permission Required",
+                message: Self.permissionDeniedMessage(for: kind),
+                recoveryAction: .openSystemSettings(kind)
+            )
+        case .captureCancelled:
+            TranslationFailurePresentation(
+                title: "Capture Cancelled",
+                message: "The screen capture was cancelled before text could be translated.",
+                recoveryAction: .retry
+            )
+        case .voiceCaptureCancelled:
+            TranslationFailurePresentation(
+                title: "Voice Capture Cancelled",
+                message: "Voice capture was cancelled before text could be translated.",
+                recoveryAction: .retry
+            )
+        case .voiceCaptureInProgress:
+            TranslationFailurePresentation(
+                title: "Voice Capture Running",
+                message: "Finish or cancel the current voice capture before starting another one."
+            )
+        case .speechSourceLanguageRequired:
+            TranslationFailurePresentation(
+                title: "Speech Language Required",
+                message: "Choose a source language before using voice capture. "
+                    + "Speech recognition does not support Auto Detect."
+            )
+        case .onDeviceSpeechUnavailable:
+            TranslationFailurePresentation(
+                title: "On-Device Speech Unavailable",
+                message: "The selected source language does not support on-device speech recognition. "
+                    + "Choose another source language before using voice capture."
+            )
+        case .noSpeechRecognized:
+            TranslationFailurePresentation(
+                title: "No Speech Recognized",
+                message: "No spoken phrase was recognized. Try speaking again.",
+                recoveryAction: .retry
+            )
+        case .speechRecognitionFailed:
+            TranslationFailurePresentation(
+                title: "Speech Recognition Failed",
+                message: "Speech recognition could not complete. Check permissions or try again.",
+                recoveryAction: .retry
+            )
+        case .noTextRecognized:
+            TranslationFailurePresentation(
+                title: "No Text Found",
+                message: "No readable text was found in the selected area.",
+                recoveryAction: .retry
+            )
+        case .emptyInput:
+            TranslationFailurePresentation(
+                title: "No Text To Translate",
+                message: "Enter or select text before starting translation."
+            )
+        case .unsupportedLanguagePair:
+            TranslationFailurePresentation(
+                title: "Language Pair Unavailable",
+                message: "The selected source and target languages are not available for this provider.",
+                recoveryAction: .openSettings
+            )
+        case let .missingLanguagePack(providerID):
+            TranslationFailurePresentation(
+                title: "Language Pack Needed",
+                message: "\(providerID.displayName) needs the required language pack before translating offline.",
+                recoveryAction: .openSettings
+            )
+        case let .providerUnavailable(providerID):
+            TranslationFailurePresentation(
+                title: "Provider Unavailable",
+                message: "\(providerID.displayName) is not available with the current configuration.",
+                recoveryAction: .openSettings
+            )
+        case let .missingAPIKey(providerID):
+            TranslationFailurePresentation(
+                title: "API Key Required",
+                message: "Add an API key for \(providerID.displayName) before using this cloud provider.",
+                recoveryAction: .openSettings
+            )
+        case let .inputModeDisabled(inputMode):
+            TranslationFailurePresentation(
+                title: "Input Mode Disabled",
+                message: "Enable \(inputMode.displayName) in Settings before using this workflow.",
+                recoveryAction: .openSettings
+            )
+        case .providerFailed:
+            TranslationFailurePresentation(
+                title: "Translation Failed",
+                message: "The translation provider could not complete the request. Check configuration or try again.",
+                recoveryAction: .openSettings
+            )
+        }
+    }
+
+    private static func permissionDeniedMessage(for kind: PermissionKind) -> String {
+        switch kind {
+        case .screenRecording:
+            "\(kind.displayName) permission is needed before this workflow can run. "
+                + "If it is already enabled in System Settings, quit and reopen LinguistMac so macOS applies it."
+        case .accessibility, .microphone, .speechRecognition, .keychain, .network:
+            "\(kind.displayName) permission is needed before this workflow can run."
+        }
+    }
+}
+
+public extension WordLookupFailure {
+    var presentation: TranslationFailurePresentation {
+        switch self {
+        case .emptySourceText:
+            TranslationFailurePresentation(
+                title: "No Word Selected",
+                message: "Choose a word from the translated sentence before opening a word card."
+            )
+        case .cancelled:
+            TranslationFailurePresentation(
+                title: "Lookup Cancelled",
+                message: "The word lookup was cancelled before it completed."
+            )
+        case let .missingAPIKey(providerID):
+            TranslationFailurePresentation(
+                title: "API Key Required",
+                message: "Add an API key for \(providerID.displayName) before using this cloud provider.",
+                recoveryAction: .openSettings
+            )
+        case let .missingLanguagePack(providerID):
+            TranslationFailurePresentation(
+                title: "Language Pack Needed",
+                message: "\(providerID.displayName) needs the required language pack before looking up this word.",
+                recoveryAction: .openSettings
+            )
+        case let .providerUnavailable(providerID):
+            TranslationFailurePresentation(
+                title: "Provider Unavailable",
+                message: "\(providerID.displayName) is not available with the current configuration.",
+                recoveryAction: .openSettings
+            )
+        case .unsupportedLanguagePair:
+            TranslationFailurePresentation(
+                title: "Language Pair Unavailable",
+                message: "The selected source and target languages are not available for this provider.",
+                recoveryAction: .openSettings
+            )
+        case .providerFailed:
+            TranslationFailurePresentation(
+                title: "Word Lookup Failed",
+                message: "The translation provider could not complete the word lookup. "
+                    + "Check configuration or try again.",
+                recoveryAction: .retry
+            )
+        }
+    }
+}
+
+public enum TranslationHistoryPolicy {
+    public static let defaultLimit = 50
+
+    public static func trimmed(
+        _ results: [TranslationResult],
+        limit: Int = defaultLimit
+    ) -> [TranslationResult] {
+        guard limit > 0 else {
+            return []
+        }
+
+        return Array(results
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(limit))
+    }
+
+    public static func inserting(
+        _ result: TranslationResult,
+        into results: [TranslationResult],
+        limit: Int = defaultLimit
+    ) -> [TranslationResult] {
+        let withoutDuplicate = results.filter { $0.id != result.id }
+        return trimmed([result] + withoutDuplicate, limit: limit)
+    }
+}
+
+public struct QuickTranslateDraft: Equatable, Sendable {
+    public var sourceText: String
+    public var sourceLanguage: TranslationLanguage
+    public var targetLanguage: TranslationLanguage
+
+    public init(
+        sourceText: String = "",
+        sourceLanguage: TranslationLanguage = .autoDetect,
+        targetLanguage: TranslationLanguage = .english
+    ) {
+        self.sourceText = sourceText
+        self.sourceLanguage = sourceLanguage
+        self.targetLanguage = targetLanguage
+    }
+
+    public var trimmedText: String {
+        sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public var canTranslate: Bool {
+        !trimmedText.isEmpty
+    }
+
+    public func makeRequest(providerID: TranslationProviderID) throws -> TranslationRequest {
+        guard canTranslate else {
+            throw TranslationFailure.emptyInput
+        }
+
+        return TranslationRequest(
+            text: trimmedText,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            inputMode: .quickTranslate,
+            providerID: providerID
+        )
+    }
+}
+
+public extension TranslationProviderID {
+    var displayName: String {
+        switch self {
+        case .apple:
+            "Apple Translation"
+        case .deepl:
+            "DeepL"
+        case .googleCloud:
+            "Google Cloud Translation"
+        case .microsoftAzure:
+            "Microsoft Azure Translator"
+        default:
+            rawValue
+        }
+    }
+}
+
+public extension PermissionKind {
+    var displayName: String {
+        switch self {
+        case .screenRecording:
+            "Screen Recording"
+        case .accessibility:
+            "Accessibility"
+        case .microphone:
+            "Microphone"
+        case .speechRecognition:
+            "Speech Recognition"
+        case .keychain:
+            "Keychain"
+        case .network:
+            "Network"
+        }
+    }
+}
+
+public enum LanguagePackReadiness: Equatable, Sendable {
+    case unknown
+    case ready
+    case needsDownload
+    case unavailable
+}
+
+public enum SetupReadinessKind: String, CaseIterable, Sendable {
+    case screenTranslation
+    case accessibility
+    case voiceMicrophone
+    case speechRecognition
+    case appleTranslation
+    case cloudProvider
+}
+
+public struct OnboardingReadinessItem: Identifiable, Equatable, Sendable {
+    public let kind: SetupReadinessKind
+    public let title: String
+    public let detail: String
+    public let status: PermissionStatus
+    public let statusText: String
+    public let isRequiredForDefaultWorkflow: Bool
+
+    public var id: SetupReadinessKind {
+        kind
+    }
+
+    public var showsRecoveryAction: Bool {
+        status != .granted
+    }
+
+    public init(
+        kind: SetupReadinessKind,
+        title: String,
+        detail: String,
+        status: PermissionStatus,
+        statusText: String,
+        isRequiredForDefaultWorkflow: Bool
+    ) {
+        self.kind = kind
+        self.title = title
+        self.detail = detail
+        self.status = status
+        self.statusText = statusText
+        self.isRequiredForDefaultWorkflow = isRequiredForDefaultWorkflow
+    }
+}
+
+public struct OnboardingReadinessSnapshot: Equatable, Sendable {
+    public let items: [OnboardingReadinessItem]
+
+    public init(items: [OnboardingReadinessItem]) {
+        self.items = items
+    }
+
+    public var isScreenTranslationReady: Bool {
+        items
+            .filter(\.isRequiredForDefaultWorkflow)
+            .allSatisfy { $0.status == .granted }
+    }
+
+    public static func make(
+        screenRecording: PermissionStatus,
+        accessibility: PermissionStatus,
+        microphone: PermissionStatus = .notDetermined,
+        speechRecognition: PermissionStatus = .notDetermined,
+        appleTranslation: LanguagePackReadiness,
+        cloudProviderConfigured: Bool
+    ) -> OnboardingReadinessSnapshot {
+        OnboardingReadinessSnapshot(
+            items: [
+                screenTranslationItem(status: screenRecording),
+                appleTranslationItem(readiness: appleTranslation),
+                textSelectionItem(status: accessibility),
+                voiceMicrophoneItem(status: microphone),
+                speechRecognitionItem(status: speechRecognition),
+                cloudProviderItem(isConfigured: cloudProviderConfigured)
+            ]
+        )
+    }
+
+    private static func screenTranslationItem(status: PermissionStatus) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .screenTranslation,
+            title: "Screen Translation",
+            detail: screenRecordingDetail(for: status),
+            status: status,
+            statusText: permissionStatusText(for: status),
+            isRequiredForDefaultWorkflow: true
+        )
+    }
+
+    private static func appleTranslationItem(readiness: LanguagePackReadiness) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .appleTranslation,
+            title: "Apple Translation",
+            detail: languagePackDetail(for: readiness),
+            status: permissionStatus(for: readiness),
+            statusText: languagePackStatusText(for: readiness),
+            isRequiredForDefaultWorkflow: true
+        )
+    }
+
+    private static func textSelectionItem(status: PermissionStatus) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .accessibility,
+            title: "Text Selection",
+            detail: "Accessibility unlocks selected-text, double-copy, and drag workflows later.",
+            status: status,
+            statusText: permissionStatusText(for: status),
+            isRequiredForDefaultWorkflow: false
+        )
+    }
+
+    private static func voiceMicrophoneItem(status: PermissionStatus) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .voiceMicrophone,
+            title: "Voice Microphone",
+            detail: "Microphone access will be needed for explicit push-to-talk voice capture.",
+            status: status,
+            statusText: permissionStatusText(for: status),
+            isRequiredForDefaultWorkflow: false
+        )
+    }
+
+    private static func speechRecognitionItem(status: PermissionStatus) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .speechRecognition,
+            title: "Speech Recognition",
+            detail: "Speech Recognition will turn short spoken phrases into translatable text.",
+            status: status,
+            statusText: permissionStatusText(for: status),
+            isRequiredForDefaultWorkflow: false
+        )
+    }
+
+    private static func cloudProviderItem(isConfigured: Bool) -> OnboardingReadinessItem {
+        OnboardingReadinessItem(
+            kind: .cloudProvider,
+            title: "Cloud Providers",
+            detail: "Optional BYOK providers stay disabled until you configure them.",
+            status: isConfigured ? .granted : .notDetermined,
+            statusText: isConfigured ? "Ready" : "Optional",
+            isRequiredForDefaultWorkflow: false
+        )
+    }
+
+    private static func screenRecordingDetail(for status: PermissionStatus) -> String {
+        switch status {
+        case .granted:
+            "Screen Recording is ready for selected-region OCR."
+        case .notDetermined, .denied, .restricted, .unavailable:
+            "Screen Recording is needed before selected-region OCR can run. "
+                + "If this stays pending after enabling it, restart LinguistMac."
+        }
+    }
+
+    private static func languagePackDetail(for readiness: LanguagePackReadiness) -> String {
+        switch readiness {
+        case .unknown:
+            "Choose a source language or run a translation so Apple Translation can check this language pair."
+        case .ready:
+            "On-device Apple Translation language packs are ready."
+        case .needsDownload:
+            "Download the needed language packs before offline translation."
+        case .unavailable:
+            "Apple Translation is not available for this language pair yet."
+        }
+    }
+
+    private static func languagePackStatusText(for readiness: LanguagePackReadiness) -> String {
+        switch readiness {
+        case .unknown:
+            "Checking"
+        case .ready:
+            "Ready"
+        case .needsDownload:
+            "Needs Download"
+        case .unavailable:
+            "Unsupported"
+        }
+    }
+
+    private static func permissionStatus(for readiness: LanguagePackReadiness) -> PermissionStatus {
+        switch readiness {
+        case .ready:
+            .granted
+        case .needsDownload:
+            .notDetermined
+        case .unknown:
+            .notDetermined
+        case .unavailable:
+            .unavailable
+        }
+    }
+
+    private static func permissionStatusText(for status: PermissionStatus) -> String {
+        switch status {
+        case .granted:
+            "Ready"
+        case .notDetermined:
+            "Not Set Up"
+        case .denied:
+            "Denied"
+        case .restricted:
+            "Restricted"
+        case .unavailable:
+            "Unavailable"
+        }
+    }
+}

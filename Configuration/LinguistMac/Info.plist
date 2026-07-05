@@ -24,7 +24,11 @@
   <string>15.0</string>
   <key>NSHumanReadableCopyright</key>
   <string>Copyright 2026 Peerapat Jardrit</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>LinguistMac will ask for microphone access only when you start an explicit voice translation capture.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>LinguistMac will ask for speech recognition access to turn short spoken phrases into text for translation.</string>
 </dict>
 </plist>

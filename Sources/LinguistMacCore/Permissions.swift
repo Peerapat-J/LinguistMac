@@ -1,6 +1,8 @@
 public enum PermissionKind: String, CaseIterable, Sendable {
     case screenRecording
     case accessibility
+    case microphone
+    case speechRecognition
     case keychain
     case network
 }
@@ -39,6 +41,16 @@ public enum PermissionBaseline {
         PermissionRequirement(
             kind: .accessibility,
             reason: "Reading selected text, double-copy, and drag translation workflows.",
+            isRequiredForDefaultWorkflow: false
+        ),
+        PermissionRequirement(
+            kind: .microphone,
+            reason: "Capturing explicit push-to-talk voice input when voice translation lands.",
+            isRequiredForDefaultWorkflow: false
+        ),
+        PermissionRequirement(
+            kind: .speechRecognition,
+            reason: "Converting short spoken phrases into text for voice translation.",
             isRequiredForDefaultWorkflow: false
         ),
         PermissionRequirement(

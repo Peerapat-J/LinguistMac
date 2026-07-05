@@ -57,6 +57,8 @@ Goal: complete user-configurable provider parity.
 - `#25` secure API key storage.
 - `#26` launch at login, app language, and auto-copy settings.
 
+Implementation notes and defaults live in `docs/m4-settings-providers.md`.
+
 ## M5 History + UX Polish + Release Readiness
 
 Goal: finish daily-use polish and release posture.
@@ -67,12 +69,17 @@ Goal: finish daily-use polish and release posture.
 - `#30` privacy posture and no telemetry/update assumptions.
 - `#31` signing, notarization, and distributable artifact workflow.
 
+Implementation notes and release guardrails live in `docs/privacy.md`,
+`docs/release-checklist.md`, and `docs/ci-cd.md`.
+
 ## M6 Future Differentiation After Parity
 
 Goal: keep non-parity ideas out of the critical path until parity is stable.
 
-- `#32` word card and dictionary planning.
-- `#33` speech or voice translation planning.
+- `#32` word card and dictionary planning. Requirements and scope live in
+  `docs/m6-word-card-dictionary.md`.
+- `#33` speech or voice translation planning. Requirements and scope live in
+  `docs/m6-voice-translation.md`.
 
 ## Review Strategy
 
