@@ -58,6 +58,55 @@ extension AppShellModel {
         appleLanguagePackSelection = appleLanguagePackSelectionState(pair: pair, readiness: readiness)
     }
 
+    func refreshAppleLanguagePackGroupsIfNeeded() async {
+        await refreshAppleLanguagePackGroups(force: false)
+    }
+
+    func refreshAppleLanguagePackGroups(force: Bool = true) async {
+        guard !isRefreshingAppleLanguagePackGroups,
+              force || !didRefreshAppleLanguagePackGroups
+        else {
+            return
+        }
+
+        isRefreshingAppleLanguagePackGroups = true
+        let groups = AppleLanguagePackCatalog.groups(from: availableLanguages, settings: settings)
+        var readinessByPairID: [String: LanguagePackReadiness] = [:]
+
+        for pair in uniqueAppleLanguagePackPairs(from: groups) {
+            let readiness = await services.languageAvailability.readiness(
+                from: pair.sourceLanguage,
+                to: pair.targetLanguage,
+                sampleText: nil
+            )
+            readinessByPairID[pair.id] = readiness
+        }
+
+        appleLanguagePackGroups = groups.map { group in
+            AppleLanguagePackGroup(
+                language: group.language,
+                rows: group.rows.map { row in
+                    appleLanguagePackRow(
+                        for: row.pair,
+                        readiness: readinessByPairID[row.id] ?? row.readiness
+                    )
+                }
+            )
+        }
+
+        if let pair = AppleLanguagePackPair.current(settings: settings) {
+            appleLanguagePackSelection = appleLanguagePackSelectionState(
+                pair: pair,
+                readiness: readinessByPairID[pair.id] ?? .unknown
+            )
+        } else {
+            appleLanguagePackSelection = appleLanguagePackSelectionState(pair: nil, readiness: .unknown)
+        }
+
+        didRefreshAppleLanguagePackGroups = true
+        isRefreshingAppleLanguagePackGroups = false
+    }
+
     func prepareSelectedAppleLanguagePack() async {
         guard let pair = AppleLanguagePackPair.current(settings: settings) else {
             return
@@ -296,6 +345,18 @@ extension AppShellModel {
             .reduce(into: [:]) { rowsByID, row in
                 rowsByID[row.id] = row
             }
+    }
+
+    private func uniqueAppleLanguagePackPairs(
+        from groups: [AppleLanguagePackGroup]
+    ) -> [AppleLanguagePackPair] {
+        var seenPairIDs: Set<String> = []
+        var pairs: [AppleLanguagePackPair] = []
+        for row in groups.flatMap(\.rows) where seenPairIDs.insert(row.id).inserted {
+            pairs.append(row.pair)
+        }
+
+        return pairs
     }
 
     private func preparationMessage(for readiness: LanguagePackReadiness) -> String {

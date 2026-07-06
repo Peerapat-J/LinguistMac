@@ -9,7 +9,7 @@ struct AppleLanguagePackManagementView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             SettingsSearchHighlightedText(
-                "Apple checks and prepares language assets for the selected pair and any language group you open.",
+                "Apple checks language pack status automatically and downloads assets for pairs you choose.",
                 searchText: searchText
             )
             .font(.caption)
@@ -45,6 +45,9 @@ struct AppleLanguagePackManagementView: View {
             .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .task {
+            await model.refreshAppleLanguagePackGroupsIfNeeded()
+        }
     }
 
     private func groupExpansionBinding(for group: AppleLanguagePackGroup) -> Binding<Bool> {
@@ -52,12 +55,7 @@ struct AppleLanguagePackManagementView: View {
             expandedGroupIDs.contains(group.id)
         } set: { isExpanded in
             if isExpanded {
-                let wasInserted = expandedGroupIDs.insert(group.id).inserted
-                if wasInserted {
-                    Task {
-                        await model.refreshAppleLanguagePackGroup(for: group.language)
-                    }
-                }
+                expandedGroupIDs.insert(group.id)
             } else {
                 expandedGroupIDs.remove(group.id)
             }
@@ -223,9 +221,8 @@ private struct AppleLanguagePackGroupView: View {
     }
 
     private var summaryText: String {
-        let checkedRows = group.rows.filter { $0.readiness != .unknown }
-        guard !checkedRows.isEmpty else {
-            return "Not Checked"
+        guard !group.rows.contains(where: { $0.readiness == .unknown }) else {
+            return "Checking"
         }
 
         let readyCount = group.rows.count(where: { $0.readiness == .ready })

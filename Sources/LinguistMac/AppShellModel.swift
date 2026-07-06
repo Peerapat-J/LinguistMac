@@ -73,6 +73,8 @@ final class AppShellModel: ObservableObject {
     var activeSpokenOutputTask: Task<Void, Never>?
     var preparingAppleLanguagePackID: String?
     var appleLanguagePackMessages: [String: String]
+    var isRefreshingAppleLanguagePackGroups: Bool
+    var didRefreshAppleLanguagePackGroups: Bool
 
     init(
         settings: AppSettings? = nil,
@@ -125,6 +127,8 @@ final class AppShellModel: ObservableObject {
         doubleCopyTriggerDetector = DoubleCopyTriggerDetector()
         preparingAppleLanguagePackID = nil
         appleLanguagePackMessages = [:]
+        isRefreshingAppleLanguagePackGroups = false
+        didRefreshAppleLanguagePackGroups = false
         if initialSettings != storedSettings {
             persistSettings()
         }

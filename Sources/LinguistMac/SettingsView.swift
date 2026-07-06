@@ -634,7 +634,7 @@ private extension SettingsView {
     func refreshAppleLanguagePackReadiness() {
         Task {
             await model.refreshReadiness()
-            await model.refreshAppleLanguagePackSelection()
+            await model.refreshAppleLanguagePackGroups()
         }
     }
 

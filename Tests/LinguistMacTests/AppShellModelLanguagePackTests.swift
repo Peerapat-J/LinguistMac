@@ -81,6 +81,38 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         )
     }
 
+    func testRefreshAppleLanguagePackGroupsChecksAllUniquePairs() async throws {
+        let languageAvailability = LanguagePackTestAvailabilityChecker(
+            readinessByPair: [
+                "th->en": .needsDownload,
+                "en->th": .ready,
+                "th->ja": .unavailable
+            ]
+        )
+        let currentPair = AppleLanguagePackPair(sourceLanguage: .thai, targetLanguage: .english)
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .thai, targetLanguage: .english),
+            services: makeServices(languageAvailability: languageAvailability)
+        )
+        let supportedLanguageCount = model.appleLanguagePackSupportedLanguages.count
+        let expectedUniquePairCount = supportedLanguageCount * (supportedLanguageCount - 1)
+
+        await model.refreshAppleLanguagePackGroups()
+
+        let readinessPairIDs = await languageAvailability.readinessPairIDs()
+        let thaiGroup = try XCTUnwrap(model.appleLanguagePackGroups.first { $0.language == .thai })
+        let rowsByPair = Dictionary(uniqueKeysWithValues: thaiGroup.rows.map { ($0.id, $0) })
+
+        XCTAssertEqual(Set(readinessPairIDs).count, expectedUniquePairCount)
+        XCTAssertEqual(readinessPairIDs.count, expectedUniquePairCount)
+        XCTAssertFalse(model.appleLanguagePackGroups.flatMap(\.rows).contains { $0.readiness == .unknown })
+        XCTAssertEqual(model.appleLanguagePackSelection.pair, currentPair)
+        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
+        XCTAssertEqual(rowsByPair["th->en"]?.readiness, .needsDownload)
+        XCTAssertEqual(rowsByPair["en->th"]?.readiness, .ready)
+        XCTAssertEqual(rowsByPair["th->ja"]?.readiness, .unavailable)
+    }
+
     func testPrepareAppleLanguagePackUpdatesGroupedRowsSelectionAndSetupReadiness() async throws {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["en->th": .needsDownload],
@@ -175,6 +207,7 @@ private actor LanguagePackTestAvailabilityChecker: LanguageAvailabilityChecking 
     private let defaultReadiness: LanguagePackReadiness
     private let preparedReadiness: LanguagePackReadiness
     private var preparedPairs: [String]
+    private var readinessPairs: [String]
 
     init(
         defaultReadiness: LanguagePackReadiness = .ready,
@@ -185,6 +218,7 @@ private actor LanguagePackTestAvailabilityChecker: LanguageAvailabilityChecking 
         self.readinessByPair = readinessByPair
         self.preparedReadiness = preparedReadiness
         preparedPairs = []
+        readinessPairs = []
     }
 
     func readiness(
@@ -193,7 +227,9 @@ private actor LanguagePackTestAvailabilityChecker: LanguageAvailabilityChecking 
         sampleText: String?
     ) async -> LanguagePackReadiness {
         _ = sampleText
-        return readinessByPair[Self.pairID(source: source, target: target)] ?? defaultReadiness
+        let pairID = Self.pairID(source: source, target: target)
+        readinessPairs.append(pairID)
+        return readinessByPair[pairID] ?? defaultReadiness
     }
 
     func prepareLanguagePack(
@@ -208,6 +244,10 @@ private actor LanguagePackTestAvailabilityChecker: LanguageAvailabilityChecking 
 
     func preparedPairIDs() -> [String] {
         preparedPairs
+    }
+
+    func readinessPairIDs() -> [String] {
+        readinessPairs
     }
 
     private static func pairID(
