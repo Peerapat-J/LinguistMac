@@ -76,6 +76,10 @@ enum AppleTranslationSessionAdapter {
             }
         }
 
+        static func translationFailure(from error: Error) -> TranslationFailure {
+            mapAppleTranslationError(error)
+        }
+
         private static func mapAppleTranslationError(_ error: Error) -> TranslationFailure {
             let isUnsupportedLanguageError =
                 TranslationError.unsupportedSourceLanguage ~= error ||

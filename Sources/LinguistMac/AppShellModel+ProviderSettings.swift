@@ -143,16 +143,28 @@ extension AppShellModel {
 
         preparingAppleLanguagePackID = pair.id
         appleLanguagePackMessages[pair.id] = nil
+        appleLanguagePackPreparationRequest = AppleLanguagePackPreparationRequest(pair: pair)
         refreshAppleLanguagePackSelectionOrder()
+    }
+
+    func finishAppleLanguagePackPreparation(
+        for pair: AppleLanguagePackPair,
+        result: Result<Void, TranslationFailure>
+    ) async {
+        guard preparingAppleLanguagePackID == pair.id else {
+            return
+        }
 
         let readiness: LanguagePackReadiness
-        do {
-            readiness = try await services.languageAvailability.prepareLanguagePack(
+        switch result {
+        case .success:
+            readiness = await services.languageAvailability.readiness(
                 from: pair.sourceLanguage,
-                to: pair.targetLanguage
+                to: pair.targetLanguage,
+                sampleText: nil
             )
             appleLanguagePackMessages[pair.id] = preparationMessage(for: readiness)
-        } catch {
+        case let .failure(error):
             appleLanguagePackMessages[pair.id] = preparationFailureMessage(from: error)
             readiness = await services.languageAvailability.readiness(
                 from: pair.sourceLanguage,
@@ -162,6 +174,7 @@ extension AppShellModel {
         }
 
         preparingAppleLanguagePackID = nil
+        appleLanguagePackPreparationRequest = nil
         updateAppleLanguagePackRow(for: pair, readiness: readiness)
         await refreshReadiness()
     }

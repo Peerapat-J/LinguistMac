@@ -21,6 +21,19 @@ enum AppShellCommand: Equatable {
     case openSystemSettings(PermissionKind)
 }
 
+struct AppleLanguagePackPreparationRequest: Equatable, Identifiable {
+    let id: UUID
+    let pair: AppleLanguagePackPair
+
+    init(
+        pair: AppleLanguagePackPair,
+        id: UUID = UUID()
+    ) {
+        self.pair = pair
+        self.id = id
+    }
+}
+
 struct HistoryLoadErrorState: Equatable {
     let message: String
     let diagnosticDescription: String
@@ -47,6 +60,7 @@ final class AppShellModel: ObservableObject {
     @Published var readiness: OnboardingReadinessSnapshot
     @Published var appleLanguagePackSelection: AppleLanguagePackSelection
     @Published var appleLanguagePackGroups: [AppleLanguagePackGroup]
+    @Published var appleLanguagePackPreparationRequest: AppleLanguagePackPreparationRequest?
     @Published var availableProviders: [TranslationProviderDescriptor]
     @Published var providerAPIKeyDrafts: [TranslationProviderID: String]
     @Published var providerAPIRegionDrafts: [TranslationProviderID: String]

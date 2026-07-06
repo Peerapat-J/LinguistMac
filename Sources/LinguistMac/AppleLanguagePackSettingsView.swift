@@ -1,5 +1,8 @@
 import LinguistMacCore
 import SwiftUI
+#if compiler(>=6.3)
+    import _Translation_SwiftUI
+#endif
 
 struct AppleLanguagePackManagementView: View {
     @ObservedObject var model: AppShellModel
@@ -43,6 +46,14 @@ struct AppleLanguagePackManagementView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+
+            #if compiler(>=6.3)
+                if #available(macOS 26.0, *) {
+                    AppleLanguagePackPreparationTaskView(model: model)
+                        .frame(width: 0, height: 0)
+                        .accessibilityHidden(true)
+                }
+            #endif
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .task {
@@ -62,6 +73,78 @@ struct AppleLanguagePackManagementView: View {
         }
     }
 }
+
+#if compiler(>=6.3)
+    @available(macOS 26.0, *)
+    private struct AppleLanguagePackPreparationTaskView: View {
+        @ObservedObject var model: AppShellModel
+        @State private var activeRequestID: AppleLanguagePackPreparationRequest.ID?
+        @State private var configuration: TranslationSession.Configuration?
+
+        var body: some View {
+            Color.clear
+                .frame(width: 0, height: 0)
+                .onAppear {
+                    updateConfiguration(for: model.appleLanguagePackPreparationRequest)
+                }
+                .onChange(of: model.appleLanguagePackPreparationRequest) { _, request in
+                    updateConfiguration(for: request)
+                }
+                .translationTask(configuration) { @Sendable session in
+                    let state = await MainActor.run {
+                        (model.appleLanguagePackPreparationRequest, activeRequestID)
+                    }
+                    guard let request = state.0,
+                          request.id == state.1
+                    else {
+                        return
+                    }
+
+                    do {
+                        try await session.prepareTranslation()
+                        await model.finishAppleLanguagePackPreparation(for: request.pair, result: .success(()))
+                    } catch {
+                        let failure = AppleTranslationSessionAdapter.translationFailure(from: error)
+                        await model.finishAppleLanguagePackPreparation(for: request.pair, result: .failure(failure))
+                    }
+
+                    await MainActor.run {
+                        guard activeRequestID == request.id else {
+                            return
+                        }
+
+                        activeRequestID = nil
+                        configuration = nil
+                    }
+                }
+        }
+
+        @MainActor
+        private func updateConfiguration(for request: AppleLanguagePackPreparationRequest?) {
+            guard let request else {
+                activeRequestID = nil
+                configuration = nil
+                return
+            }
+            guard let source = request.pair.sourceLanguage.localeLanguage,
+                  let target = request.pair.targetLanguage.localeLanguage
+            else {
+                activeRequestID = nil
+                configuration = nil
+                Task {
+                    await model.finishAppleLanguagePackPreparation(
+                        for: request.pair,
+                        result: .failure(.unsupportedLanguagePair)
+                    )
+                }
+                return
+            }
+
+            activeRequestID = request.id
+            configuration = TranslationSession.Configuration(source: source, target: target)
+        }
+    }
+#endif
 
 private struct AppleLanguagePackSelectionView: View {
     let selection: AppleLanguagePackSelection
