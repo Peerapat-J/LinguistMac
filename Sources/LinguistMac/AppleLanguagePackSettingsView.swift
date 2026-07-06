@@ -25,11 +25,20 @@ struct AppleLanguagePackManagementView: View {
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
 
-            AppleLanguagePackSelectionView(selection: model.appleLanguagePackSelection, searchText: searchText) {
-                Task {
-                    await model.prepareSelectedAppleLanguagePack()
+            AppleLanguagePackSelectionView(
+                selection: model.appleLanguagePackSelection,
+                searchText: searchText,
+                prepare: {
+                    Task {
+                        await model.prepareSelectedAppleLanguagePack()
+                    }
+                },
+                cancel: { pair in
+                    Task {
+                        await model.cancelAppleLanguagePackPreparation(for: pair)
+                    }
                 }
-            }
+            )
 
             SettingsDivider()
 
@@ -40,6 +49,11 @@ struct AppleLanguagePackManagementView: View {
                 preparePair: { pair in
                     Task {
                         await model.prepareAppleLanguagePack(for: pair)
+                    }
+                },
+                cancelPair: { pair in
+                    Task {
+                        await model.cancelAppleLanguagePackPreparation(for: pair)
                     }
                 }
             )
@@ -165,6 +179,7 @@ private struct AppleLanguagePackSelectionView: View {
     let selection: AppleLanguagePackSelection
     let searchText: String
     let prepare: () -> Void
+    let cancel: (AppleLanguagePackPair) -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -193,11 +208,19 @@ private struct AppleLanguagePackSelectionView: View {
                 .foregroundStyle(selectionStatusTint)
                 .lineLimit(1)
 
-                if selection.readiness == .needsDownload || selection.isPreparing {
+                if selection.isPreparing, let pair = selection.pair {
+                    Button {
+                        cancel(pair)
+                    } label: {
+                        Label("Cancel", systemImage: "xmark.circle")
+                    }
+                    .controlSize(.small)
+                    .fixedSize(horizontal: true, vertical: false)
+                } else if selection.readiness == .needsDownload {
                     Button {
                         prepare()
                     } label: {
-                        Label(selection.isPreparing ? "Downloading" : "Download", systemImage: "arrow.down.circle")
+                        Label("Download", systemImage: "arrow.down.circle")
                     }
                     .controlSize(.small)
                     .disabled(!selection.canPrepare)
@@ -254,6 +277,7 @@ private struct AppleLanguagePackGroupsView: View {
     let searchText: String
     let expandedBinding: (AppleLanguagePackGroup) -> Binding<Bool>
     let preparePair: (AppleLanguagePackPair) -> Void
+    let cancelPair: (AppleLanguagePackPair) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -270,7 +294,8 @@ private struct AppleLanguagePackGroupsView: View {
                     group: group,
                     searchText: searchText,
                     isExpanded: expandedBinding(group),
-                    preparePair: preparePair
+                    preparePair: preparePair,
+                    cancelPair: cancelPair
                 )
             }
         }
@@ -284,6 +309,7 @@ private struct AppleLanguagePackGroupView: View {
     let searchText: String
     @Binding var isExpanded: Bool
     let preparePair: (AppleLanguagePackPair) -> Void
+    let cancelPair: (AppleLanguagePackPair) -> Void
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
@@ -294,9 +320,16 @@ private struct AppleLanguagePackGroupView: View {
                             .padding(.leading, 28)
                     }
 
-                    AppleLanguagePackPairRowView(row: row, searchText: searchText) {
-                        preparePair(row.pair)
-                    }
+                    AppleLanguagePackPairRowView(
+                        row: row,
+                        searchText: searchText,
+                        prepare: {
+                            preparePair(row.pair)
+                        },
+                        cancel: {
+                            cancelPair(row.pair)
+                        }
+                    )
                 }
             }
             .padding(.top, 6)
@@ -332,6 +365,7 @@ private struct AppleLanguagePackPairRowView: View {
     let row: AppleLanguagePackReadinessRow
     let searchText: String
     let prepare: () -> Void
+    let cancel: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -366,11 +400,19 @@ private struct AppleLanguagePackPairRowView: View {
                     .foregroundStyle(statusTint)
                     .lineLimit(1)
 
-                if row.readiness == .needsDownload || row.isPreparing {
+                if row.isPreparing {
+                    Button {
+                        cancel()
+                    } label: {
+                        Label("Cancel", systemImage: "xmark.circle")
+                    }
+                    .controlSize(.small)
+                    .fixedSize(horizontal: true, vertical: false)
+                } else if row.readiness == .needsDownload {
                     Button {
                         prepare()
                     } label: {
-                        Label(row.isPreparing ? "Downloading" : "Download", systemImage: "arrow.down.circle")
+                        Label("Download", systemImage: "arrow.down.circle")
                     }
                     .controlSize(.small)
                     .disabled(!row.canPrepare)

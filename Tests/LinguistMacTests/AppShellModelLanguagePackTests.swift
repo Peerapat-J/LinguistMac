@@ -213,6 +213,38 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         XCTAssertEqual(model.appleLanguagePackSelection.message, "Download did not finish. Try Download again.")
     }
 
+    func testCancelAppleLanguagePackPreparationClearsRequestAndRows() async throws {
+        let languageAvailability = LanguagePackTestAvailabilityChecker(
+            readinessByPair: ["en->th": .needsDownload]
+        )
+        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
+            services: makeServices(languageAvailability: languageAvailability)
+        )
+
+        await model.refreshAppleLanguagePackGroup(for: .english)
+        await model.prepareAppleLanguagePack(for: pair)
+        await model.cancelAppleLanguagePackPreparation(for: pair)
+
+        let preparedPairIDs = await languageAvailability.preparedPairIDs()
+        let englishRow = try row(
+            in: model.appleLanguagePackGroups,
+            language: .english,
+            pairID: pair.id
+        )
+
+        XCTAssertTrue(preparedPairIDs.isEmpty)
+        XCTAssertNil(model.appleLanguagePackPreparationRequest)
+        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
+        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
+        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
+        XCTAssertEqual(model.appleLanguagePackSelection.message, "Download canceled. Try Download again.")
+        XCTAssertEqual(englishRow.readiness, .needsDownload)
+        XCTAssertFalse(englishRow.isPreparing)
+        XCTAssertEqual(englishRow.message, "Download canceled. Try Download again.")
+    }
+
     func testPrepareSelectedAppleLanguagePackSkipsAutoDetectSource() async {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["en->th": .needsDownload],

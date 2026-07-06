@@ -217,6 +217,29 @@ extension AppShellModel {
         await refreshReadiness()
     }
 
+    func cancelAppleLanguagePackPreparation(for pair: AppleLanguagePackPair) async {
+        guard preparingAppleLanguagePackID == pair.id else {
+            return
+        }
+
+        activeAppleLanguagePackTimeoutTask?.cancel()
+        activeAppleLanguagePackTimeoutTask = nil
+
+        let readiness = await services.languageAvailability.readiness(
+            from: pair.sourceLanguage,
+            to: pair.targetLanguage,
+            sampleText: nil
+        )
+        appleLanguagePackMessages[pair.id] = readiness == .ready
+            ? preparationMessage(for: readiness)
+            : preparationCancellationMessage()
+        preparingAppleLanguagePackID = nil
+        appleLanguagePackPreparationRequest = nil
+        updateAppleLanguagePackRow(for: pair, readiness: readiness)
+        appleLanguagePackLogger.info("Canceled Apple language pack preparation for \(pair.id, privacy: .public)")
+        await refreshReadiness()
+    }
+
     func timeoutAppleLanguagePackPreparation(requestID: UUID) async {
         guard let request = appleLanguagePackPreparationRequest,
               request.id == requestID,
@@ -481,6 +504,10 @@ extension AppShellModel {
 
     private func preparationTimeoutMessage() -> String {
         "Download did not finish. Try Download again."
+    }
+
+    private func preparationCancellationMessage() -> String {
+        "Download canceled. Try Download again."
     }
 
     private func preparationFailureMessage(from error: Error) -> String {
