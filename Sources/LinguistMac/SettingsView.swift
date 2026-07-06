@@ -247,38 +247,44 @@ private extension SettingsView {
     }
 
     var translationSettings: some View {
-        settingsSection("Translation") {
-            settingsRow("Engine") {
-                Picker("", selection: $model.settings.selectedProviderID) {
-                    ForEach(model.selectableProviders, id: \.id) { provider in
-                        Text(provider.pickerTitle)
-                            .tag(provider.id)
+        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+            settingsSection("Translation") {
+                settingsRow("Engine") {
+                    Picker("", selection: $model.settings.selectedProviderID) {
+                        ForEach(model.selectableProviders, id: \.id) { provider in
+                            Text(provider.pickerTitle)
+                                .tag(provider.id)
+                        }
                     }
+                    .labelsHidden()
+                    .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
                 }
-                .labelsHidden()
-                .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
+                SettingsDivider()
+                settingsRow("Source Language") {
+                    Picker("", selection: sourceLanguageBinding) {
+                        ForEach(model.availableLanguages, id: \.id) { language in
+                            Text(LocalizedStringKey(language.displayName))
+                                .tag(language)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
+                }
+                SettingsDivider()
+                settingsRow("Target Language") {
+                    Picker("", selection: targetLanguageBinding) {
+                        ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
+                            Text(LocalizedStringKey(language.displayName))
+                                .tag(language)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
+                }
             }
-            SettingsDivider()
-            settingsRow("Source Language") {
-                Picker("", selection: sourceLanguageBinding) {
-                    ForEach(model.availableLanguages, id: \.id) { language in
-                        Text(LocalizedStringKey(language.displayName))
-                            .tag(language)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
-            }
-            SettingsDivider()
-            settingsRow("Target Language") {
-                Picker("", selection: targetLanguageBinding) {
-                    ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
-                        Text(LocalizedStringKey(language.displayName))
-                            .tag(language)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: SettingsLayout.controlWidth, alignment: .trailing)
+
+            settingsSection("Apple Language Packs") {
+                AppleLanguagePackManagementView(model: model, searchText: sidebarSearchText)
             }
         }
     }
@@ -566,6 +572,7 @@ private extension SettingsView {
             model.settings.sourceLanguage
         } set: { language in
             model.setSourceLanguage(language)
+            refreshAppleLanguagePackReadiness()
         }
     }
 
@@ -574,6 +581,7 @@ private extension SettingsView {
             model.settings.targetLanguage
         } set: { language in
             model.setTargetLanguage(language)
+            refreshAppleLanguagePackReadiness()
         }
     }
 
@@ -620,6 +628,13 @@ private extension SettingsView {
     func refreshShortcuts() {
         Task {
             await model.refreshShortcutRegistrations()
+        }
+    }
+
+    func refreshAppleLanguagePackReadiness() {
+        Task {
+            await model.refreshReadiness()
+            await model.refreshAppleLanguagePackSelection()
         }
     }
 

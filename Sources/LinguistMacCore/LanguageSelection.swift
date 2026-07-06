@@ -1,11 +1,26 @@
 public enum TranslationLanguageCatalog {
     public static let defaultLanguages: [TranslationLanguage] = [
         .autoDetect,
+        .arabic,
+        .dutch,
         .english,
-        .thai,
+        .french,
+        .german,
+        .hindi,
+        .indonesian,
+        .italian,
         .japanese,
         .korean,
-        .simplifiedChinese
+        .simplifiedChinese,
+        .traditionalChinese,
+        .polish,
+        .brazilianPortuguese,
+        .russian,
+        .spanish,
+        .thai,
+        .turkish,
+        .ukrainian,
+        .vietnamese
     ]
 
     public static var targetLanguages: [TranslationLanguage] {
@@ -13,8 +28,25 @@ public enum TranslationLanguageCatalog {
     }
 
     public static func language(forID id: String) -> TranslationLanguage? {
-        defaultLanguages.first { $0.id == id }
+        defaultLanguages.first { $0.id == id } ?? languageAliases[id.lowercased()]
     }
+
+    private static let languageAliases: [String: TranslationLanguage] = [
+        "de-de": .german,
+        "en-gb": .english,
+        "en-us": .english,
+        "es-es": .spanish,
+        "fr-fr": .french,
+        "it-it": .italian,
+        "nl-nl": .dutch,
+        "pt": .brazilianPortuguese,
+        "ru-ru": .russian,
+        "zh": .simplifiedChinese,
+        "zh-cn": .simplifiedChinese,
+        "zh-hans-cn": .simplifiedChinese,
+        "zh-hant-tw": .traditionalChinese,
+        "zh-tw": .traditionalChinese
+    ]
 }
 
 public struct LanguageSelection: Equatable, Sendable {

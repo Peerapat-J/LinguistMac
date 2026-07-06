@@ -45,6 +45,8 @@ final class AppShellModel: ObservableObject {
     @Published var inputModeSessionState: TranslationSessionState
     @Published private(set) var shortcutRegistrationResults: [ShortcutRegistrationResult]
     @Published var readiness: OnboardingReadinessSnapshot
+    @Published var appleLanguagePackSelection: AppleLanguagePackSelection
+    @Published var appleLanguagePackGroups: [AppleLanguagePackGroup]
     @Published var availableProviders: [TranslationProviderDescriptor]
     @Published var providerAPIKeyDrafts: [TranslationProviderID: String]
     @Published var providerAPIRegionDrafts: [TranslationProviderID: String]
@@ -69,6 +71,8 @@ final class AppShellModel: ObservableObject {
     var activeSpokenOutputID: UUID?
     var activeSpokenOutputResultID: UUID?
     var activeSpokenOutputTask: Task<Void, Never>?
+    var preparingAppleLanguagePackID: String?
+    var appleLanguagePackMessages: [String: String]
 
     init(
         settings: AppSettings? = nil,
@@ -104,6 +108,11 @@ final class AppShellModel: ObservableObject {
             appleTranslation: .unknown,
             cloudProviderConfigured: false
         )
+        appleLanguagePackSelection = AppleLanguagePackSelection.initial(settings: initialSettings)
+        appleLanguagePackGroups = AppleLanguagePackCatalog.groups(
+            from: TranslationLanguageCatalog.defaultLanguages,
+            settings: initialSettings
+        )
         providerAPIKeyDrafts = [:]
         providerAPIRegionDrafts = [:]
         providerConfigurationMessages = [:]
@@ -114,6 +123,8 @@ final class AppShellModel: ObservableObject {
         self.services = services
         shortcutRegistrationCoordinator = ShortcutRegistrationCoordinator(registry: services.shortcutRegistry)
         doubleCopyTriggerDetector = DoubleCopyTriggerDetector()
+        preparingAppleLanguagePackID = nil
+        appleLanguagePackMessages = [:]
         if initialSettings != storedSettings {
             persistSettings()
         }

@@ -71,6 +71,30 @@ struct AppleTranslationAvailabilityService: LanguageAvailabilityChecking {
         }
     }
 
+    func prepareLanguagePack(
+        from source: TranslationLanguage,
+        to target: TranslationLanguage
+    ) async throws -> LanguagePackReadiness {
+        let currentReadiness = await readiness(from: source, to: target, sampleText: nil)
+        guard currentReadiness == .needsDownload else {
+            return currentReadiness
+        }
+        guard let sourceLanguage = source.localeLanguage,
+              let targetLanguage = target.localeLanguage
+        else {
+            return .unknown
+        }
+        guard #available(macOS 26.0, *) else {
+            return .unavailable
+        }
+
+        try await AppleTranslationSessionAdapter.prepareLanguagePack(
+            source: sourceLanguage,
+            target: targetLanguage
+        )
+        return await readiness(from: source, to: target, sampleText: nil)
+    }
+
     private func readiness(from status: LanguageAvailability.Status) -> LanguagePackReadiness {
         switch status {
         case .installed:

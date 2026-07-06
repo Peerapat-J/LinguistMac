@@ -141,6 +141,64 @@ final class AppShellModelsTests: XCTestCase {
         XCTAssertEqual(unsupportedItems[.cloudProvider]?.statusText, "Ready")
     }
 
+    func testAppleLanguagePackCurrentPairRequiresConcreteDifferentLanguages() {
+        XCTAssertEqual(
+            AppleLanguagePackPair.current(
+                settings: AppSettings(sourceLanguage: .thai, targetLanguage: .english)
+            ),
+            AppleLanguagePackPair(sourceLanguage: .thai, targetLanguage: .english)
+        )
+        XCTAssertNil(
+            AppleLanguagePackPair.current(
+                settings: AppSettings(sourceLanguage: .autoDetect, targetLanguage: .english)
+            )
+        )
+        XCTAssertNil(
+            AppleLanguagePackPair.current(
+                settings: AppSettings(sourceLanguage: .english, targetLanguage: .english)
+            )
+        )
+    }
+
+    func testAppleLanguagePackCatalogExcludesAutoDetect() {
+        let languages = AppleLanguagePackCatalog.supportedLanguages(
+            from: TranslationLanguageCatalog.defaultLanguages
+        )
+
+        XCTAssertFalse(languages.contains(where: \.supportsAutoDetect))
+        XCTAssertEqual(
+            languages,
+            TranslationLanguageCatalog.defaultLanguages.filter { !$0.supportsAutoDetect }
+        )
+    }
+
+    func testAppleLanguagePackSelectionOnlyPreparesNeedsDownloadPair() {
+        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
+        let needsDownload = AppleLanguagePackSelection(
+            pair: pair,
+            readiness: .needsDownload
+        )
+        let preparing = AppleLanguagePackSelection(
+            pair: pair,
+            readiness: .needsDownload,
+            isPreparing: true
+        )
+        let ready = AppleLanguagePackSelection(
+            pair: pair,
+            readiness: .ready
+        )
+        let noPair = AppleLanguagePackSelection(
+            pair: nil,
+            readiness: .needsDownload
+        )
+
+        XCTAssertTrue(needsDownload.canPrepare)
+        XCTAssertFalse(preparing.canPrepare)
+        XCTAssertFalse(ready.canPrepare)
+        XCTAssertFalse(noPair.canPrepare)
+        XCTAssertEqual(LanguagePackReadiness.needsDownload.displayText, "Needs Download")
+    }
+
     func testFailurePresentationMapsRecoveryActionsAndRedactsProviderMessage() {
         XCTAssertEqual(
             TranslationFailure.permissionDenied(.screenRecording).presentation.recoveryAction,
