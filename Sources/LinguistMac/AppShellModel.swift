@@ -24,13 +24,16 @@ enum AppShellCommand: Equatable {
 struct AppleLanguagePackPreparationRequest: Equatable, Identifiable {
     let id: UUID
     let pair: AppleLanguagePackPair
+    let startedAt: Date
 
     init(
         pair: AppleLanguagePackPair,
-        id: UUID = UUID()
+        id: UUID = UUID(),
+        startedAt: Date = Date()
     ) {
         self.pair = pair
         self.id = id
+        self.startedAt = startedAt
     }
 }
 
@@ -85,6 +88,7 @@ final class AppShellModel: ObservableObject {
     var activeSpokenOutputID: UUID?
     var activeSpokenOutputResultID: UUID?
     var activeSpokenOutputTask: Task<Void, Never>?
+    var activeAppleLanguagePackTimeoutTask: Task<Void, Never>?
     var preparingAppleLanguagePackID: String?
     var appleLanguagePackMessages: [String: String]
     var isRefreshingAppleLanguagePackGroups: Bool
@@ -153,6 +157,7 @@ final class AppShellModel: ObservableObject {
         activeQuickWordTranslationTask?.cancel()
         activeQuickVoiceCaptureTask?.cancel()
         activeSpokenOutputTask?.cancel()
+        activeAppleLanguagePackTimeoutTask?.cancel()
     }
 
     var recentMenuItems: [TranslationResult] {

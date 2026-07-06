@@ -189,6 +189,30 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         XCTAssertEqual(model.appleLanguagePackSelection.message, "Download was not completed. Try Download again.")
     }
 
+    func testStaleAppleLanguagePackPreparationTimesOutAndRechecksReadiness() async throws {
+        let languageAvailability = LanguagePackTestAvailabilityChecker(
+            readinessByPair: ["en->th": .needsDownload]
+        )
+        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
+            services: makeServices(languageAvailability: languageAvailability)
+        )
+
+        await model.refreshAppleLanguagePackSelection()
+        await model.prepareAppleLanguagePack(for: pair)
+
+        let request = try XCTUnwrap(model.appleLanguagePackPreparationRequest)
+        let staleNow = request.startedAt.addingTimeInterval(AppShellModel.appleLanguagePackPreparationTimeout + 1)
+        await model.clearStaleAppleLanguagePackPreparationIfNeeded(now: staleNow)
+
+        XCTAssertNil(model.appleLanguagePackPreparationRequest)
+        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
+        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
+        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
+        XCTAssertEqual(model.appleLanguagePackSelection.message, "Download did not finish. Try Download again.")
+    }
+
     func testPrepareSelectedAppleLanguagePackSkipsAutoDetectSource() async {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["en->th": .needsDownload],

@@ -1,8 +1,14 @@
 import LinguistMacCore
+import OSLog
 import SwiftUI
 #if compiler(>=6.3)
     import _Translation_SwiftUI
 #endif
+
+private let appleLanguagePackTaskLogger = Logger(
+    subsystem: AppIdentity.linguistMac.bundleIdentifier,
+    category: "AppleLanguagePackTasks"
+)
 
 struct AppleLanguagePackManagementView: View {
     @ObservedObject var model: AppShellModel
@@ -57,6 +63,7 @@ struct AppleLanguagePackManagementView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .task {
+            await model.clearStaleAppleLanguagePackPreparationIfNeeded()
             await model.refreshAppleLanguagePackGroupsIfNeeded()
         }
     }
@@ -100,11 +107,19 @@ struct AppleLanguagePackManagementView: View {
                         return
                     }
 
+                    await model.noteAppleLanguagePackPreparationSessionStarted(for: request)
                     do {
                         try await session.prepareTranslation()
                         await model.finishAppleLanguagePackPreparation(for: request.pair, result: .success(()))
                     } catch {
                         let failure = AppleTranslationSessionAdapter.translationFailure(from: error)
+                        let failureDescription = String(describing: failure)
+                        appleLanguagePackTaskLogger.error(
+                            "Translation task failed for \(request.pair.id, privacy: .public)"
+                        )
+                        appleLanguagePackTaskLogger.error(
+                            "Translation failure: \(failureDescription, privacy: .public)"
+                        )
                         await model.finishAppleLanguagePackPreparation(for: request.pair, result: .failure(failure))
                     }
 
