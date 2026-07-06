@@ -40,7 +40,7 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         let preparedPairIDs = await languageAvailability.preparedPairIDs()
 
         XCTAssertTrue(preparedPairIDs.isEmpty)
-        XCTAssertEqual(model.appleLanguagePackPreparationRequest?.pair, pair)
+        XCTAssertEqual(model.appleLanguagePackPreparationRequests.map(\.pair), [pair])
         XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
         XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
         XCTAssertTrue(model.appleLanguagePackSelection.isPreparing)
@@ -50,7 +50,7 @@ final class AppShellModelLanguagePackTests: XCTestCase {
 
         let readinessItems = Dictionary(uniqueKeysWithValues: model.readiness.items.map { ($0.kind, $0) })
 
-        XCTAssertNil(model.appleLanguagePackPreparationRequest)
+        XCTAssertTrue(model.appleLanguagePackPreparationRequests.isEmpty)
         XCTAssertEqual(model.appleLanguagePackSelection.readiness, .ready)
         XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
         XCTAssertEqual(readinessItems[.appleTranslation]?.statusText, "Ready")
@@ -137,7 +137,7 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         let preparedPairIDs = await languageAvailability.preparedPairIDs()
 
         XCTAssertTrue(preparedPairIDs.isEmpty)
-        XCTAssertEqual(model.appleLanguagePackPreparationRequest?.pair, pair)
+        XCTAssertEqual(model.appleLanguagePackPreparationRequests.map(\.pair), [pair])
         XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
         XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
         XCTAssertTrue(model.appleLanguagePackSelection.isPreparing)
@@ -157,7 +157,7 @@ final class AppShellModelLanguagePackTests: XCTestCase {
             pairID: pair.id
         )
 
-        XCTAssertNil(model.appleLanguagePackPreparationRequest)
+        XCTAssertTrue(model.appleLanguagePackPreparationRequests.isEmpty)
         XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
         XCTAssertEqual(model.appleLanguagePackSelection.readiness, .ready)
         XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
@@ -166,6 +166,58 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         XCTAssertEqual(thaiRow.readiness, .ready)
         XCTAssertEqual(thaiRow.message, "Language pack is ready.")
         XCTAssertEqual(readinessItems[.appleTranslation]?.statusText, "Ready")
+    }
+
+    func testPrepareAppleLanguagePackAllowsMultipleActiveRequests() async throws {
+        let languageAvailability = LanguagePackTestAvailabilityChecker(
+            readinessByPair: [
+                "en->th": .needsDownload,
+                "ja->th": .needsDownload
+            ]
+        )
+        let currentPair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
+        let secondPair = AppleLanguagePackPair(sourceLanguage: .japanese, targetLanguage: .thai)
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
+            services: makeServices(languageAvailability: languageAvailability)
+        )
+
+        await model.prepareAppleLanguagePack(for: currentPair)
+        await model.prepareAppleLanguagePack(for: secondPair)
+
+        let activePairs = Set(model.appleLanguagePackPreparationRequests.map(\.pair))
+        let currentRequest = try XCTUnwrap(
+            model.appleLanguagePackPreparationRequests.first { $0.pair == currentPair }
+        )
+        let secondRow = try row(
+            in: model.appleLanguagePackGroups,
+            language: .japanese,
+            pairID: secondPair.id
+        )
+
+        XCTAssertEqual(activePairs, [currentPair, secondPair])
+        XCTAssertEqual(model.appleLanguagePackSelection.pair, currentPair)
+        XCTAssertTrue(model.appleLanguagePackSelection.isPreparing)
+        XCTAssertTrue(secondRow.isPreparing)
+
+        await languageAvailability.setReadiness(.ready, for: currentPair)
+        await model.finishAppleLanguagePackPreparation(
+            for: currentPair,
+            requestID: currentRequest.id,
+            result: .success(())
+        )
+
+        let remainingPairs = model.appleLanguagePackPreparationRequests.map(\.pair)
+        let updatedSecondRow = try row(
+            in: model.appleLanguagePackGroups,
+            language: .japanese,
+            pairID: secondPair.id
+        )
+
+        XCTAssertEqual(remainingPairs, [secondPair])
+        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .ready)
+        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
+        XCTAssertTrue(updatedSecondRow.isPreparing)
     }
 
     func testFinishAppleLanguagePackPreparationKeepsNeedsDownloadMessageAfterFailure() async {
@@ -182,7 +234,7 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         await model.prepareAppleLanguagePack(for: pair)
         await model.finishAppleLanguagePackPreparation(for: pair, result: .failure(.missingLanguagePack(.apple)))
 
-        XCTAssertNil(model.appleLanguagePackPreparationRequest)
+        XCTAssertTrue(model.appleLanguagePackPreparationRequests.isEmpty)
         XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
         XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
         XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
@@ -202,11 +254,11 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         await model.refreshAppleLanguagePackSelection()
         await model.prepareAppleLanguagePack(for: pair)
 
-        let request = try XCTUnwrap(model.appleLanguagePackPreparationRequest)
+        let request = try XCTUnwrap(model.appleLanguagePackPreparationRequests.first)
         let staleNow = request.startedAt.addingTimeInterval(AppShellModel.appleLanguagePackPreparationTimeout + 1)
         await model.clearStaleAppleLanguagePackPreparationIfNeeded(now: staleNow)
 
-        XCTAssertNil(model.appleLanguagePackPreparationRequest)
+        XCTAssertTrue(model.appleLanguagePackPreparationRequests.isEmpty)
         XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
         XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
         XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
@@ -235,7 +287,7 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         )
 
         XCTAssertTrue(preparedPairIDs.isEmpty)
-        XCTAssertNil(model.appleLanguagePackPreparationRequest)
+        XCTAssertTrue(model.appleLanguagePackPreparationRequests.isEmpty)
         XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
         XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
         XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)

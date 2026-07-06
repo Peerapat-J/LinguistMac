@@ -63,7 +63,7 @@ final class AppShellModel: ObservableObject {
     @Published var readiness: OnboardingReadinessSnapshot
     @Published var appleLanguagePackSelection: AppleLanguagePackSelection
     @Published var appleLanguagePackGroups: [AppleLanguagePackGroup]
-    @Published var appleLanguagePackPreparationRequest: AppleLanguagePackPreparationRequest?
+    @Published var appleLanguagePackPreparationRequests: [AppleLanguagePackPreparationRequest] = []
     @Published var availableProviders: [TranslationProviderDescriptor]
     @Published var providerAPIKeyDrafts: [TranslationProviderID: String]
     @Published var providerAPIRegionDrafts: [TranslationProviderID: String]
@@ -88,11 +88,11 @@ final class AppShellModel: ObservableObject {
     var activeSpokenOutputID: UUID?
     var activeSpokenOutputResultID: UUID?
     var activeSpokenOutputTask: Task<Void, Never>?
-    var activeAppleLanguagePackTimeoutTask: Task<Void, Never>?
-    var preparingAppleLanguagePackID: String?
-    var appleLanguagePackMessages: [String: String]
-    var isRefreshingAppleLanguagePackGroups: Bool
-    var didRefreshAppleLanguagePackGroups: Bool
+    var activeAppleLanguagePackTimeoutTasks: [UUID: Task<Void, Never>] = [:]
+    var preparingAppleLanguagePackIDs: Set<String> = []
+    var appleLanguagePackMessages: [String: String] = [:]
+    var isRefreshingAppleLanguagePackGroups = false
+    var didRefreshAppleLanguagePackGroups = false
 
     init(
         settings: AppSettings? = nil,
@@ -143,10 +143,6 @@ final class AppShellModel: ObservableObject {
         self.services = services
         shortcutRegistrationCoordinator = ShortcutRegistrationCoordinator(registry: services.shortcutRegistry)
         doubleCopyTriggerDetector = DoubleCopyTriggerDetector()
-        preparingAppleLanguagePackID = nil
-        appleLanguagePackMessages = [:]
-        isRefreshingAppleLanguagePackGroups = false
-        didRefreshAppleLanguagePackGroups = false
         if initialSettings != storedSettings {
             persistSettings()
         }
@@ -157,7 +153,7 @@ final class AppShellModel: ObservableObject {
         activeQuickWordTranslationTask?.cancel()
         activeQuickVoiceCaptureTask?.cancel()
         activeSpokenOutputTask?.cancel()
-        activeAppleLanguagePackTimeoutTask?.cancel()
+        activeAppleLanguagePackTimeoutTasks.values.forEach { $0.cancel() }
     }
 
     var recentMenuItems: [TranslationResult] {

@@ -69,7 +69,7 @@ struct AppleLanguagePackManagementView: View {
 
             #if compiler(>=6.3)
                 if #available(macOS 26.0, *) {
-                    AppleLanguagePackPreparationTaskView(model: model)
+                    AppleLanguagePackPreparationTasksView(model: model)
                         .frame(width: 0, height: 0)
                         .accessibilityHidden(true)
                 }
@@ -97,34 +97,41 @@ struct AppleLanguagePackManagementView: View {
 
 #if compiler(>=6.3)
     @available(macOS 26.0, *)
+    private struct AppleLanguagePackPreparationTasksView: View {
+        @ObservedObject var model: AppShellModel
+
+        var body: some View {
+            ForEach(model.appleLanguagePackPreparationRequests) { request in
+                AppleLanguagePackPreparationTaskView(model: model, request: request)
+                    .id(request.id)
+            }
+        }
+    }
+
+    @available(macOS 26.0, *)
     private struct AppleLanguagePackPreparationTaskView: View {
         @ObservedObject var model: AppShellModel
-        @State private var activeRequestID: AppleLanguagePackPreparationRequest.ID?
+        let request: AppleLanguagePackPreparationRequest
         @State private var configuration: TranslationSession.Configuration?
 
         var body: some View {
             Color.clear
                 .frame(width: 0, height: 0)
                 .onAppear {
-                    updateConfiguration(for: model.appleLanguagePackPreparationRequest)
-                }
-                .onChange(of: model.appleLanguagePackPreparationRequest) { _, request in
-                    updateConfiguration(for: request)
+                    updateConfiguration()
                 }
                 .translationTask(configuration) { @Sendable session in
-                    let state = await MainActor.run {
-                        (model.appleLanguagePackPreparationRequest, activeRequestID)
-                    }
-                    guard let request = state.0,
-                          request.id == state.1
-                    else {
+                    guard await model.noteAppleLanguagePackPreparationSessionStarted(for: request) else {
                         return
                     }
 
-                    await model.noteAppleLanguagePackPreparationSessionStarted(for: request)
                     do {
                         try await session.prepareTranslation()
-                        await model.finishAppleLanguagePackPreparation(for: request.pair, result: .success(()))
+                        await model.finishAppleLanguagePackPreparation(
+                            for: request.pair,
+                            requestID: request.id,
+                            result: .success(())
+                        )
                     } catch {
                         let failure = AppleTranslationSessionAdapter.translationFailure(from: error)
                         let failureDescription = String(describing: failure)
@@ -134,42 +141,35 @@ struct AppleLanguagePackManagementView: View {
                         appleLanguagePackTaskLogger.error(
                             "Translation failure: \(failureDescription, privacy: .public)"
                         )
-                        await model.finishAppleLanguagePackPreparation(for: request.pair, result: .failure(failure))
+                        await model.finishAppleLanguagePackPreparation(
+                            for: request.pair,
+                            requestID: request.id,
+                            result: .failure(failure)
+                        )
                     }
 
                     await MainActor.run {
-                        guard activeRequestID == request.id else {
-                            return
-                        }
-
-                        activeRequestID = nil
                         configuration = nil
                     }
                 }
         }
 
         @MainActor
-        private func updateConfiguration(for request: AppleLanguagePackPreparationRequest?) {
-            guard let request else {
-                activeRequestID = nil
-                configuration = nil
-                return
-            }
+        private func updateConfiguration() {
             guard let source = request.pair.sourceLanguage.localeLanguage,
                   let target = request.pair.targetLanguage.localeLanguage
             else {
-                activeRequestID = nil
                 configuration = nil
                 Task {
                     await model.finishAppleLanguagePackPreparation(
                         for: request.pair,
+                        requestID: request.id,
                         result: .failure(.unsupportedLanguagePair)
                     )
                 }
                 return
             }
 
-            activeRequestID = request.id
             configuration = TranslationSession.Configuration(source: source, target: target)
         }
     }

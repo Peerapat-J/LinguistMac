@@ -149,39 +149,41 @@ extension AppShellModel {
     }
 
     func prepareAppleLanguagePack(for pair: AppleLanguagePackPair) async {
-        guard preparingAppleLanguagePackID == nil else {
+        guard !preparingAppleLanguagePackIDs.contains(pair.id) else {
             return
         }
 
         let request = AppleLanguagePackPreparationRequest(pair: pair)
-        preparingAppleLanguagePackID = pair.id
+        preparingAppleLanguagePackIDs.insert(pair.id)
         appleLanguagePackMessages[pair.id] = nil
-        appleLanguagePackPreparationRequest = request
+        appleLanguagePackPreparationRequests.append(request)
         scheduleAppleLanguagePackPreparationTimeout(for: request)
         appleLanguagePackLogger.info("Started Apple language pack preparation for \(pair.id, privacy: .public)")
         refreshAppleLanguagePackSelectionOrder()
     }
 
+    @discardableResult
     func noteAppleLanguagePackPreparationSessionStarted(
         for request: AppleLanguagePackPreparationRequest
-    ) {
-        guard appleLanguagePackPreparationRequest?.id == request.id else {
-            return
+    ) -> Bool {
+        guard appleLanguagePackPreparationRequests.contains(where: { $0.id == request.id }) else {
+            return false
         }
 
         appleLanguagePackLogger.info("Received Apple translation task session for \(request.pair.id, privacy: .public)")
+        return true
     }
 
     func finishAppleLanguagePackPreparation(
         for pair: AppleLanguagePackPair,
+        requestID: UUID? = nil,
         result: Result<Void, TranslationFailure>
     ) async {
-        guard preparingAppleLanguagePackID == pair.id else {
+        guard let request = activeAppleLanguagePackPreparationRequest(for: pair, requestID: requestID) else {
             return
         }
 
-        activeAppleLanguagePackTimeoutTask?.cancel()
-        activeAppleLanguagePackTimeoutTask = nil
+        activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
 
         let readiness: LanguagePackReadiness
         switch result {
@@ -211,19 +213,17 @@ extension AppShellModel {
             )
         }
 
-        preparingAppleLanguagePackID = nil
-        appleLanguagePackPreparationRequest = nil
+        removeAppleLanguagePackPreparationRequest(request)
         updateAppleLanguagePackRow(for: pair, readiness: readiness)
         await refreshReadiness()
     }
 
     func cancelAppleLanguagePackPreparation(for pair: AppleLanguagePackPair) async {
-        guard preparingAppleLanguagePackID == pair.id else {
+        guard let request = activeAppleLanguagePackPreparationRequest(for: pair) else {
             return
         }
 
-        activeAppleLanguagePackTimeoutTask?.cancel()
-        activeAppleLanguagePackTimeoutTask = nil
+        activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
 
         let readiness = await services.languageAvailability.readiness(
             from: pair.sourceLanguage,
@@ -233,22 +233,20 @@ extension AppShellModel {
         appleLanguagePackMessages[pair.id] = readiness == .ready
             ? preparationMessage(for: readiness)
             : preparationCancellationMessage()
-        preparingAppleLanguagePackID = nil
-        appleLanguagePackPreparationRequest = nil
+        removeAppleLanguagePackPreparationRequest(request)
         updateAppleLanguagePackRow(for: pair, readiness: readiness)
         appleLanguagePackLogger.info("Canceled Apple language pack preparation for \(pair.id, privacy: .public)")
         await refreshReadiness()
     }
 
     func timeoutAppleLanguagePackPreparation(requestID: UUID) async {
-        guard let request = appleLanguagePackPreparationRequest,
-              request.id == requestID,
-              preparingAppleLanguagePackID == request.pair.id
+        guard let request = appleLanguagePackPreparationRequests.first(where: { $0.id == requestID }),
+              preparingAppleLanguagePackIDs.contains(request.pair.id)
         else {
             return
         }
 
-        activeAppleLanguagePackTimeoutTask = nil
+        activeAppleLanguagePackTimeoutTasks[request.id] = nil
         let readiness = await services.languageAvailability.readiness(
             from: request.pair.sourceLanguage,
             to: request.pair.targetLanguage,
@@ -257,8 +255,7 @@ extension AppShellModel {
         appleLanguagePackMessages[request.pair.id] = readiness == .ready
             ? preparationMessage(for: readiness)
             : preparationTimeoutMessage()
-        preparingAppleLanguagePackID = nil
-        appleLanguagePackPreparationRequest = nil
+        removeAppleLanguagePackPreparationRequest(request)
         updateAppleLanguagePackRow(for: request.pair, readiness: readiness)
         appleLanguagePackLogger.error(
             "Timed out Apple language pack preparation for \(request.pair.id, privacy: .public)"
@@ -269,15 +266,14 @@ extension AppShellModel {
     func clearStaleAppleLanguagePackPreparationIfNeeded(
         now: Date = Date()
     ) async {
-        guard let request = appleLanguagePackPreparationRequest,
-              now.timeIntervalSince(request.startedAt) >= Self.appleLanguagePackPreparationTimeout
-        else {
-            return
+        let staleRequests = appleLanguagePackPreparationRequests.filter {
+            now.timeIntervalSince($0.startedAt) >= Self.appleLanguagePackPreparationTimeout
         }
 
-        activeAppleLanguagePackTimeoutTask?.cancel()
-        activeAppleLanguagePackTimeoutTask = nil
-        await timeoutAppleLanguagePackPreparation(requestID: request.id)
+        for request in staleRequests {
+            activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
+            await timeoutAppleLanguagePackPreparation(requestID: request.id)
+        }
     }
 
     func refreshAppPreferences() async {
@@ -383,8 +379,8 @@ extension AppShellModel {
     private func scheduleAppleLanguagePackPreparationTimeout(
         for request: AppleLanguagePackPreparationRequest
     ) {
-        activeAppleLanguagePackTimeoutTask?.cancel()
-        activeAppleLanguagePackTimeoutTask = Task { [weak self] in
+        activeAppleLanguagePackTimeoutTasks[request.id]?.cancel()
+        activeAppleLanguagePackTimeoutTasks[request.id] = Task { [weak self] in
             let nanoseconds = UInt64(Self.appleLanguagePackPreparationTimeout * 1_000_000_000)
             do {
                 try await Task.sleep(nanoseconds: nanoseconds)
@@ -396,6 +392,23 @@ extension AppShellModel {
         }
     }
 
+    private func activeAppleLanguagePackPreparationRequest(
+        for pair: AppleLanguagePackPair,
+        requestID: UUID? = nil
+    ) -> AppleLanguagePackPreparationRequest? {
+        appleLanguagePackPreparationRequests.first { request in
+            let matchesRequestID = requestID.map { $0 == request.id } ?? true
+            return request.pair == pair && matchesRequestID
+        }
+    }
+
+    private func removeAppleLanguagePackPreparationRequest(
+        _ request: AppleLanguagePackPreparationRequest
+    ) {
+        appleLanguagePackPreparationRequests.removeAll { $0.id == request.id }
+        preparingAppleLanguagePackIDs.remove(request.pair.id)
+    }
+
     private func appleLanguagePackSelectionState(
         pair: AppleLanguagePackPair?,
         readiness: LanguagePackReadiness
@@ -403,7 +416,7 @@ extension AppShellModel {
         AppleLanguagePackSelection(
             pair: pair,
             readiness: readiness,
-            isPreparing: pair?.id == preparingAppleLanguagePackID,
+            isPreparing: pair.map { preparingAppleLanguagePackIDs.contains($0.id) } ?? false,
             message: pair.flatMap { appleLanguagePackMessages[$0.id] }
         )
     }
@@ -432,7 +445,7 @@ extension AppShellModel {
             pair: pair,
             readiness: readiness,
             isCurrentPair: pair == AppleLanguagePackPair.current(settings: settings),
-            isPreparing: pair.id == preparingAppleLanguagePackID,
+            isPreparing: preparingAppleLanguagePackIDs.contains(pair.id),
             message: appleLanguagePackMessages[pair.id]
         )
     }
