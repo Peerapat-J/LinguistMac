@@ -98,10 +98,7 @@ extension AppShellModel {
             AppleLanguagePackGroup(
                 language: group.language,
                 rows: group.rows.map { row in
-                    appleLanguagePackRow(
-                        for: row.pair,
-                        readiness: readinessByPairID[row.id] ?? row.readiness
-                    )
+                    appleLanguagePackRow(for: row, readinessByPairID: readinessByPairID)
                 }
             )
         }
@@ -134,13 +131,17 @@ extension AppShellModel {
 
         var rows: [AppleLanguagePackReadinessRow] = []
         for row in group.rows {
-            let readiness = await services.languageAvailability.readiness(
-                from: row.pair.sourceLanguage,
-                to: row.pair.targetLanguage,
-                sampleText: nil
-            )
-            rows.append(appleLanguagePackRow(for: row.pair, readiness: readiness))
-            refreshAppleLanguagePackSelectionIfNeeded(for: row.pair, readiness: readiness)
+            var readinessByPairID = row.readinessByPairID
+            for pair in row.pairs {
+                let readiness = await services.languageAvailability.readiness(
+                    from: pair.sourceLanguage,
+                    to: pair.targetLanguage,
+                    sampleText: nil
+                )
+                readinessByPairID[pair.id] = readiness
+                refreshAppleLanguagePackSelectionIfNeeded(for: pair, readiness: readiness)
+            }
+            rows.append(appleLanguagePackRow(for: row, readinessByPairID: readinessByPairID))
         }
 
         replaceAppleLanguagePackGroup(
@@ -149,16 +150,24 @@ extension AppShellModel {
     }
 
     func prepareAppleLanguagePack(for pair: AppleLanguagePackPair) async {
-        guard !preparingAppleLanguagePackIDs.contains(pair.id) else {
+        await prepareAppleLanguagePacks(for: pair.bidirectionalPairs)
+    }
+
+    func prepareAppleLanguagePacks(for pairs: [AppleLanguagePackPair]) async {
+        let pairsToPrepare = uniqueAppleLanguagePackPairs(pairs)
+            .filter { !preparingAppleLanguagePackIDs.contains($0.id) }
+        guard !pairsToPrepare.isEmpty else {
             return
         }
 
-        let request = AppleLanguagePackPreparationRequest(pair: pair)
-        preparingAppleLanguagePackIDs.insert(pair.id)
-        appleLanguagePackMessages[pair.id] = nil
-        appleLanguagePackPreparationRequests.append(request)
-        scheduleAppleLanguagePackPreparationTimeout(for: request)
-        appleLanguagePackLogger.info("Started Apple language pack preparation for \(pair.id, privacy: .public)")
+        for pair in pairsToPrepare {
+            let request = AppleLanguagePackPreparationRequest(pair: pair)
+            preparingAppleLanguagePackIDs.insert(pair.id)
+            appleLanguagePackMessages[pair.id] = nil
+            appleLanguagePackPreparationRequests.append(request)
+            scheduleAppleLanguagePackPreparationTimeout(for: request)
+            appleLanguagePackLogger.info("Started Apple language pack preparation for \(pair.id, privacy: .public)")
+        }
         refreshAppleLanguagePackSelectionOrder()
     }
 
@@ -219,23 +228,29 @@ extension AppShellModel {
     }
 
     func cancelAppleLanguagePackPreparation(for pair: AppleLanguagePackPair) async {
-        guard let request = activeAppleLanguagePackPreparationRequest(for: pair) else {
-            return
+        await cancelAppleLanguagePackPreparations(for: pair.bidirectionalPairs)
+    }
+
+    func cancelAppleLanguagePackPreparations(for pairs: [AppleLanguagePackPair]) async {
+        for pair in uniqueAppleLanguagePackPairs(pairs) {
+            guard let request = activeAppleLanguagePackPreparationRequest(for: pair) else {
+                continue
+            }
+
+            activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
+
+            let readiness = await services.languageAvailability.readiness(
+                from: pair.sourceLanguage,
+                to: pair.targetLanguage,
+                sampleText: nil
+            )
+            appleLanguagePackMessages[pair.id] = readiness == .ready
+                ? preparationMessage(for: readiness)
+                : preparationCancellationMessage()
+            removeAppleLanguagePackPreparationRequest(request)
+            updateAppleLanguagePackRow(for: pair, readiness: readiness)
+            appleLanguagePackLogger.info("Canceled Apple language pack preparation for \(pair.id, privacy: .public)")
         }
-
-        activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
-
-        let readiness = await services.languageAvailability.readiness(
-            from: pair.sourceLanguage,
-            to: pair.targetLanguage,
-            sampleText: nil
-        )
-        appleLanguagePackMessages[pair.id] = readiness == .ready
-            ? preparationMessage(for: readiness)
-            : preparationCancellationMessage()
-        removeAppleLanguagePackPreparationRequest(request)
-        updateAppleLanguagePackRow(for: pair, readiness: readiness)
-        appleLanguagePackLogger.info("Canceled Apple language pack preparation for \(pair.id, privacy: .public)")
         await refreshReadiness()
     }
 
@@ -428,9 +443,10 @@ extension AppShellModel {
             AppleLanguagePackGroup(
                 language: group.language,
                 rows: group.rows.map { row in
-                    appleLanguagePackRow(
-                        for: row.pair,
-                        readiness: existingRows[row.id]?.readiness ?? row.readiness
+                    let existingRow = existingRows[row.id] ?? row
+                    return appleLanguagePackRow(
+                        for: existingRow,
+                        readinessByPairID: existingRow.readinessByPairID
                     )
                 }
             )
@@ -438,15 +454,24 @@ extension AppShellModel {
     }
 
     private func appleLanguagePackRow(
-        for pair: AppleLanguagePackPair,
-        readiness: LanguagePackReadiness
+        for row: AppleLanguagePackReadinessRow,
+        readinessByPairID: [String: LanguagePackReadiness]
     ) -> AppleLanguagePackReadinessRow {
-        AppleLanguagePackReadinessRow(
-            pair: pair,
-            readiness: readiness,
-            isCurrentPair: pair == AppleLanguagePackPair.current(settings: settings),
-            isPreparing: preparingAppleLanguagePackIDs.contains(pair.id),
-            message: appleLanguagePackMessages[pair.id]
+        let rowReadinessByPairID = Dictionary(
+            uniqueKeysWithValues: row.pairs.map { pair in
+                (pair.id, readinessByPairID[pair.id] ?? row.readinessByPairID[pair.id] ?? row.readiness)
+            }
+        )
+        let currentPair = AppleLanguagePackPair.current(settings: settings)
+        return AppleLanguagePackReadinessRow(
+            language: row.language,
+            pairedLanguage: row.pairedLanguage,
+            pairs: row.pairs,
+            readiness: row.readiness,
+            readinessByPairID: rowReadinessByPairID,
+            isCurrentPair: currentPair.map { row.pairs.contains($0) } ?? false,
+            isPreparing: row.pairs.contains { preparingAppleLanguagePackIDs.contains($0.id) },
+            message: row.pairs.compactMap { appleLanguagePackMessages[$0.id] }.first
         )
     }
 
@@ -469,7 +494,13 @@ extension AppShellModel {
             AppleLanguagePackGroup(
                 language: group.language,
                 rows: group.rows.map { row in
-                    row.pair == pair ? appleLanguagePackRow(for: pair, readiness: readiness) : row
+                    guard row.pairs.contains(pair) else {
+                        return row
+                    }
+
+                    var readinessByPairID = row.readinessByPairID
+                    readinessByPairID[pair.id] = readiness
+                    return appleLanguagePackRow(for: row, readinessByPairID: readinessByPairID)
                 }
             )
         }
@@ -493,10 +524,16 @@ extension AppShellModel {
     private func uniqueAppleLanguagePackPairs(
         from groups: [AppleLanguagePackGroup]
     ) -> [AppleLanguagePackPair] {
+        uniqueAppleLanguagePackPairs(groups.flatMap(\.rows).flatMap(\.pairs))
+    }
+
+    private func uniqueAppleLanguagePackPairs(
+        _ pairsToDeduplicate: [AppleLanguagePackPair]
+    ) -> [AppleLanguagePackPair] {
         var seenPairIDs: Set<String> = []
         var pairs: [AppleLanguagePackPair] = []
-        for row in groups.flatMap(\.rows) where seenPairIDs.insert(row.id).inserted {
-            pairs.append(row.pair)
+        for pair in pairsToDeduplicate where seenPairIDs.insert(pair.id).inserted {
+            pairs.append(pair)
         }
 
         return pairs

@@ -9,23 +9,26 @@ final class AppleLanguagePackModelsTests: XCTestCase {
         )
         let supportedLanguages = TranslationLanguageCatalog.defaultLanguages.filter { !$0.supportsAutoDetect }
         let thaiGroup = groups.first { $0.language == .thai }
-        let expectedRowCount = (supportedLanguages.count - 1) * 2
+        let expectedRowCount = supportedLanguages.count - 1
+        let thaiEnglishPairs = [
+            AppleLanguagePackPair(sourceLanguage: .thai, targetLanguage: .english),
+            AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
+        ]
 
         XCTAssertEqual(groups.map(\.language), supportedLanguages)
         XCTAssertEqual(thaiGroup?.rows.count, expectedRowCount)
         XCTAssertEqual(
-            thaiGroup?.rows.first?.pair,
-            AppleLanguagePackPair(sourceLanguage: .thai, targetLanguage: .english)
+            thaiGroup?.rows.first?.pairs,
+            thaiEnglishPairs
         )
-        XCTAssertFalse(thaiGroup?.rows.contains { $0.pair.sourceLanguage == $0.pair.targetLanguage } ?? true)
+        XCTAssertEqual(thaiGroup?.rows.first?.displayName, "Thai ↔ English")
+        XCTAssertFalse(
+            thaiGroup?.rows.contains {
+                $0.pairs.contains { $0.sourceLanguage == $0.targetLanguage }
+            } ?? true
+        )
         XCTAssertTrue(
-            thaiGroup?.rows.contains(
-                AppleLanguagePackReadinessRow(
-                    pair: AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai),
-                    readiness: .unknown,
-                    isCurrentPair: false
-                )
-            ) ?? false
+            thaiGroup?.rows.contains { $0.pairs == thaiEnglishPairs } ?? false
         )
     }
 

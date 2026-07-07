@@ -46,14 +46,14 @@ struct AppleLanguagePackManagementView: View {
                 groups: model.appleLanguagePackGroups,
                 searchText: searchText,
                 expandedBinding: groupExpansionBinding,
-                preparePair: { pair in
+                preparePairs: { pairs in
                     Task {
-                        await model.prepareAppleLanguagePack(for: pair)
+                        await model.prepareAppleLanguagePacks(for: pairs)
                     }
                 },
-                cancelPair: { pair in
+                cancelPairs: { pairs in
                     Task {
-                        await model.cancelAppleLanguagePackPreparation(for: pair)
+                        await model.cancelAppleLanguagePackPreparations(for: pairs)
                     }
                 }
             )
@@ -276,8 +276,8 @@ private struct AppleLanguagePackGroupsView: View {
     let groups: [AppleLanguagePackGroup]
     let searchText: String
     let expandedBinding: (AppleLanguagePackGroup) -> Binding<Bool>
-    let preparePair: (AppleLanguagePackPair) -> Void
-    let cancelPair: (AppleLanguagePackPair) -> Void
+    let preparePairs: ([AppleLanguagePackPair]) -> Void
+    let cancelPairs: ([AppleLanguagePackPair]) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -294,8 +294,8 @@ private struct AppleLanguagePackGroupsView: View {
                     group: group,
                     searchText: searchText,
                     isExpanded: expandedBinding(group),
-                    preparePair: preparePair,
-                    cancelPair: cancelPair
+                    preparePairs: preparePairs,
+                    cancelPairs: cancelPairs
                 )
             }
         }
@@ -308,8 +308,8 @@ private struct AppleLanguagePackGroupView: View {
     let group: AppleLanguagePackGroup
     let searchText: String
     @Binding var isExpanded: Bool
-    let preparePair: (AppleLanguagePackPair) -> Void
-    let cancelPair: (AppleLanguagePackPair) -> Void
+    let preparePairs: ([AppleLanguagePackPair]) -> Void
+    let cancelPairs: ([AppleLanguagePackPair]) -> Void
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
@@ -324,10 +324,10 @@ private struct AppleLanguagePackGroupView: View {
                         row: row,
                         searchText: searchText,
                         prepare: {
-                            preparePair(row.pair)
+                            preparePairs(row.pairs)
                         },
                         cancel: {
-                            cancelPair(row.pair)
+                            cancelPairs(row.pairs)
                         }
                     )
                 }
@@ -375,7 +375,7 @@ private struct AppleLanguagePackPairRowView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    SettingsSearchHighlightedText(row.pair.displayName, searchText: searchText)
+                    SettingsSearchHighlightedText(row.displayName, searchText: searchText)
                         .lineLimit(1)
 
                     if row.isCurrentPair {
