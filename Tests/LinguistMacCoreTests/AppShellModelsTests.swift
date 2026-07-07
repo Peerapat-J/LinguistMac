@@ -201,7 +201,24 @@ final class AppShellModelsTests: XCTestCase {
             AppleLanguagePackSelection(
                 pair: pair,
                 readiness: .needsDownload,
-                message: "Download was not completed. Try Download again."
+                message: "Apple Translation could not prepare this language pair.",
+                messageKind: .failure
+            ).hasPreparationFailure
+        )
+        XCTAssertTrue(
+            AppleLanguagePackSelection(
+                pair: pair,
+                readiness: .needsDownload,
+                message: "Download not completed yet. Try again later.",
+                messageKind: .notCompleted
+            ).hasIncompletePreparation
+        )
+        XCTAssertFalse(
+            AppleLanguagePackSelection(
+                pair: pair,
+                readiness: .needsDownload,
+                message: "Download canceled. Try Download again.",
+                messageKind: .canceled
             ).hasPreparationFailure
         )
         XCTAssertEqual(LanguagePackReadiness.needsDownload.displayText, "Needs Download")

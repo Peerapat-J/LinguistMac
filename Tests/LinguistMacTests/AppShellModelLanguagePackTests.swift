@@ -13,9 +13,11 @@ final class AppShellModelLanguagePackTests: XCTestCase {
             "Thai",
             "Japanese",
             "Download Failed",
+            "Not Completed Yet",
             "Needs Download",
             "Still Downloading",
             "Keep Checking",
+            "Canceled",
             "Pin",
             "Current"
         ]
@@ -432,7 +434,9 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
         XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
         XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
-        XCTAssertEqual(model.appleLanguagePackSelection.message, "Download did not finish. Try Download again.")
+        XCTAssertEqual(model.appleLanguagePackSelection.message, "Download not completed yet. Try again later.")
+        XCTAssertTrue(model.appleLanguagePackSelection.hasIncompletePreparation)
+        XCTAssertFalse(model.appleLanguagePackSelection.hasPreparationFailure)
     }
 
     func testCancelAppleLanguagePackPreparationClearsRequestAndRows() async throws {
@@ -462,9 +466,13 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
         XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
         XCTAssertEqual(model.appleLanguagePackSelection.message, "Download canceled. Try Download again.")
+        XCTAssertTrue(model.appleLanguagePackSelection.wasPreparationCanceled)
+        XCTAssertFalse(model.appleLanguagePackSelection.hasPreparationFailure)
         XCTAssertEqual(englishRow.readiness, .needsDownload)
         XCTAssertFalse(englishRow.isPreparing)
         XCTAssertEqual(englishRow.message, "Download canceled. Try Download again.")
+        XCTAssertTrue(englishRow.wasPreparationCanceled)
+        XCTAssertFalse(englishRow.hasPreparationFailure)
     }
 
     func testPrepareSelectedAppleLanguagePackSkipsAutoDetectSource() async {

@@ -13,6 +13,26 @@ public extension LanguagePackReadiness {
     }
 }
 
+public enum AppleLanguagePackPreparationMessageKind: Equatable, Sendable {
+    case informational
+    case notCompleted
+    case canceled
+    case failure
+}
+
+public struct AppleLanguagePackPreparationMessage: Equatable, Sendable {
+    public let text: String
+    public let kind: AppleLanguagePackPreparationMessageKind
+
+    public init(
+        text: String,
+        kind: AppleLanguagePackPreparationMessageKind = .informational
+    ) {
+        self.text = text
+        self.kind = kind
+    }
+}
+
 public struct AppleLanguagePackPair: Identifiable, Equatable, Hashable, Sendable {
     public let sourceLanguage: TranslationLanguage
     public let targetLanguage: TranslationLanguage
@@ -61,25 +81,36 @@ public struct AppleLanguagePackSelection: Equatable, Sendable {
     public let readiness: LanguagePackReadiness
     public let isPreparing: Bool
     public let message: String?
+    public let messageKind: AppleLanguagePackPreparationMessageKind
 
     public var canPrepare: Bool {
         pair != nil && readiness == .needsDownload && !isPreparing
     }
 
     public var hasPreparationFailure: Bool {
-        readiness == .needsDownload && !isPreparing && message != nil
+        readiness == .needsDownload && !isPreparing && messageKind == .failure
+    }
+
+    public var hasIncompletePreparation: Bool {
+        readiness == .needsDownload && !isPreparing && messageKind == .notCompleted
+    }
+
+    public var wasPreparationCanceled: Bool {
+        readiness == .needsDownload && !isPreparing && messageKind == .canceled
     }
 
     public init(
         pair: AppleLanguagePackPair?,
         readiness: LanguagePackReadiness,
         isPreparing: Bool = false,
-        message: String? = nil
+        message: String? = nil,
+        messageKind: AppleLanguagePackPreparationMessageKind = .informational
     ) {
         self.pair = pair
         self.readiness = readiness
         self.isPreparing = isPreparing
         self.message = message
+        self.messageKind = messageKind
     }
 
     public static func initial(settings: AppSettings) -> AppleLanguagePackSelection {
@@ -98,6 +129,7 @@ public struct AppleLanguagePackReadinessRow: Identifiable, Equatable, Sendable {
     public let isCurrentPair: Bool
     public let isPreparing: Bool
     public let message: String?
+    public let messageKind: AppleLanguagePackPreparationMessageKind
 
     public var pair: AppleLanguagePackPair {
         pairs.first ?? AppleLanguagePackPair(sourceLanguage: language, targetLanguage: pairedLanguage)
@@ -120,7 +152,15 @@ public struct AppleLanguagePackReadinessRow: Identifiable, Equatable, Sendable {
     }
 
     public var hasPreparationFailure: Bool {
-        readiness == .needsDownload && !isPreparing && message != nil
+        readiness == .needsDownload && !isPreparing && messageKind == .failure
+    }
+
+    public var hasIncompletePreparation: Bool {
+        readiness == .needsDownload && !isPreparing && messageKind == .notCompleted
+    }
+
+    public var wasPreparationCanceled: Bool {
+        readiness == .needsDownload && !isPreparing && messageKind == .canceled
     }
 
     public init(
@@ -131,7 +171,8 @@ public struct AppleLanguagePackReadinessRow: Identifiable, Equatable, Sendable {
         readinessByPairID: [String: LanguagePackReadiness]? = nil,
         isCurrentPair: Bool,
         isPreparing: Bool = false,
-        message: String? = nil
+        message: String? = nil,
+        messageKind: AppleLanguagePackPreparationMessageKind = .informational
     ) {
         self.language = language
         self.pairedLanguage = pairedLanguage
@@ -142,6 +183,7 @@ public struct AppleLanguagePackReadinessRow: Identifiable, Equatable, Sendable {
         self.isCurrentPair = isCurrentPair
         self.isPreparing = isPreparing
         self.message = message
+        self.messageKind = messageKind
     }
 
     public init(
@@ -149,7 +191,8 @@ public struct AppleLanguagePackReadinessRow: Identifiable, Equatable, Sendable {
         readiness: LanguagePackReadiness,
         isCurrentPair: Bool,
         isPreparing: Bool = false,
-        message: String? = nil
+        message: String? = nil,
+        messageKind: AppleLanguagePackPreparationMessageKind = .informational
     ) {
         self.init(
             language: pair.sourceLanguage,
@@ -158,7 +201,8 @@ public struct AppleLanguagePackReadinessRow: Identifiable, Equatable, Sendable {
             readiness: readiness,
             isCurrentPair: isCurrentPair,
             isPreparing: isPreparing,
-            message: message
+            message: message,
+            messageKind: messageKind
         )
     }
 

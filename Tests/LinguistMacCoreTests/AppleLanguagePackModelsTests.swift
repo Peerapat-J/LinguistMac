@@ -71,7 +71,26 @@ final class AppleLanguagePackModelsTests: XCTestCase {
                 pair: pair,
                 readiness: .needsDownload,
                 isCurrentPair: false,
-                message: "Download was not completed. Try Download again."
+                message: "Apple Translation could not prepare this language pair.",
+                messageKind: .failure
+            ).hasPreparationFailure
+        )
+        XCTAssertTrue(
+            AppleLanguagePackReadinessRow(
+                pair: pair,
+                readiness: .needsDownload,
+                isCurrentPair: false,
+                message: "Download not completed yet. Try again later.",
+                messageKind: .notCompleted
+            ).hasIncompletePreparation
+        )
+        XCTAssertFalse(
+            AppleLanguagePackReadinessRow(
+                pair: pair,
+                readiness: .needsDownload,
+                isCurrentPair: false,
+                message: "Download not completed yet. Try again later.",
+                messageKind: .notCompleted
             ).hasPreparationFailure
         )
     }

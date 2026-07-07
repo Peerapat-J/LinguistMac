@@ -507,11 +507,13 @@ extension AppShellModel {
         pair: AppleLanguagePackPair?,
         readiness: LanguagePackReadiness
     ) -> AppleLanguagePackSelection {
-        AppleLanguagePackSelection(
+        let preparationMessage = pair.flatMap { appleLanguagePackMessages[$0.id] }
+        return AppleLanguagePackSelection(
             pair: pair,
             readiness: readiness,
             isPreparing: pair.map { preparingAppleLanguagePackIDs.contains($0.id) } ?? false,
-            message: pair.flatMap { appleLanguagePackMessages[$0.id] }
+            message: preparationMessage?.text,
+            messageKind: preparationMessage?.kind ?? .informational
         )
     }
 
@@ -537,6 +539,9 @@ extension AppShellModel {
         for row: AppleLanguagePackReadinessRow,
         readinessByPairID: [String: LanguagePackReadiness]
     ) -> AppleLanguagePackReadinessRow {
+        let preparationMessage = preferredAppleLanguagePackMessage(
+            row.pairs.compactMap { appleLanguagePackMessages[$0.id] }
+        )
         let rowReadinessByPairID = Dictionary(
             uniqueKeysWithValues: row.pairs.map { pair in
                 (pair.id, readinessByPairID[pair.id] ?? row.readinessByPairID[pair.id] ?? row.readiness)
@@ -551,7 +556,8 @@ extension AppShellModel {
             readinessByPairID: rowReadinessByPairID,
             isCurrentPair: currentPair.map { row.pairs.contains($0) } ?? false,
             isPreparing: row.pairs.contains { preparingAppleLanguagePackIDs.contains($0.id) },
-            message: row.pairs.compactMap { appleLanguagePackMessages[$0.id] }.first
+            message: preparationMessage?.text,
+            messageKind: preparationMessage?.kind ?? .informational
         )
     }
 
@@ -618,48 +624,6 @@ extension AppShellModel {
         }
 
         return pairs
-    }
-
-    private func preparationMessage(for readiness: LanguagePackReadiness) -> String {
-        switch readiness {
-        case .ready:
-            "Language pack is ready."
-        case .needsDownload:
-            "Download was not completed. Try Download again."
-        case .unavailable:
-            "This language pair is not supported by Apple Translation."
-        case .unknown:
-            "Language pack status could not be checked."
-        }
-    }
-
-    private func preparationTimeoutMessage() -> String {
-        "Download did not finish. Try Download again."
-    }
-
-    private func preparationContinuingMessage() -> String {
-        "macOS is still downloading this language pack. LinguistMac will keep checking."
-    }
-
-    private func preparationCancellationMessage() -> String {
-        "Download canceled. Try Download again."
-    }
-
-    private func preparationFailureMessage(from error: Error) -> String {
-        guard let failure = error as? TranslationFailure else {
-            return "Apple Translation could not prepare this language pair."
-        }
-
-        switch failure {
-        case .unsupportedLanguagePair:
-            return "This language pair is not supported by Apple Translation."
-        case .missingLanguagePack:
-            return "Download was not completed. Try Download again."
-        case .providerUnavailable:
-            return "Apple Translation is not available on this Mac."
-        default:
-            return "Apple Translation could not prepare this language pair."
-        }
     }
 
     private func shouldContinueAppleLanguagePackPreparation(

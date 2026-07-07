@@ -91,7 +91,7 @@ final class AppShellModel: ObservableObject {
     var activeAppleLanguagePackTimeoutTasks: [UUID: Task<Void, Never>] = [:]
     var activeAppleLanguagePackRecheckTasks: [UUID: Task<Void, Never>] = [:]
     var preparingAppleLanguagePackIDs: Set<String> = []
-    var appleLanguagePackMessages: [String: String] = [:]
+    var appleLanguagePackMessages: [String: AppleLanguagePackPreparationMessage] = [:]
     var isRefreshingAppleLanguagePackGroups = false
     var didRefreshAppleLanguagePackGroups = false
 

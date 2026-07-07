@@ -294,8 +294,8 @@ private struct AppleLanguagePackSelectionView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             AppleLanguagePackStatusGlyph(
-                systemName: selectionStatusImage,
-                tint: selectionStatusTint,
+                systemName: selection.settingsStatusImage,
+                tint: selection.settingsStatusTint,
                 isAnimating: selection.isPreparing,
                 isChecking: selection.isChecking
             )
@@ -312,7 +312,7 @@ private struct AppleLanguagePackSelectionView: View {
                         .lineLimit(1)
                 }
 
-                SettingsSearchHighlightedText(selectionMessage, searchText: searchText)
+                SettingsSearchHighlightedText(selection.settingsMessage, searchText: searchText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -321,9 +321,9 @@ private struct AppleLanguagePackSelectionView: View {
             Spacer(minLength: 10)
 
             VStack(alignment: .trailing, spacing: 6) {
-                Text(selectionStatusText)
+                Text(selection.settingsStatusText)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(selectionStatusTint)
+                    .foregroundStyle(selection.settingsStatusTint)
                     .lineLimit(1)
 
                 if selection.isPreparing, let pair = selection.pair {
@@ -348,57 +348,6 @@ private struct AppleLanguagePackSelectionView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, SettingsLayout.rowVerticalPadding)
-    }
-
-    private var selectionMessage: String {
-        if let message = selection.message {
-            return message
-        }
-        guard selection.pair != nil else {
-            return "Auto Detect cannot be prepared ahead of time. Select a concrete source language first."
-        }
-
-        return selection.readiness.detailText
-    }
-
-    private var selectionStatusText: String {
-        guard selection.pair != nil else {
-            return "Select Pair"
-        }
-
-        if selection.hasPreparationFailure {
-            return "Download Failed"
-        }
-
-        return selection.isPreparing ? "Downloading" : selection.readiness.displayText
-    }
-
-    private var selectionStatusImage: String {
-        guard selection.pair != nil else {
-            return "circle.dashed"
-        }
-
-        if selection.hasPreparationFailure {
-            return "xmark.circle.fill"
-        }
-
-        return selection.isPreparing ? "circle.dotted" : selection.readiness.statusImage
-    }
-
-    private var selectionStatusTint: Color {
-        guard selection.pair != nil else {
-            return .secondary
-        }
-
-        if selection.isPreparing {
-            return .orange
-        }
-
-        if selection.hasPreparationFailure {
-            return .red
-        }
-
-        return selection.readiness.statusTint
     }
 }
 
@@ -518,8 +467,8 @@ private struct AppleLanguagePackPairRowView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             AppleLanguagePackStatusGlyph(
-                systemName: statusImage,
-                tint: statusTint,
+                systemName: row.settingsStatusImage,
+                tint: row.settingsStatusTint,
                 isAnimating: row.isPreparing,
                 isChecking: row.isChecking
             )
@@ -540,7 +489,7 @@ private struct AppleLanguagePackPairRowView: View {
                     }
                 }
 
-                SettingsSearchHighlightedText(row.message ?? row.readiness.detailText, searchText: searchText)
+                SettingsSearchHighlightedText(row.settingsMessage, searchText: searchText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -549,9 +498,9 @@ private struct AppleLanguagePackPairRowView: View {
             Spacer(minLength: 10)
 
             VStack(alignment: .trailing, spacing: 6) {
-                Text(statusText)
+                Text(row.settingsStatusText)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(statusTint)
+                    .foregroundStyle(row.settingsStatusTint)
                     .lineLimit(1)
 
                 if row.isPreparing {
@@ -577,34 +526,6 @@ private struct AppleLanguagePackPairRowView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, SettingsLayout.rowVerticalPadding)
     }
-
-    private var statusText: String {
-        if row.hasPreparationFailure {
-            return "Download Failed"
-        }
-
-        return row.isPreparing ? "Downloading" : row.readiness.displayText
-    }
-
-    private var statusImage: String {
-        if row.hasPreparationFailure {
-            return "xmark.circle.fill"
-        }
-
-        return row.isPreparing ? "circle.dotted" : row.readiness.statusImage
-    }
-
-    private var statusTint: Color {
-        if row.isPreparing {
-            return .orange
-        }
-
-        if row.hasPreparationFailure {
-            return .red
-        }
-
-        return row.readiness.statusTint
-    }
 }
 
 private struct AppleLanguagePackPairTitleView: View {
@@ -624,47 +545,6 @@ private struct AppleLanguagePackPairTitleView: View {
 
             SettingsSearchHighlightedText(trailingLanguage.displayName, searchText: searchText)
                 .lineLimit(1)
-        }
-    }
-}
-
-private extension LanguagePackReadiness {
-    var statusImage: String {
-        switch self {
-        case .unknown:
-            "circle.dashed"
-        case .ready:
-            "checkmark.circle.fill"
-        case .needsDownload:
-            "arrow.down.circle.fill"
-        case .unavailable:
-            "minus.circle.fill"
-        }
-    }
-
-    var statusTint: Color {
-        switch self {
-        case .unknown:
-            .secondary
-        case .ready:
-            .green
-        case .needsDownload:
-            .orange
-        case .unavailable:
-            .red
-        }
-    }
-
-    var detailText: String {
-        switch self {
-        case .unknown:
-            "Checking Apple Translation availability for this pair."
-        case .ready:
-            "Ready for on-device Apple Translation."
-        case .needsDownload:
-            "Download or verify the required Apple language assets."
-        case .unavailable:
-            "Apple Translation does not support this language pair."
         }
     }
 }
