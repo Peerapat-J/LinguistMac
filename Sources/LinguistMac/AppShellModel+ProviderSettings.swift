@@ -8,7 +8,8 @@ private let appleLanguagePackLogger = Logger(
 
 @MainActor
 extension AppShellModel {
-    static let appleLanguagePackPreparationTimeout: TimeInterval = 120
+    static let appleLanguagePackPreparationTimeout: TimeInterval = 300
+    static let appleLanguagePackRecheckInterval: TimeInterval = 5
 
     var selectableProviders: [TranslationProviderDescriptor] {
         providersSupportingCurrentLanguages(from: availableProviders)
@@ -204,11 +205,12 @@ extension AppShellModel {
             return
         }
 
-        activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
-
         let readiness: LanguagePackReadiness
+        let shouldRefreshGroups: Bool
         switch result {
         case .success:
+            activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
+            shouldRefreshGroups = true
             readiness = await services.languageAvailability.readiness(
                 from: pair.sourceLanguage,
                 to: pair.targetLanguage,
@@ -223,7 +225,6 @@ extension AppShellModel {
             )
         case let .failure(error):
             let failureDescription = String(describing: error)
-            appleLanguagePackMessages[pair.id] = preparationFailureMessage(from: error)
             readiness = await services.languageAvailability.readiness(
                 from: pair.sourceLanguage,
                 to: pair.targetLanguage,
@@ -232,11 +233,24 @@ extension AppShellModel {
             appleLanguagePackLogger.error(
                 "Pack preparation failed for \(pair.id, privacy: .public): \(failureDescription, privacy: .public)"
             )
+            if shouldContinueAppleLanguagePackPreparation(after: error, readiness: readiness) {
+                appleLanguagePackMessages[pair.id] = preparationContinuingMessage()
+                updateAppleLanguagePackRow(for: pair, readiness: readiness)
+                scheduleAppleLanguagePackReadinessRecheck(for: request)
+                await refreshReadiness()
+                return
+            }
+
+            activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
+            appleLanguagePackMessages[pair.id] = readiness == .ready
+                ? preparationMessage(for: readiness)
+                : preparationFailureMessage(from: error)
+            shouldRefreshGroups = readiness == .ready
         }
 
         removeAppleLanguagePackPreparationRequest(request)
         updateAppleLanguagePackRow(for: pair, readiness: readiness)
-        if case .success = result {
+        if shouldRefreshGroups {
             await refreshAppleLanguagePackGroups(force: true)
         }
         await refreshReadiness()
@@ -253,6 +267,7 @@ extension AppShellModel {
             }
 
             activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
+            activeAppleLanguagePackRecheckTasks.removeValue(forKey: request.id)?.cancel()
 
             let readiness = await services.languageAvailability.readiness(
                 from: pair.sourceLanguage,
@@ -277,6 +292,7 @@ extension AppShellModel {
         }
 
         activeAppleLanguagePackTimeoutTasks[request.id] = nil
+        activeAppleLanguagePackRecheckTasks.removeValue(forKey: request.id)?.cancel()
         let readiness = await services.languageAvailability.readiness(
             from: request.pair.sourceLanguage,
             to: request.pair.targetLanguage,
@@ -304,6 +320,37 @@ extension AppShellModel {
             activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
             await timeoutAppleLanguagePackPreparation(requestID: request.id)
         }
+    }
+
+    func recheckAppleLanguagePackPreparation(requestID: UUID) async {
+        guard let request = appleLanguagePackPreparationRequests.first(where: { $0.id == requestID }),
+              preparingAppleLanguagePackIDs.contains(request.pair.id)
+        else {
+            return
+        }
+
+        activeAppleLanguagePackRecheckTasks[request.id] = nil
+        let readiness = await services.languageAvailability.readiness(
+            from: request.pair.sourceLanguage,
+            to: request.pair.targetLanguage,
+            sampleText: nil
+        )
+
+        appleLanguagePackMessages[request.pair.id] = preparationMessage(for: readiness)
+        updateAppleLanguagePackRow(for: request.pair, readiness: readiness)
+
+        switch readiness {
+        case .ready, .unavailable:
+            activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
+            removeAppleLanguagePackPreparationRequest(request)
+            await refreshAppleLanguagePackGroups(force: true)
+        case .needsDownload, .unknown:
+            appleLanguagePackMessages[request.pair.id] = preparationContinuingMessage()
+            updateAppleLanguagePackRow(for: request.pair, readiness: readiness)
+            scheduleAppleLanguagePackReadinessRecheck(for: request)
+        }
+
+        await refreshReadiness()
     }
 
     func refreshAppPreferences() async {
@@ -422,6 +469,22 @@ extension AppShellModel {
         }
     }
 
+    private func scheduleAppleLanguagePackReadinessRecheck(
+        for request: AppleLanguagePackPreparationRequest
+    ) {
+        activeAppleLanguagePackRecheckTasks[request.id]?.cancel()
+        activeAppleLanguagePackRecheckTasks[request.id] = Task { [weak self] in
+            let nanoseconds = UInt64(Self.appleLanguagePackRecheckInterval * 1_000_000_000)
+            do {
+                try await Task.sleep(nanoseconds: nanoseconds)
+            } catch {
+                return
+            }
+
+            await self?.recheckAppleLanguagePackPreparation(requestID: request.id)
+        }
+    }
+
     private func activeAppleLanguagePackPreparationRequest(
         for pair: AppleLanguagePackPair,
         requestID: UUID? = nil
@@ -435,6 +498,7 @@ extension AppShellModel {
     private func removeAppleLanguagePackPreparationRequest(
         _ request: AppleLanguagePackPreparationRequest
     ) {
+        activeAppleLanguagePackRecheckTasks.removeValue(forKey: request.id)?.cancel()
         appleLanguagePackPreparationRequests.removeAll { $0.id == request.id }
         preparingAppleLanguagePackIDs.remove(request.pair.id)
     }
@@ -573,6 +637,10 @@ extension AppShellModel {
         "Download did not finish. Try Download again."
     }
 
+    private func preparationContinuingMessage() -> String {
+        "macOS is still downloading this language pack. LinguistMac will keep checking."
+    }
+
     private func preparationCancellationMessage() -> String {
         "Download canceled. Try Download again."
     }
@@ -591,6 +659,18 @@ extension AppShellModel {
             return "Apple Translation is not available on this Mac."
         default:
             return "Apple Translation could not prepare this language pair."
+        }
+    }
+
+    private func shouldContinueAppleLanguagePackPreparation(
+        after error: TranslationFailure,
+        readiness: LanguagePackReadiness
+    ) -> Bool {
+        switch error {
+        case .missingLanguagePack:
+            readiness == .needsDownload || readiness == .unknown
+        default:
+            false
         }
     }
 

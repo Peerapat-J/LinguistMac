@@ -89,6 +89,7 @@ final class AppShellModel: ObservableObject {
     var activeSpokenOutputResultID: UUID?
     var activeSpokenOutputTask: Task<Void, Never>?
     var activeAppleLanguagePackTimeoutTasks: [UUID: Task<Void, Never>] = [:]
+    var activeAppleLanguagePackRecheckTasks: [UUID: Task<Void, Never>] = [:]
     var preparingAppleLanguagePackIDs: Set<String> = []
     var appleLanguagePackMessages: [String: String] = [:]
     var isRefreshingAppleLanguagePackGroups = false
@@ -154,6 +155,7 @@ final class AppShellModel: ObservableObject {
         activeQuickVoiceCaptureTask?.cancel()
         activeSpokenOutputTask?.cancel()
         activeAppleLanguagePackTimeoutTasks.values.forEach { $0.cancel() }
+        activeAppleLanguagePackRecheckTasks.values.forEach { $0.cancel() }
     }
 
     var recentMenuItems: [TranslationResult] {

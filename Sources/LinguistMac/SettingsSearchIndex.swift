@@ -45,6 +45,8 @@ extension SettingsSectionID {
                 "Supported Languages",
                 "Download",
                 "Downloading",
+                "Still Downloading",
+                "Keep Checking",
                 "Download Failed",
                 "Needs Download",
                 "Cancel",
