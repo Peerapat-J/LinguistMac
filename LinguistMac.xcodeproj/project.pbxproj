@@ -19,6 +19,7 @@
 		B10000000000000000000057 /* SettingsSearchIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000057 /* SettingsSearchIndex.swift */; };
 		B10000000000000000000058 /* SettingsSearchHighlight.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000058 /* SettingsSearchHighlight.swift */; };
 		B10000000000000000000059 /* AppleLanguagePackSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000059 /* AppleLanguagePackSettingsView.swift */; };
+		B1000000000000000000005C /* AppleLanguagePackStatusViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000005C /* AppleLanguagePackStatusViews.swift */; };
 		B1000000000000000000005A /* AppleLanguagePackModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000005A /* AppleLanguagePackModels.swift */; };
 		B10000000000000000000056 /* NotificationSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000056 /* NotificationSettingsSection.swift */; };
 		B10000000000000000000053 /* PrivacySettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000053 /* PrivacySettingsSection.swift */; };
@@ -130,6 +131,7 @@
 		B20000000000000000000057 /* SettingsSearchIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSearchIndex.swift; sourceTree = "<group>"; };
 		B20000000000000000000058 /* SettingsSearchHighlight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSearchHighlight.swift; sourceTree = "<group>"; };
 		B20000000000000000000059 /* AppleLanguagePackSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleLanguagePackSettingsView.swift; sourceTree = "<group>"; };
+		B2000000000000000000005C /* AppleLanguagePackStatusViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleLanguagePackStatusViews.swift; sourceTree = "<group>"; };
 		B20000000000000000000056 /* NotificationSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsSection.swift; sourceTree = "<group>"; };
 		B20000000000000000000053 /* PrivacySettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsSection.swift; sourceTree = "<group>"; };
 		B20000000000000000000008 /* TranslationPopupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPopupView.swift; sourceTree = "<group>"; };
@@ -272,6 +274,7 @@
 				B20000000000000000000007 /* SettingsView.swift */,
 				B20000000000000000000054 /* SettingsSupportViews.swift */,
 				B20000000000000000000059 /* AppleLanguagePackSettingsView.swift */,
+				B2000000000000000000005C /* AppleLanguagePackStatusViews.swift */,
 				B20000000000000000000055 /* KeyboardShortcutIntegration.swift */,
 				B20000000000000000000057 /* SettingsSearchIndex.swift */,
 				B20000000000000000000058 /* SettingsSearchHighlight.swift */,
@@ -559,6 +562,7 @@
 				B10000000000000000000007 /* SettingsView.swift in Sources */,
 				B10000000000000000000054 /* SettingsSupportViews.swift in Sources */,
 				B10000000000000000000059 /* AppleLanguagePackSettingsView.swift in Sources */,
+				B1000000000000000000005C /* AppleLanguagePackStatusViews.swift in Sources */,
 				B10000000000000000000055 /* KeyboardShortcutIntegration.swift in Sources */,
 				B10000000000000000000057 /* SettingsSearchIndex.swift in Sources */,
 				B10000000000000000000058 /* SettingsSearchHighlight.swift in Sources */,

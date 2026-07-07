@@ -296,7 +296,8 @@ private struct AppleLanguagePackSelectionView: View {
             AppleLanguagePackStatusGlyph(
                 systemName: selectionStatusImage,
                 tint: selectionStatusTint,
-                isAnimating: selection.isPreparing
+                isAnimating: selection.isPreparing,
+                isChecking: selection.isChecking
             )
 
             VStack(alignment: .leading, spacing: 3) {
@@ -485,17 +486,21 @@ private struct AppleLanguagePackGroupView: View {
 
                 Spacer(minLength: 8)
 
-                Text(summaryText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                AppleLanguagePackGroupSummaryView(
+                    text: summaryText,
+                    isChecking: isChecking
+                )
             }
         }
         .padding(.vertical, 8)
     }
 
+    private var isChecking: Bool {
+        group.rows.contains(where: { $0.readiness == .unknown })
+    }
+
     private var summaryText: String {
-        guard !group.rows.contains(where: { $0.readiness == .unknown }) else {
+        guard !isChecking else {
             return "Checking"
         }
 
@@ -515,7 +520,8 @@ private struct AppleLanguagePackPairRowView: View {
             AppleLanguagePackStatusGlyph(
                 systemName: statusImage,
                 tint: statusTint,
-                isAnimating: row.isPreparing
+                isAnimating: row.isPreparing,
+                isChecking: row.isChecking
             )
 
             VStack(alignment: .leading, spacing: 3) {
@@ -619,39 +625,6 @@ private struct AppleLanguagePackPairTitleView: View {
             SettingsSearchHighlightedText(trailingLanguage.displayName, searchText: searchText)
                 .lineLimit(1)
         }
-    }
-}
-
-private struct AppleLanguagePackStatusGlyph: View {
-    let systemName: String
-    let tint: Color
-    let isAnimating: Bool
-
-    var body: some View {
-        Group {
-            if isAnimating {
-                RotatingAppleLanguagePackStatusGlyph(systemName: systemName)
-            } else {
-                Image(systemName: systemName)
-                    .id(systemName)
-            }
-        }
-        .foregroundStyle(tint)
-        .frame(width: 20)
-    }
-}
-
-private struct RotatingAppleLanguagePackStatusGlyph: View {
-    let systemName: String
-    @State private var isRotating = false
-
-    var body: some View {
-        Image(systemName: systemName)
-            .rotationEffect(.degrees(isRotating ? 360 : 0))
-            .onAppear {
-                isRotating = true
-            }
-            .animation(.linear(duration: 1.1).repeatForever(autoreverses: false), value: isRotating)
     }
 }
 
