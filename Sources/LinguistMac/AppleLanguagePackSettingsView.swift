@@ -14,12 +14,13 @@ struct AppleLanguagePackManagementView: View {
     @ObservedObject var model: AppShellModel
     let searchText: String
     @State private var expandedGroupIDs: Set<String> = []
+    @State private var languagePackSearchText = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             SettingsSearchHighlightedText(
                 "Apple checks language pack status automatically and downloads assets for pairs you choose.",
-                searchText: searchText
+                searchText: highlightText
             )
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -27,7 +28,7 @@ struct AppleLanguagePackManagementView: View {
 
             AppleLanguagePackSelectionView(
                 selection: model.appleLanguagePackSelection,
-                searchText: searchText,
+                searchText: highlightText,
                 prepare: {
                     Task {
                         await model.prepareSelectedAppleLanguagePack()
@@ -42,9 +43,11 @@ struct AppleLanguagePackManagementView: View {
 
             SettingsDivider()
 
+            AppleLanguagePackSearchField(searchText: $languagePackSearchText)
+
             AppleLanguagePackGroupsView(
-                groups: model.appleLanguagePackGroups,
-                searchText: searchText,
+                groups: filteredLanguagePackGroups,
+                searchText: highlightText,
                 expandedBinding: groupExpansionBinding,
                 togglePin: { language in
                     model.togglePinnedAppleLanguagePackGroup(language)
@@ -61,10 +64,18 @@ struct AppleLanguagePackManagementView: View {
                 }
             )
 
+            if filteredLanguagePackGroups.isEmpty {
+                Text("No language packs found.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, SettingsLayout.rowVerticalPadding)
+            }
+
             SettingsSearchHighlightedText(
                 "Downloaded Apple Translation assets are managed by macOS. "
                     + "LinguistMac can request downloads, but cannot remove system-managed assets.",
-                searchText: searchText
+                searchText: highlightText
             )
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -85,6 +96,52 @@ struct AppleLanguagePackManagementView: View {
         }
     }
 
+    private var languagePackSearchQuery: String {
+        languagePackSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var highlightText: String {
+        [searchText, languagePackSearchQuery]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private var filteredLanguagePackGroups: [AppleLanguagePackGroup] {
+        let tokens = searchTokens(from: languagePackSearchQuery)
+        guard !tokens.isEmpty else {
+            return model.appleLanguagePackGroups
+        }
+
+        return model.appleLanguagePackGroups.compactMap { group in
+            if matches(tokens, in: [group.language.displayName, group.language.id]) {
+                return group
+            }
+
+            let rows = group.rows.filter { row in
+                matches(
+                    tokens,
+                    in: [
+                        row.language.displayName,
+                        row.language.id,
+                        row.pairedLanguage.displayName,
+                        row.pairedLanguage.id,
+                        row.displayName
+                    ]
+                )
+            }
+            guard !rows.isEmpty else {
+                return nil
+            }
+
+            return AppleLanguagePackGroup(
+                language: group.language,
+                rows: rows,
+                isPinned: group.isPinned
+            )
+        }
+    }
+
     private func groupExpansionBinding(for group: AppleLanguagePackGroup) -> Binding<Bool> {
         Binding {
             expandedGroupIDs.contains(group.id)
@@ -93,6 +150,21 @@ struct AppleLanguagePackManagementView: View {
                 expandedGroupIDs.insert(group.id)
             } else {
                 expandedGroupIDs.remove(group.id)
+            }
+        }
+    }
+
+    private func searchTokens(from query: String) -> [String] {
+        query
+            .split(whereSeparator: \.isWhitespace)
+            .map(String.init)
+            .filter { !$0.isEmpty }
+    }
+
+    private func matches(_ tokens: [String], in values: [String]) -> Bool {
+        tokens.allSatisfy { token in
+            values.contains {
+                $0.range(of: token, options: [.caseInsensitive, .diacriticInsensitive]) != nil
             }
         }
     }
@@ -177,6 +249,41 @@ struct AppleLanguagePackManagementView: View {
         }
     }
 #endif
+
+private struct AppleLanguagePackSearchField: View {
+    @Binding var searchText: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+
+            TextField("Search language packs", text: $searchText)
+                .textFieldStyle(.plain)
+                .frame(maxWidth: .infinity)
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12, weight: .medium))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear Language Pack Search")
+                .help("Clear Language Pack Search")
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 28)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+        }
+    }
+}
 
 private struct AppleLanguagePackSelectionView: View {
     let selection: AppleLanguagePackSelection
