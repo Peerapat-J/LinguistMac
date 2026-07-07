@@ -419,14 +419,14 @@ private struct AppleLanguagePackGroupView: View {
         } label: {
             HStack(spacing: 8) {
                 SettingsSearchHighlightedText(group.language.displayName, searchText: searchText)
-                    .font(.caption.weight(.semibold))
+                    .font(.body.weight(.semibold))
                     .lineLimit(1)
 
                 Button {
                     togglePin(group.language)
                 } label: {
                     Image(systemName: group.isPinned ? "pin.fill" : "pin")
-                        .font(.caption)
+                        .font(.body)
                         .foregroundStyle(group.isPinned ? Color.accentColor : Color.secondary)
                         .frame(width: 18, height: 18)
                 }
