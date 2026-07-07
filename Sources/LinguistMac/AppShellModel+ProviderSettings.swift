@@ -179,6 +179,7 @@ extension AppShellModel {
             appleLanguagePackMessages[pair.id] = preparationContinuingMessage()
             appleLanguagePackPreparationRequests.append(request)
             scheduleAppleLanguagePackPreparationTimeout(for: request)
+            scheduleAppleLanguagePackReadinessRecheck(for: request)
             appleLanguagePackLogger.info("Started Apple language pack preparation for \(pair.id, privacy: .public)")
         }
         refreshAppleLanguagePackSelectionOrder()
