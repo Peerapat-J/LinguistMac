@@ -1,3 +1,5 @@
+import LinguistMacCore
+
 extension SettingsSectionID {
     var searchTerms: [String] {
         switch self {
@@ -34,8 +36,31 @@ extension SettingsSectionID {
                 "Source",
                 "Target Language",
                 "Target",
-                "Language"
-            ]
+                "Language",
+                "Apple Language Packs",
+                "Language Packs",
+                "Language Pack",
+                "Language Groups",
+                "Search Language Packs",
+                "Supported Languages",
+                "Download",
+                "Downloading",
+                "Download Failed",
+                "Needs Download",
+                "Cancel",
+                "Pin",
+                "Unpin",
+                "Pinned",
+                "Current",
+                "Ready",
+                "Checking",
+                "Unsupported",
+                "Auto Detect",
+                "On Device",
+                "System Managed Assets"
+            ] + TranslationLanguageCatalog.defaultLanguages.flatMap {
+                [$0.displayName, $0.id]
+            }
         case .appearance:
             [
                 title,

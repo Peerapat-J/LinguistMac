@@ -5,6 +5,27 @@ import XCTest
 
 @MainActor
 final class AppShellModelLanguagePackTests: XCTestCase {
+    func testTranslationSettingsSearchMatchesLanguagePackTerms() {
+        let languagePackQueries = [
+            "Apple Language Packs",
+            "Language Groups",
+            "Search language packs",
+            "Thai",
+            "Japanese",
+            "Download Failed",
+            "Needs Download",
+            "Pin",
+            "Current"
+        ]
+
+        for query in languagePackQueries {
+            XCTAssertTrue(
+                SettingsSectionID.translation.matchesSearch(query),
+                "Expected Translation settings to match sidebar search query: \(query)"
+            )
+        }
+    }
+
     func testRefreshAppleLanguagePackSelectionMapsCurrentPairReadiness() async {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["th->en": .needsDownload]
