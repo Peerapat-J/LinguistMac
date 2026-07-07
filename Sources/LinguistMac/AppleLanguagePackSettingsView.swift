@@ -183,13 +183,23 @@ private struct AppleLanguagePackSelectionView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: selectionStatusImage)
-                .foregroundStyle(selectionStatusTint)
-                .frame(width: 20)
+            AppleLanguagePackStatusGlyph(
+                systemName: selectionStatusImage,
+                tint: selectionStatusTint,
+                isAnimating: selection.isPreparing
+            )
 
             VStack(alignment: .leading, spacing: 3) {
-                SettingsSearchHighlightedText(selectionTitle, searchText: searchText)
-                    .lineLimit(1)
+                if let pair = selection.pair {
+                    AppleLanguagePackPairTitleView(
+                        leadingLanguage: pair.sourceLanguage,
+                        trailingLanguage: pair.targetLanguage,
+                        searchText: searchText
+                    )
+                } else {
+                    SettingsSearchHighlightedText("Choose a Source Language", searchText: searchText)
+                        .lineLimit(1)
+                }
 
                 SettingsSearchHighlightedText(selectionMessage, searchText: searchText)
                     .font(.caption)
@@ -200,13 +210,10 @@ private struct AppleLanguagePackSelectionView: View {
             Spacer(minLength: 10)
 
             VStack(alignment: .trailing, spacing: 6) {
-                Label(
-                    selectionStatusText,
-                    systemImage: selectionStatusImage
-                )
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(selectionStatusTint)
-                .lineLimit(1)
+                Text(selectionStatusText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(selectionStatusTint)
+                    .lineLimit(1)
 
                 if selection.isPreparing, let pair = selection.pair {
                     Button {
@@ -230,10 +237,6 @@ private struct AppleLanguagePackSelectionView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, SettingsLayout.rowVerticalPadding)
-    }
-
-    private var selectionTitle: String {
-        selection.pair?.displayName ?? "Choose a Source Language"
     }
 
     private var selectionMessage: String {
@@ -260,12 +263,16 @@ private struct AppleLanguagePackSelectionView: View {
             return "circle.dashed"
         }
 
-        return selection.isPreparing ? "arrow.triangle.2.circlepath" : selection.readiness.statusImage
+        return selection.isPreparing ? "circle.dotted" : selection.readiness.statusImage
     }
 
     private var selectionStatusTint: Color {
         guard selection.pair != nil else {
             return .secondary
+        }
+
+        if selection.isPreparing {
+            return .orange
         }
 
         return selection.readiness.statusTint
@@ -369,14 +376,19 @@ private struct AppleLanguagePackPairRowView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: statusImage)
-                .foregroundStyle(statusTint)
-                .frame(width: 20)
+            AppleLanguagePackStatusGlyph(
+                systemName: statusImage,
+                tint: statusTint,
+                isAnimating: row.isPreparing
+            )
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    SettingsSearchHighlightedText(row.displayName, searchText: searchText)
-                        .lineLimit(1)
+                    AppleLanguagePackPairTitleView(
+                        leadingLanguage: row.language,
+                        trailingLanguage: row.pairedLanguage,
+                        searchText: searchText
+                    )
 
                     if row.isCurrentPair {
                         Label("Current", systemImage: "pin.fill")
@@ -395,7 +407,7 @@ private struct AppleLanguagePackPairRowView: View {
             Spacer(minLength: 10)
 
             VStack(alignment: .trailing, spacing: 6) {
-                Label(statusText, systemImage: statusImage)
+                Text(statusText)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(statusTint)
                     .lineLimit(1)
@@ -429,11 +441,60 @@ private struct AppleLanguagePackPairRowView: View {
     }
 
     private var statusImage: String {
-        row.isPreparing ? "arrow.triangle.2.circlepath" : row.readiness.statusImage
+        row.isPreparing ? "circle.dotted" : row.readiness.statusImage
     }
 
     private var statusTint: Color {
-        row.readiness.statusTint
+        if row.isPreparing {
+            return .orange
+        }
+
+        return row.readiness.statusTint
+    }
+}
+
+private struct AppleLanguagePackPairTitleView: View {
+    let leadingLanguage: TranslationLanguage
+    let trailingLanguage: TranslationLanguage
+    let searchText: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            SettingsSearchHighlightedText(leadingLanguage.displayName, searchText: searchText)
+                .lineLimit(1)
+
+            Image(systemName: "arrow.left.arrow.right.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+
+            SettingsSearchHighlightedText(trailingLanguage.displayName, searchText: searchText)
+                .lineLimit(1)
+        }
+    }
+}
+
+private struct AppleLanguagePackStatusGlyph: View {
+    let systemName: String
+    let tint: Color
+    let isAnimating: Bool
+    @State private var isRotating = false
+
+    var body: some View {
+        Image(systemName: systemName)
+            .foregroundStyle(tint)
+            .frame(width: 20)
+            .rotationEffect(.degrees(isAnimating && isRotating ? 360 : 0))
+            .animation(
+                isAnimating ? .linear(duration: 1.1).repeatForever(autoreverses: false) : .default,
+                value: isRotating
+            )
+            .onAppear {
+                isRotating = isAnimating
+            }
+            .onChange(of: isAnimating) { _, newValue in
+                isRotating = newValue
+            }
     }
 }
 
