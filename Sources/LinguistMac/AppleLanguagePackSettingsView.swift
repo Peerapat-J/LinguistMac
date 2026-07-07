@@ -46,6 +46,9 @@ struct AppleLanguagePackManagementView: View {
                 groups: model.appleLanguagePackGroups,
                 searchText: searchText,
                 expandedBinding: groupExpansionBinding,
+                togglePin: { language in
+                    model.togglePinnedAppleLanguagePackGroup(language)
+                },
                 preparePairs: { pairs in
                     Task {
                         await model.prepareAppleLanguagePacks(for: pairs)
@@ -283,6 +286,7 @@ private struct AppleLanguagePackGroupsView: View {
     let groups: [AppleLanguagePackGroup]
     let searchText: String
     let expandedBinding: (AppleLanguagePackGroup) -> Binding<Bool>
+    let togglePin: (TranslationLanguage) -> Void
     let preparePairs: ([AppleLanguagePackPair]) -> Void
     let cancelPairs: ([AppleLanguagePackPair]) -> Void
 
@@ -301,6 +305,7 @@ private struct AppleLanguagePackGroupsView: View {
                     group: group,
                     searchText: searchText,
                     isExpanded: expandedBinding(group),
+                    togglePin: togglePin,
                     preparePairs: preparePairs,
                     cancelPairs: cancelPairs
                 )
@@ -315,6 +320,7 @@ private struct AppleLanguagePackGroupView: View {
     let group: AppleLanguagePackGroup
     let searchText: String
     @Binding var isExpanded: Bool
+    let togglePin: (TranslationLanguage) -> Void
     let preparePairs: ([AppleLanguagePackPair]) -> Void
     let cancelPairs: ([AppleLanguagePackPair]) -> Void
 
@@ -346,6 +352,17 @@ private struct AppleLanguagePackGroupView: View {
                 SettingsSearchHighlightedText(group.language.displayName, searchText: searchText)
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
+
+                Button {
+                    togglePin(group.language)
+                } label: {
+                    Image(systemName: group.isPinned ? "pin.fill" : "pin")
+                        .font(.caption)
+                        .foregroundStyle(group.isPinned ? Color.accentColor : Color.secondary)
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.plain)
+                .help(group.isPinned ? "Unpin language group" : "Pin language group")
 
                 Spacer(minLength: 8)
 

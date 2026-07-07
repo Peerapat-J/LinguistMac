@@ -174,6 +174,7 @@ public struct AppleLanguagePackReadinessRow: Identifiable, Equatable, Sendable {
 public struct AppleLanguagePackGroup: Identifiable, Equatable, Sendable {
     public let language: TranslationLanguage
     public let rows: [AppleLanguagePackReadinessRow]
+    public let isPinned: Bool
 
     public var id: String {
         language.id
@@ -181,10 +182,12 @@ public struct AppleLanguagePackGroup: Identifiable, Equatable, Sendable {
 
     public init(
         language: TranslationLanguage,
-        rows: [AppleLanguagePackReadinessRow]
+        rows: [AppleLanguagePackReadinessRow],
+        isPinned: Bool = false
     ) {
         self.language = language
         self.rows = rows
+        self.isPinned = isPinned
     }
 }
 
@@ -199,16 +202,21 @@ public enum AppleLanguagePackCatalog {
     ) -> [AppleLanguagePackGroup] {
         let supportedLanguages = supportedLanguages(from: languages)
         let currentPair = AppleLanguagePackPair.current(settings: settings)
-        return supportedLanguages.map { language in
+        let groups = supportedLanguages.map { language in
             AppleLanguagePackGroup(
                 language: language,
                 rows: groupRows(
                     for: language,
                     supportedLanguages: supportedLanguages,
                     currentPair: currentPair
-                )
+                ),
+                isPinned: settings.pinnedAppleLanguagePackLanguageIDs.contains(language.id)
             )
         }
+        return orderedGroups(
+            groups,
+            pinnedLanguageIDs: settings.pinnedAppleLanguagePackLanguageIDs
+        )
     }
 
     private static func groupRows(
@@ -240,5 +248,27 @@ public enum AppleLanguagePackCatalog {
         }
 
         return rows
+    }
+
+    private static func orderedGroups(
+        _ groups: [AppleLanguagePackGroup],
+        pinnedLanguageIDs: [String]
+    ) -> [AppleLanguagePackGroup] {
+        groups.enumerated()
+            .sorted { lhs, rhs in
+                let lhsPinIndex = pinnedLanguageIDs.firstIndex(of: lhs.element.id)
+                let rhsPinIndex = pinnedLanguageIDs.firstIndex(of: rhs.element.id)
+                switch (lhsPinIndex, rhsPinIndex) {
+                case let (lhsIndex?, rhsIndex?):
+                    return lhsIndex < rhsIndex
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                case (nil, nil):
+                    return lhs.offset < rhs.offset
+                }
+            }
+            .map(\.element)
     }
 }

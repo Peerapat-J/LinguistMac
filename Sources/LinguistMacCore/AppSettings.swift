@@ -25,6 +25,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var popupOriginX: Double?
     public var popupOriginY: Double?
     public var hasCompletedOnboarding: Bool
+    public var pinnedAppleLanguagePackLanguageIDs: [String]
 
     public init(
         sourceLanguage: TranslationLanguage = .autoDetect,
@@ -50,7 +51,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         screenTranslationNotificationsEnabled: Bool = false,
         popupOriginX: Double? = nil,
         popupOriginY: Double? = nil,
-        hasCompletedOnboarding: Bool = false
+        hasCompletedOnboarding: Bool = false,
+        pinnedAppleLanguagePackLanguageIDs: [String] = []
     ) {
         self.sourceLanguage = sourceLanguage
         self.targetLanguage = targetLanguage
@@ -76,6 +78,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.popupOriginX = popupOriginX
         self.popupOriginY = popupOriginY
         self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.pinnedAppleLanguagePackLanguageIDs = pinnedAppleLanguagePackLanguageIDs
     }
 }
 
@@ -103,6 +106,15 @@ public extension AppSettings {
         settings.popupFontSize = min(max(settings.popupFontSize, 12), 22)
         settings.popupWidth = min(max(settings.popupWidth, 320), 720)
         settings.popupHeight = min(max(settings.popupHeight, 240), 640)
+        let supportedLanguageIDs = Set(
+            TranslationLanguageCatalog.defaultLanguages
+                .filter { !$0.supportsAutoDetect }
+                .map(\.id)
+        )
+        var seenPinnedLanguageIDs: Set<String> = []
+        settings.pinnedAppleLanguagePackLanguageIDs = settings.pinnedAppleLanguagePackLanguageIDs.filter {
+            supportedLanguageIDs.contains($0) && seenPinnedLanguageIDs.insert($0).inserted
+        }
         return settings
     }
 }

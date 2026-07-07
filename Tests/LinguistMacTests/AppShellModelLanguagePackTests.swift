@@ -1,3 +1,4 @@
+import Foundation
 @testable import LinguistMac
 @testable import LinguistMacCore
 import XCTest
@@ -146,6 +147,26 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         XCTAssertEqual(thaiEnglishRow.readinessByPairID["th->en"], .needsDownload)
         XCTAssertEqual(thaiEnglishRow.readinessByPairID["en->th"], .ready)
         XCTAssertEqual(thaiJapaneseRow.readiness, .unavailable)
+    }
+
+    func testTogglePinnedAppleLanguagePackGroupMovesGroupFirstAndUpdatesSettings() {
+        let model = AppShellModel(
+            services: makeLanguagePackTestServices(
+                languageAvailability: LanguagePackTestAvailabilityChecker()
+            )
+        )
+
+        model.togglePinnedAppleLanguagePackGroup(.thai)
+
+        XCTAssertEqual(model.settings.pinnedAppleLanguagePackLanguageIDs, ["th"])
+        XCTAssertEqual(model.appleLanguagePackGroups.first?.language, .thai)
+        XCTAssertEqual(model.appleLanguagePackGroups.first?.isPinned, true)
+
+        model.togglePinnedAppleLanguagePackGroup(.thai)
+
+        XCTAssertEqual(model.settings.pinnedAppleLanguagePackLanguageIDs, [])
+        XCTAssertNotEqual(model.appleLanguagePackGroups.first?.language, .thai)
+        XCTAssertFalse(model.appleLanguagePackGroups.contains { $0.isPinned })
     }
 
     func testPrepareAppleLanguagePackUpdatesGroupedRowsSelectionAndSetupReadiness() async throws {
@@ -356,6 +377,24 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         XCTAssertNil(model.appleLanguagePackSelection.pair)
         XCTAssertFalse(model.appleLanguagePackSelection.canPrepare)
         XCTAssertTrue(preparedPairIDs.isEmpty)
+    }
+}
+
+final class UserDefaultsLanguagePackSettingsTests: XCTestCase {
+    func testPinnedLanguagePackGroupsRoundTripThroughUserDefaults() async throws {
+        let suiteName = "LinguistMacTests.\(UUID().uuidString)"
+        defer {
+            UserDefaults.standard.removePersistentDomain(forName: suiteName)
+        }
+        let store = try UserDefaultsAppSettingsStore(
+            defaults: XCTUnwrap(UserDefaults(suiteName: suiteName))
+        )
+        let settings = AppSettings(pinnedAppleLanguagePackLanguageIDs: ["th", "ja"])
+
+        try await store.saveSettings(settings)
+        let loadedSettings = try await store.loadSettings()
+
+        XCTAssertEqual(loadedSettings.pinnedAppleLanguagePackLanguageIDs, ["th", "ja"])
     }
 }
 

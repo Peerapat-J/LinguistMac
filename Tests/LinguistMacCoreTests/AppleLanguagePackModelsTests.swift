@@ -32,6 +32,17 @@ final class AppleLanguagePackModelsTests: XCTestCase {
         )
     }
 
+    func testAppleLanguagePackCatalogOrdersPinnedGroupsFirst() {
+        let groups = AppleLanguagePackCatalog.groups(
+            from: TranslationLanguageCatalog.defaultLanguages,
+            settings: AppSettings(pinnedAppleLanguagePackLanguageIDs: ["th", "ja"])
+        )
+
+        XCTAssertEqual(groups.prefix(2).map(\.language), [.thai, .japanese])
+        XCTAssertEqual(groups.prefix(2).map(\.isPinned), [true, true])
+        XCTAssertFalse(groups.dropFirst(2).contains { $0.isPinned })
+    }
+
     func testAppleLanguagePackReadinessRowOnlyPreparesNeedsDownloadPair() {
         let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
         let needsDownload = AppleLanguagePackReadinessRow(

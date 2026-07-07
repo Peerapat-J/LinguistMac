@@ -99,7 +99,8 @@ extension AppShellModel {
                 language: group.language,
                 rows: group.rows.map { row in
                     appleLanguagePackRow(for: row, readinessByPairID: readinessByPairID)
-                }
+                },
+                isPinned: group.isPinned
             )
         }
 
@@ -145,8 +146,19 @@ extension AppShellModel {
         }
 
         replaceAppleLanguagePackGroup(
-            AppleLanguagePackGroup(language: group.language, rows: rows)
+            AppleLanguagePackGroup(language: group.language, rows: rows, isPinned: group.isPinned)
         )
+    }
+
+    func togglePinnedAppleLanguagePackGroup(_ language: TranslationLanguage) {
+        if settings.pinnedAppleLanguagePackLanguageIDs.contains(language.id) {
+            settings.pinnedAppleLanguagePackLanguageIDs.removeAll { $0 == language.id }
+        } else {
+            settings.pinnedAppleLanguagePackLanguageIDs.append(language.id)
+        }
+
+        settings = settings.sanitized()
+        refreshAppleLanguagePackGroupOrder()
     }
 
     func prepareAppleLanguagePack(for pair: AppleLanguagePackPair) async {
@@ -448,7 +460,8 @@ extension AppShellModel {
                         for: existingRow,
                         readinessByPairID: existingRow.readinessByPairID
                     )
-                }
+                },
+                isPinned: group.isPinned
             )
         }
     }
@@ -501,7 +514,8 @@ extension AppShellModel {
                     var readinessByPairID = row.readinessByPairID
                     readinessByPairID[pair.id] = readiness
                     return appleLanguagePackRow(for: row, readinessByPairID: readinessByPairID)
-                }
+                },
+                isPinned: group.isPinned
             )
         }
         refreshAppleLanguagePackSelectionIfNeeded(for: pair, readiness: readiness)
