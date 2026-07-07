@@ -226,6 +226,53 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         XCTAssertEqual(thaiRow.message, "Language pack is ready.")
         XCTAssertEqual(readinessItems[.appleTranslation]?.statusText, "Ready")
     }
+
+    func testSuccessfulAppleLanguagePackPreparationRefreshesAllGroupReadiness() async throws {
+        let preparedPair = AppleLanguagePackPair(sourceLanguage: .thai, targetLanguage: .japanese)
+        let relatedPair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .japanese)
+        let languageAvailability = LanguagePackTestAvailabilityChecker(
+            readinessByPair: [
+                preparedPair.id: .needsDownload,
+                preparedPair.reversed.id: .needsDownload,
+                relatedPair.id: .needsDownload,
+                relatedPair.reversed.id: .needsDownload
+            ]
+        )
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .thai, targetLanguage: .japanese),
+            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
+        )
+
+        await model.refreshAppleLanguagePackGroup(for: .thai)
+        let initialRelatedRow = try languagePackRow(
+            in: model.appleLanguagePackGroups,
+            language: .english,
+            pairID: relatedPair.id
+        )
+
+        await model.prepareAppleLanguagePack(for: preparedPair)
+        let request = try XCTUnwrap(
+            model.appleLanguagePackPreparationRequests.first { $0.pair == preparedPair }
+        )
+        await languageAvailability.setReadiness(.ready, for: preparedPair)
+        await languageAvailability.setReadiness(.ready, for: preparedPair.reversed)
+        await languageAvailability.setReadiness(.ready, for: relatedPair)
+        await languageAvailability.setReadiness(.ready, for: relatedPair.reversed)
+        await model.finishAppleLanguagePackPreparation(
+            for: preparedPair,
+            requestID: request.id,
+            result: .success(())
+        )
+
+        let refreshedRelatedRow = try languagePackRow(
+            in: model.appleLanguagePackGroups,
+            language: .english,
+            pairID: relatedPair.id
+        )
+
+        XCTAssertEqual(initialRelatedRow.readiness, .unknown)
+        XCTAssertEqual(refreshedRelatedRow.readiness, .ready)
+    }
 }
 
 @MainActor

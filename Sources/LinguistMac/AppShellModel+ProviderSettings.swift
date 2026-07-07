@@ -236,6 +236,9 @@ extension AppShellModel {
 
         removeAppleLanguagePackPreparationRequest(request)
         updateAppleLanguagePackRow(for: pair, readiness: readiness)
+        if case .success = result {
+            await refreshAppleLanguagePackGroups(force: true)
+        }
         await refreshReadiness()
     }
 
