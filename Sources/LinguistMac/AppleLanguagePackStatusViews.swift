@@ -27,14 +27,12 @@ struct AppleLanguagePackGroupSummaryView: View {
 struct AppleLanguagePackStatusGlyph: View {
     let systemName: String
     let tint: Color
-    let isAnimating: Bool
+    let isProgressing: Bool
     let isChecking: Bool
 
     var body: some View {
         Group {
-            if isAnimating {
-                RotatingAppleLanguagePackStatusGlyph(systemName: systemName)
-            } else if isChecking {
+            if isProgressing || isChecking {
                 ProgressView()
                     .controlSize(.small)
                     .scaleEffect(0.6)
@@ -47,20 +45,6 @@ struct AppleLanguagePackStatusGlyph: View {
         }
         .foregroundStyle(tint)
         .frame(width: 20)
-    }
-}
-
-private struct RotatingAppleLanguagePackStatusGlyph: View {
-    let systemName: String
-    @State private var isRotating = false
-
-    var body: some View {
-        Image(systemName: systemName)
-            .rotationEffect(.degrees(isRotating ? 360 : 0))
-            .onAppear {
-                isRotating = true
-            }
-            .animation(.linear(duration: 1.1).repeatForever(autoreverses: false), value: isRotating)
     }
 }
 

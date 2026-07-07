@@ -296,7 +296,7 @@ private struct AppleLanguagePackSelectionView: View {
             AppleLanguagePackStatusGlyph(
                 systemName: selection.settingsStatusImage,
                 tint: selection.settingsStatusTint,
-                isAnimating: selection.showsDownloadingControl,
+                isProgressing: selection.showsDownloadingControl,
                 isChecking: selection.isChecking
             )
 
@@ -328,7 +328,7 @@ private struct AppleLanguagePackSelectionView: View {
 
                 if selection.showsDownloadingControl {
                     Button {} label: {
-                        Label("Downloading", systemImage: "circle.dotted")
+                        AppleLanguagePackDownloadingButtonLabel()
                     }
                     .controlSize(.small)
                     .disabled(true)
@@ -468,7 +468,7 @@ private struct AppleLanguagePackPairRowView: View {
             AppleLanguagePackStatusGlyph(
                 systemName: row.settingsStatusImage,
                 tint: row.settingsStatusTint,
-                isAnimating: row.showsDownloadingControl,
+                isProgressing: row.showsDownloadingControl,
                 isChecking: row.isChecking
             )
 
@@ -504,7 +504,7 @@ private struct AppleLanguagePackPairRowView: View {
 
                 if row.showsDownloadingControl {
                     Button {} label: {
-                        Label("Downloading", systemImage: "circle.dotted")
+                        AppleLanguagePackDownloadingButtonLabel()
                     }
                     .controlSize(.small)
                     .disabled(true)
@@ -523,6 +523,19 @@ private struct AppleLanguagePackPairRowView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, SettingsLayout.rowVerticalPadding)
+    }
+}
+
+private struct AppleLanguagePackDownloadingButtonLabel: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            ProgressView()
+                .controlSize(.small)
+                .scaleEffect(0.55)
+                .frame(width: 12, height: 12)
+
+            Text("Downloading")
+        }
     }
 }
 
