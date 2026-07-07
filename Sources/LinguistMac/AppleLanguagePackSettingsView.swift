@@ -365,12 +365,20 @@ private struct AppleLanguagePackSelectionView: View {
             return "Select Pair"
         }
 
+        if selection.hasPreparationFailure {
+            return "Download Failed"
+        }
+
         return selection.isPreparing ? "Downloading" : selection.readiness.displayText
     }
 
     private var selectionStatusImage: String {
         guard selection.pair != nil else {
             return "circle.dashed"
+        }
+
+        if selection.hasPreparationFailure {
+            return "xmark.circle.fill"
         }
 
         return selection.isPreparing ? "circle.dotted" : selection.readiness.statusImage
@@ -383,6 +391,10 @@ private struct AppleLanguagePackSelectionView: View {
 
         if selection.isPreparing {
             return .orange
+        }
+
+        if selection.hasPreparationFailure {
+            return .red
         }
 
         return selection.readiness.statusTint
@@ -561,16 +573,28 @@ private struct AppleLanguagePackPairRowView: View {
     }
 
     private var statusText: String {
-        row.isPreparing ? "Downloading" : row.readiness.displayText
+        if row.hasPreparationFailure {
+            return "Download Failed"
+        }
+
+        return row.isPreparing ? "Downloading" : row.readiness.displayText
     }
 
     private var statusImage: String {
-        row.isPreparing ? "circle.dotted" : row.readiness.statusImage
+        if row.hasPreparationFailure {
+            return "xmark.circle.fill"
+        }
+
+        return row.isPreparing ? "circle.dotted" : row.readiness.statusImage
     }
 
     private var statusTint: Color {
         if row.isPreparing {
             return .orange
+        }
+
+        if row.hasPreparationFailure {
+            return .red
         }
 
         return row.readiness.statusTint
@@ -602,23 +626,32 @@ private struct AppleLanguagePackStatusGlyph: View {
     let systemName: String
     let tint: Color
     let isAnimating: Bool
+
+    var body: some View {
+        Group {
+            if isAnimating {
+                RotatingAppleLanguagePackStatusGlyph(systemName: systemName)
+            } else {
+                Image(systemName: systemName)
+                    .id(systemName)
+            }
+        }
+        .foregroundStyle(tint)
+        .frame(width: 20)
+    }
+}
+
+private struct RotatingAppleLanguagePackStatusGlyph: View {
+    let systemName: String
     @State private var isRotating = false
 
     var body: some View {
         Image(systemName: systemName)
-            .foregroundStyle(tint)
-            .frame(width: 20)
-            .rotationEffect(.degrees(isAnimating && isRotating ? 360 : 0))
-            .animation(
-                isAnimating ? .linear(duration: 1.1).repeatForever(autoreverses: false) : .default,
-                value: isRotating
-            )
+            .rotationEffect(.degrees(isRotating ? 360 : 0))
             .onAppear {
-                isRotating = isAnimating
+                isRotating = true
             }
-            .onChange(of: isAnimating) { _, newValue in
-                isRotating = newValue
-            }
+            .animation(.linear(duration: 1.1).repeatForever(autoreverses: false), value: isRotating)
     }
 }
 

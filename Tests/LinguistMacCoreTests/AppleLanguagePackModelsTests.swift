@@ -65,5 +65,14 @@ final class AppleLanguagePackModelsTests: XCTestCase {
         XCTAssertTrue(needsDownload.canPrepare)
         XCTAssertFalse(preparing.canPrepare)
         XCTAssertFalse(ready.canPrepare)
+        XCTAssertFalse(needsDownload.hasPreparationFailure)
+        XCTAssertTrue(
+            AppleLanguagePackReadinessRow(
+                pair: pair,
+                readiness: .needsDownload,
+                isCurrentPair: false,
+                message: "Download was not completed. Try Download again."
+            ).hasPreparationFailure
+        )
     }
 }

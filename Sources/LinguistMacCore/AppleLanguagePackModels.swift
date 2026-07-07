@@ -66,6 +66,10 @@ public struct AppleLanguagePackSelection: Equatable, Sendable {
         pair != nil && readiness == .needsDownload && !isPreparing
     }
 
+    public var hasPreparationFailure: Bool {
+        readiness == .needsDownload && !isPreparing && message != nil
+    }
+
     public init(
         pair: AppleLanguagePackPair?,
         readiness: LanguagePackReadiness,
@@ -113,6 +117,10 @@ public struct AppleLanguagePackReadinessRow: Identifiable, Equatable, Sendable {
 
     public var canPrepare: Bool {
         readiness == .needsDownload && !isPreparing
+    }
+
+    public var hasPreparationFailure: Bool {
+        readiness == .needsDownload && !isPreparing && message != nil
     }
 
     public init(
