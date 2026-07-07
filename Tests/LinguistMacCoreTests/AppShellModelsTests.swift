@@ -209,7 +209,7 @@ final class AppShellModelsTests: XCTestCase {
             AppleLanguagePackSelection(
                 pair: pair,
                 readiness: .needsDownload,
-                message: "Download not completed yet. Try again later.",
+                message: "macOS is still preparing this language pack.",
                 messageKind: .notCompleted
             ).hasIncompletePreparation
         )

@@ -296,7 +296,7 @@ private struct AppleLanguagePackSelectionView: View {
             AppleLanguagePackStatusGlyph(
                 systemName: selection.settingsStatusImage,
                 tint: selection.settingsStatusTint,
-                isAnimating: selection.isPreparing,
+                isAnimating: selection.showsDownloadingControl,
                 isChecking: selection.isChecking
             )
 
@@ -326,13 +326,12 @@ private struct AppleLanguagePackSelectionView: View {
                     .foregroundStyle(selection.settingsStatusTint)
                     .lineLimit(1)
 
-                if selection.isPreparing, let pair = selection.pair {
-                    Button {
-                        cancel(pair)
-                    } label: {
-                        Label("Cancel", systemImage: "xmark.circle")
+                if selection.showsDownloadingControl {
+                    Button {} label: {
+                        Label("Downloading", systemImage: "circle.dotted")
                     }
                     .controlSize(.small)
+                    .disabled(true)
                     .fixedSize(horizontal: true, vertical: false)
                 } else if selection.readiness == .needsDownload {
                     Button {
@@ -469,7 +468,7 @@ private struct AppleLanguagePackPairRowView: View {
             AppleLanguagePackStatusGlyph(
                 systemName: row.settingsStatusImage,
                 tint: row.settingsStatusTint,
-                isAnimating: row.isPreparing,
+                isAnimating: row.showsDownloadingControl,
                 isChecking: row.isChecking
             )
 
@@ -503,13 +502,12 @@ private struct AppleLanguagePackPairRowView: View {
                     .foregroundStyle(row.settingsStatusTint)
                     .lineLimit(1)
 
-                if row.isPreparing {
-                    Button {
-                        cancel()
-                    } label: {
-                        Label("Cancel", systemImage: "xmark.circle")
+                if row.showsDownloadingControl {
+                    Button {} label: {
+                        Label("Downloading", systemImage: "circle.dotted")
                     }
                     .controlSize(.small)
+                    .disabled(true)
                     .fixedSize(horizontal: true, vertical: false)
                 } else if row.readiness == .needsDownload {
                     Button {

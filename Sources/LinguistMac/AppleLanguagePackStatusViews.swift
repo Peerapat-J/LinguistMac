@@ -69,6 +69,10 @@ extension AppleLanguagePackSelection {
         readiness == .unknown && !isPreparing
     }
 
+    var showsDownloadingControl: Bool {
+        isPreparing || hasIncompletePreparation
+    }
+
     var settingsMessage: String {
         if let message {
             return message
@@ -110,6 +114,10 @@ extension AppleLanguagePackReadinessRow {
         readiness == .unknown && !isPreparing
     }
 
+    var showsDownloadingControl: Bool {
+        isPreparing || hasIncompletePreparation
+    }
+
     var settingsMessage: String {
         message ?? readiness.settingsDetailText
     }
@@ -133,7 +141,7 @@ private extension AppleLanguagePackSelection {
             return "Download Failed"
         }
         if hasIncompletePreparation {
-            return "Not Completed Yet"
+            return "Downloading"
         }
         if wasPreparationCanceled {
             return "Canceled"
@@ -147,7 +155,7 @@ private extension AppleLanguagePackSelection {
             return "xmark.circle.fill"
         }
         if hasIncompletePreparation {
-            return "exclamationmark.circle.fill"
+            return "circle.dotted"
         }
         if wasPreparationCanceled {
             return "xmark.circle.fill"
@@ -173,7 +181,7 @@ private extension AppleLanguagePackReadinessRow {
             return "Download Failed"
         }
         if hasIncompletePreparation {
-            return "Not Completed Yet"
+            return "Downloading"
         }
         if wasPreparationCanceled {
             return "Canceled"
@@ -187,7 +195,7 @@ private extension AppleLanguagePackReadinessRow {
             return "xmark.circle.fill"
         }
         if hasIncompletePreparation {
-            return "exclamationmark.circle.fill"
+            return "circle.dotted"
         }
         if wasPreparationCanceled {
             return "xmark.circle.fill"
@@ -289,7 +297,7 @@ extension AppShellModel {
             AppleLanguagePackPreparationMessage(text: "Language pack is ready.")
         case .needsDownload:
             AppleLanguagePackPreparationMessage(
-                text: "Download not completed yet. Try again later.",
+                text: "macOS is still preparing this language pack.",
                 kind: .notCompleted
             )
         case .unavailable:
@@ -304,14 +312,14 @@ extension AppShellModel {
 
     func preparationTimeoutMessage() -> AppleLanguagePackPreparationMessage {
         AppleLanguagePackPreparationMessage(
-            text: "Download not completed yet. Try again later.",
+            text: "macOS is still preparing this language pack.",
             kind: .notCompleted
         )
     }
 
     func preparationContinuingMessage() -> AppleLanguagePackPreparationMessage {
         AppleLanguagePackPreparationMessage(
-            text: "macOS is still downloading this language pack. LinguistMac will keep checking."
+            text: "macOS is still preparing this language pack."
         )
     }
 
@@ -338,7 +346,7 @@ extension AppShellModel {
             )
         case .missingLanguagePack:
             return AppleLanguagePackPreparationMessage(
-                text: "Download not completed yet. Try again later.",
+                text: "macOS is still preparing this language pack.",
                 kind: .notCompleted
             )
         case .providerUnavailable:

@@ -13,11 +13,8 @@ final class AppShellModelLanguagePackTests: XCTestCase {
             "Thai",
             "Japanese",
             "Download Failed",
-            "Not Completed Yet",
             "Needs Download",
-            "Still Downloading",
-            "Keep Checking",
-            "Canceled",
+            "Preparing",
             "Pin",
             "Current"
         ]
@@ -380,8 +377,10 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         XCTAssertTrue(model.appleLanguagePackSelection.isPreparing)
         XCTAssertEqual(
             model.appleLanguagePackSelection.message,
-            "macOS is still downloading this language pack. LinguistMac will keep checking."
+            "macOS is still preparing this language pack."
         )
+        XCTAssertEqual(model.appleLanguagePackSelection.settingsStatusText, "Downloading")
+        XCTAssertTrue(model.appleLanguagePackSelection.showsDownloadingControl)
     }
 
     func testLanguagePackRecheckMarksBackgroundDownloadReady() async throws {
@@ -413,7 +412,7 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
     }
 
-    func testStaleAppleLanguagePackPreparationTimesOutAndRechecksReadiness() async throws {
+    func testStaleAppleLanguagePackPreparationKeepsWaitingForMacOSReadiness() async throws {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["en->th": .needsDownload]
         )
@@ -430,12 +429,14 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         let staleNow = request.startedAt.addingTimeInterval(AppShellModel.appleLanguagePackPreparationTimeout + 1)
         await model.clearStaleAppleLanguagePackPreparationIfNeeded(now: staleNow)
 
-        XCTAssertTrue(model.appleLanguagePackPreparationRequests.isEmpty)
+        XCTAssertTrue(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair })
         XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
         XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
-        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
-        XCTAssertEqual(model.appleLanguagePackSelection.message, "Download not completed yet. Try again later.")
-        XCTAssertTrue(model.appleLanguagePackSelection.hasIncompletePreparation)
+        XCTAssertTrue(model.appleLanguagePackSelection.isPreparing)
+        XCTAssertEqual(model.appleLanguagePackSelection.message, "macOS is still preparing this language pack.")
+        XCTAssertEqual(model.appleLanguagePackSelection.settingsStatusText, "Downloading")
+        XCTAssertTrue(model.appleLanguagePackSelection.showsDownloadingControl)
+        XCTAssertFalse(model.appleLanguagePackSelection.canPrepare)
         XCTAssertFalse(model.appleLanguagePackSelection.hasPreparationFailure)
     }
 
