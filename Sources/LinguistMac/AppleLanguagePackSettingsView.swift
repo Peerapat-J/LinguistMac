@@ -393,33 +393,25 @@ private struct AppleLanguagePackGroupView: View {
     let cancelPairs: ([AppleLanguagePackPair]) -> Void
 
     var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(group.rows.enumerated()), id: \.element.id) { index, row in
-                    if index > 0 {
-                        SettingsDivider()
-                            .padding(.leading, 28)
-                    }
-
-                    AppleLanguagePackPairRowView(
-                        row: row,
-                        searchText: searchText,
-                        prepare: {
-                            preparePairs(row.pairs)
-                        },
-                        cancel: {
-                            cancelPairs(row.pairs)
-                        }
-                    )
-                }
-            }
-            .padding(.top, 6)
-            .padding(.leading, 18)
-        } label: {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                SettingsSearchHighlightedText(group.language.displayName, searchText: searchText)
-                    .font(.body.weight(.semibold))
-                    .lineLimit(1)
+                Button {
+                    toggleExpansion()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                            .frame(width: 10)
+
+                        SettingsSearchHighlightedText(group.language.displayName, searchText: searchText)
+                            .font(.body.weight(.semibold))
+                            .lineLimit(1)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(isExpanded ? "Collapse language group" : "Expand language group")
 
                 Button {
                     togglePin(group.language)
@@ -432,15 +424,59 @@ private struct AppleLanguagePackGroupView: View {
                 .buttonStyle(.plain)
                 .help(group.isPinned ? "Unpin language group" : "Pin language group")
 
-                Spacer(minLength: 8)
+                Button {
+                    toggleExpansion()
+                } label: {
+                    HStack {
+                        Spacer(minLength: 8)
 
-                AppleLanguagePackGroupSummaryView(
-                    text: summaryText,
-                    isChecking: isChecking
+                        AppleLanguagePackGroupSummaryView(
+                            text: summaryText,
+                            isChecking: isChecking
+                        )
+                    }
+                    .contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .buttonStyle(.plain)
+                .help(isExpanded ? "Collapse language group" : "Expand language group")
+            }
+            .padding(.vertical, 8)
+
+            if isExpanded {
+                expandedRows
+            }
+        }
+    }
+
+    private var expandedRows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(group.rows.enumerated()), id: \.element.id) { index, row in
+                if index > 0 {
+                    SettingsDivider()
+                        .padding(.leading, 28)
+                }
+
+                AppleLanguagePackPairRowView(
+                    row: row,
+                    searchText: searchText,
+                    prepare: {
+                        preparePairs(row.pairs)
+                    },
+                    cancel: {
+                        cancelPairs(row.pairs)
+                    }
                 )
             }
         }
-        .padding(.vertical, 8)
+        .padding(.top, 6)
+        .padding(.leading, 18)
+    }
+
+    private func toggleExpansion() {
+        withAnimation(.easeInOut(duration: 0.16)) {
+            isExpanded.toggle()
+        }
     }
 
     private var isChecking: Bool {
