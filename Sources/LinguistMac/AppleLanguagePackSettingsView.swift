@@ -34,6 +34,8 @@ struct AppleLanguagePackManagementView: View {
 
             AppleLanguagePackSelectionView(
                 selection: model.appleLanguagePackSelection,
+                sourceLanguage: model.settings.sourceLanguage,
+                targetLanguage: model.settings.targetLanguage,
                 sourceStatus: selectedSourceStatus,
                 targetStatus: selectedTargetStatus,
                 searchText: highlightText,
@@ -49,8 +51,7 @@ struct AppleLanguagePackManagementView: View {
                 searchText: highlightText,
                 togglePin: { language in
                     model.togglePinnedAppleLanguagePackGroup(language)
-                },
-                manage: manageTranslationLanguages
+                }
             )
 
             if filteredLanguageStatuses.isEmpty {
@@ -145,19 +146,21 @@ struct AppleLanguagePackManagementView: View {
     }
 
     private var selectedSourceStatus: AppleLanguagePackLanguageStatus? {
-        guard let pair = model.appleLanguagePackSelection.pair else {
+        let language = model.settings.sourceLanguage
+        guard !language.supportsAutoDetect else {
             return nil
         }
 
-        return selectedStatus(for: pair.sourceLanguage)
+        return selectedStatus(for: language)
     }
 
     private var selectedTargetStatus: AppleLanguagePackLanguageStatus? {
-        guard let pair = model.appleLanguagePackSelection.pair else {
+        let language = model.settings.targetLanguage
+        guard language.canBeTargetLanguage else {
             return nil
         }
 
-        return selectedStatus(for: pair.targetLanguage)
+        return selectedStatus(for: language)
     }
 
     private func selectedStatus(for language: TranslationLanguage) -> AppleLanguagePackLanguageStatus {
@@ -437,6 +440,8 @@ private struct AppleLanguagePackLanguageStatus: Identifiable, Equatable {
 
 private struct AppleLanguagePackSelectionView: View {
     let selection: AppleLanguagePackSelection
+    let sourceLanguage: TranslationLanguage
+    let targetLanguage: TranslationLanguage
     let sourceStatus: AppleLanguagePackLanguageStatus?
     let targetStatus: AppleLanguagePackLanguageStatus?
     let searchText: String
@@ -445,7 +450,46 @@ private struct AppleLanguagePackSelectionView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 6) {
-                if let sourceStatus, let targetStatus {
+                if sourceLanguage.supportsAutoDetect {
+                    HStack(spacing: 6) {
+                        AppleLanguageSelectionLabelView(
+                            title: sourceLanguage.displayName,
+                            systemName: "circle.dashed",
+                            tint: .secondary,
+                            isChecking: false,
+                            searchText: searchText
+                        )
+
+                        Image(systemName: "arrow.left.arrow.right.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+
+                        if let targetStatus {
+                            AppleLanguageSelectionLineView(
+                                status: targetStatus,
+                                searchText: searchText
+                            )
+                        } else {
+                            AppleLanguageSelectionLabelView(
+                                title: targetLanguage.displayName,
+                                systemName: "circle.dashed",
+                                tint: .secondary,
+                                isChecking: false,
+                                searchText: searchText
+                            )
+                        }
+                    }
+                    .lineLimit(1)
+                } else if sourceLanguage == targetLanguage {
+                    AppleLanguageSelectionLabelView(
+                        title: sourceLanguage.displayName,
+                        systemName: "checkmark.circle.fill",
+                        tint: .green,
+                        isChecking: false,
+                        searchText: searchText
+                    )
+                } else if let sourceStatus, let targetStatus {
                     HStack(spacing: 6) {
                         AppleLanguageSelectionLineView(
                             status: sourceStatus,
@@ -464,9 +508,13 @@ private struct AppleLanguagePackSelectionView: View {
                     }
                     .lineLimit(1)
                 } else {
-                    SettingsSearchHighlightedText("Choose a Source Language", searchText: searchText)
-                        .font(.body.weight(.semibold))
-                        .lineLimit(1)
+                    AppleLanguageSelectionLabelView(
+                        title: sourceLanguage.displayName,
+                        systemName: "circle.dashed",
+                        tint: .secondary,
+                        isChecking: false,
+                        searchText: searchText
+                    )
                 }
 
                 SettingsSearchHighlightedText(detailText, searchText: searchText)
@@ -478,9 +526,9 @@ private struct AppleLanguagePackSelectionView: View {
             Spacer(minLength: 10)
 
             VStack(alignment: .trailing, spacing: 6) {
-                Text(selection.settingsStatusText)
+                Text(statusText)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(selection.settingsStatusTint)
+                    .foregroundStyle(statusTint)
                     .lineLimit(1)
 
                 Button {
@@ -498,6 +546,13 @@ private struct AppleLanguagePackSelectionView: View {
     }
 
     private var detailText: String {
+        if sourceLanguage.supportsAutoDetect {
+            return "Select a concrete source language to check Apple Translation assets."
+        }
+        if sourceLanguage == targetLanguage {
+            return "Source and target languages match, so no Apple language pack is needed."
+        }
+
         guard selection.pair != nil else {
             return "Select concrete source and target languages to check Apple Translation assets."
         }
@@ -512,6 +567,25 @@ private struct AppleLanguagePackSelectionView: View {
         case .unavailable:
             return "Apple Translation does not support this language pair."
         }
+    }
+
+    private var statusText: String {
+        if sourceLanguage.supportsAutoDetect {
+            return "Select Source"
+        }
+        if sourceLanguage == targetLanguage {
+            return "Not Required"
+        }
+
+        return selection.settingsStatusText
+    }
+
+    private var statusTint: Color {
+        if sourceLanguage.supportsAutoDetect || sourceLanguage == targetLanguage {
+            return .secondary
+        }
+
+        return selection.settingsStatusTint
     }
 }
 
@@ -535,28 +609,47 @@ private struct AppleLanguageSelectionLineView: View {
     }
 }
 
+private struct AppleLanguageSelectionLabelView: View {
+    let title: String
+    let systemName: String
+    let tint: Color
+    let isChecking: Bool
+    let searchText: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            AppleLanguagePackStatusGlyph(
+                systemName: systemName,
+                tint: tint,
+                isProgressing: false,
+                isChecking: isChecking
+            )
+
+            SettingsSearchHighlightedText(title, searchText: searchText)
+                .font(.body.weight(.semibold))
+                .lineLimit(1)
+        }
+    }
+}
+
 private struct AppleLanguagePackLanguagesView: View {
     let languages: [AppleLanguagePackLanguageStatus]
     let searchText: String
     let togglePin: (TranslationLanguage) -> Void
-    let manage: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SettingsSearchHighlightedText("Languages", searchText: searchText)
                 .font(.caption.weight(.semibold))
                 .padding(.bottom, 4)
-
             ForEach(Array(languages.enumerated()), id: \.element.id) { index, status in
                 if index > 0 {
                     SettingsDivider()
                 }
-
                 AppleLanguagePackLanguageRowView(
                     status: status,
                     searchText: searchText,
-                    togglePin: togglePin,
-                    manage: manage
+                    togglePin: togglePin
                 )
             }
         }
@@ -569,7 +662,6 @@ private struct AppleLanguagePackLanguageRowView: View {
     let status: AppleLanguagePackLanguageStatus
     let searchText: String
     let togglePin: (TranslationLanguage) -> Void
-    let manage: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -579,11 +671,9 @@ private struct AppleLanguagePackLanguageRowView: View {
                 isProgressing: false,
                 isChecking: status.isChecking
             )
-
             SettingsSearchHighlightedText(status.language.displayName, searchText: searchText)
                 .font(.body.weight(.semibold))
                 .lineLimit(1)
-
             Button {
                 togglePin(status.language)
             } label: {
@@ -594,24 +684,11 @@ private struct AppleLanguagePackLanguageRowView: View {
             }
             .buttonStyle(.plain)
             .help(status.isPinned ? "Unpin language" : "Pin language")
-
             Spacer(minLength: 10)
-
-            VStack(alignment: .trailing, spacing: 6) {
-                Text(status.statusText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(status.statusTint)
-                    .lineLimit(1)
-
-                Button {
-                    manage()
-                } label: {
-                    Label("Manage", systemImage: "gearshape")
-                }
-                .controlSize(.small)
-                .fixedSize(horizontal: true, vertical: false)
-                .help("Open Translation Languages in System Settings")
-            }
+            Text(status.statusText)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(status.statusTint)
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, SettingsLayout.rowVerticalPadding)
