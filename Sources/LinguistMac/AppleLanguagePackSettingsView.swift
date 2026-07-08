@@ -1,3 +1,4 @@
+import AppKit
 import LinguistMacCore
 import OSLog
 import SwiftUI
@@ -9,12 +10,17 @@ private let appleLanguagePackTaskLogger = Logger(
     subsystem: AppIdentity.linguistMac.bundleIdentifier,
     category: "AppleLanguagePackTasks"
 )
+private let packVisibleRefreshNS: UInt64 = 30_000_000_000
+private let packSettingsSyncAttempts = 60
+private let packSettingsSyncNS: UInt64 = 5_000_000_000
 
 struct AppleLanguagePackManagementView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var model: AppShellModel
     let searchText: String
     @State private var expandedGroupIDs: Set<String> = []
     @State private var languagePackSearchText = ""
+    @State private var systemSettingsSyncGeneration = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -81,6 +87,16 @@ struct AppleLanguagePackManagementView: View {
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
 
+            Button {
+                if openTranslationLanguageSettings() {
+                    systemSettingsSyncGeneration += 1
+                }
+            } label: {
+                Label("Manage in System Settings...", systemImage: "gearshape")
+            }
+            .controlSize(.small)
+            .help("Open Translation Languages in System Settings")
+
             #if compiler(>=6.3)
                 if #available(macOS 26.0, *) {
                     AppleLanguagePackPreparationTasksView(model: model)
@@ -91,8 +107,23 @@ struct AppleLanguagePackManagementView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .task {
-            await model.clearStaleAppleLanguagePackPreparationIfNeeded()
-            await model.refreshAppleLanguagePackGroupsIfNeeded()
+            await pollAppleLanguagePackStatusWhileVisible()
+        }
+        .task(id: systemSettingsSyncGeneration) {
+            guard systemSettingsSyncGeneration > 0 else {
+                return
+            }
+
+            await pollAppleLanguagePackStatusAfterOpeningSystemSettings()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else {
+                return
+            }
+
+            Task {
+                await refreshAppleLanguagePackStatus()
+            }
         }
     }
 
@@ -167,6 +198,60 @@ struct AppleLanguagePackManagementView: View {
                 $0.range(of: token, options: [.caseInsensitive, .diacriticInsensitive]) != nil
             }
         }
+    }
+
+    private func refreshAppleLanguagePackStatus() async {
+        await model.refreshAppleLanguagePackGroups(force: true)
+    }
+
+    private func pollAppleLanguagePackStatusWhileVisible() async {
+        while !Task.isCancelled {
+            await refreshAppleLanguagePackStatus()
+
+            do {
+                try await Task.sleep(nanoseconds: packVisibleRefreshNS)
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func pollAppleLanguagePackStatusAfterOpeningSystemSettings() async {
+        for attempt in 0..<packSettingsSyncAttempts {
+            guard !Task.isCancelled else {
+                return
+            }
+
+            await refreshAppleLanguagePackStatus()
+
+            guard attempt < packSettingsSyncAttempts - 1 else {
+                return
+            }
+
+            do {
+                try await Task.sleep(nanoseconds: packSettingsSyncNS)
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func openTranslationLanguageSettings() -> Bool {
+        guard let translationLanguagesURL = URL(
+            string: "x-apple.systempreferences:com.apple.Localization-Settings.extension?translation"
+        ),
+              let languageRegionURL = URL(
+                  string: "x-apple.systempreferences:com.apple.Localization-Settings.extension"
+              )
+        else {
+            return false
+        }
+
+        if !NSWorkspace.shared.open(translationLanguagesURL) {
+            return NSWorkspace.shared.open(languageRegionURL)
+        }
+
+        return true
     }
 }
 

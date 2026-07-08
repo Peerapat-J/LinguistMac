@@ -83,6 +83,10 @@ extension AppShellModel {
         }
 
         isRefreshingAppleLanguagePackGroups = true
+        defer {
+            isRefreshingAppleLanguagePackGroups = false
+        }
+
         let groups = AppleLanguagePackCatalog.groups(from: availableLanguages, settings: settings)
         var readinessByPairID: [String: LanguagePackReadiness] = [:]
 
@@ -115,7 +119,6 @@ extension AppShellModel {
         }
 
         didRefreshAppleLanguagePackGroups = true
-        isRefreshingAppleLanguagePackGroups = false
     }
 
     func prepareSelectedAppleLanguagePack() async {
