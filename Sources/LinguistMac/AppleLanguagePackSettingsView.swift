@@ -18,14 +18,14 @@ struct AppleLanguagePackManagementView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var model: AppShellModel
     let searchText: String
-    @State private var expandedGroupIDs: Set<String> = []
     @State private var languagePackSearchText = ""
     @State private var systemSettingsSyncGeneration = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             SettingsSearchHighlightedText(
-                "Apple checks language pack status automatically and downloads assets for pairs you choose.",
+                "Apple checks language pack status automatically. "
+                    + "Use Manage to download or remove languages in macOS.",
                 searchText: highlightText
             )
             .font(.caption)
@@ -34,43 +34,26 @@ struct AppleLanguagePackManagementView: View {
 
             AppleLanguagePackSelectionView(
                 selection: model.appleLanguagePackSelection,
+                sourceStatus: selectedSourceStatus,
+                targetStatus: selectedTargetStatus,
                 searchText: highlightText,
-                prepare: {
-                    Task {
-                        await model.prepareSelectedAppleLanguagePack()
-                    }
-                },
-                cancel: { pair in
-                    Task {
-                        await model.cancelAppleLanguagePackPreparation(for: pair)
-                    }
-                }
+                manage: manageTranslationLanguages
             )
 
             SettingsDivider()
 
             AppleLanguagePackSearchField(searchText: $languagePackSearchText)
 
-            AppleLanguagePackGroupsView(
-                groups: filteredLanguagePackGroups,
+            AppleLanguagePackLanguagesView(
+                languages: filteredLanguageStatuses,
                 searchText: highlightText,
-                expandedBinding: groupExpansionBinding,
                 togglePin: { language in
                     model.togglePinnedAppleLanguagePackGroup(language)
                 },
-                preparePairs: { pairs in
-                    Task {
-                        await model.prepareAppleLanguagePacks(for: pairs)
-                    }
-                },
-                cancelPairs: { pairs in
-                    Task {
-                        await model.cancelAppleLanguagePackPreparations(for: pairs)
-                    }
-                }
+                manage: manageTranslationLanguages
             )
 
-            if filteredLanguagePackGroups.isEmpty {
+            if filteredLanguageStatuses.isEmpty {
                 Text("No language packs found.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -80,22 +63,12 @@ struct AppleLanguagePackManagementView: View {
 
             SettingsSearchHighlightedText(
                 "Downloaded Apple Translation assets are managed by macOS. "
-                    + "LinguistMac can request downloads, but cannot remove system-managed assets.",
+                    + "Use Manage to download or remove system-managed languages.",
                 searchText: highlightText
             )
             .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
-
-            Button {
-                if openTranslationLanguageSettings() {
-                    systemSettingsSyncGeneration += 1
-                }
-            } label: {
-                Label("Manage in System Settings...", systemImage: "gearshape")
-            }
-            .controlSize(.small)
-            .help("Open Translation Languages in System Settings")
 
             #if compiler(>=6.3)
                 if #available(macOS 26.0, *) {
@@ -138,50 +111,103 @@ struct AppleLanguagePackManagementView: View {
             .joined(separator: " ")
     }
 
-    private var filteredLanguagePackGroups: [AppleLanguagePackGroup] {
-        let tokens = searchTokens(from: languagePackSearchQuery)
-        guard !tokens.isEmpty else {
-            return model.appleLanguagePackGroups
-        }
-
-        return model.appleLanguagePackGroups.compactMap { group in
-            if matches(tokens, in: [group.language.displayName, group.language.id]) {
-                return group
-            }
-
-            let rows = group.rows.filter { row in
-                matches(
-                    tokens,
-                    in: [
-                        row.language.displayName,
-                        row.language.id,
-                        row.pairedLanguage.displayName,
-                        row.pairedLanguage.id,
-                        row.displayName
-                    ]
-                )
-            }
-            guard !rows.isEmpty else {
-                return nil
-            }
-
-            return AppleLanguagePackGroup(
+    private var languageStatuses: [AppleLanguagePackLanguageStatus] {
+        model.appleLanguagePackGroups.map { group in
+            AppleLanguagePackLanguageStatus(
                 language: group.language,
-                rows: rows,
+                readiness: languageReadiness(for: group),
                 isPinned: group.isPinned
             )
         }
     }
 
-    private func groupExpansionBinding(for group: AppleLanguagePackGroup) -> Binding<Bool> {
-        Binding {
-            expandedGroupIDs.contains(group.id)
-        } set: { isExpanded in
-            if isExpanded {
-                expandedGroupIDs.insert(group.id)
-            } else {
-                expandedGroupIDs.remove(group.id)
-            }
+    private var languageStatusByID: [String: AppleLanguagePackLanguageStatus] {
+        Dictionary(uniqueKeysWithValues: languageStatuses.map { ($0.language.id, $0) })
+    }
+
+    private var filteredLanguageStatuses: [AppleLanguagePackLanguageStatus] {
+        let tokens = searchTokens(from: languagePackSearchQuery)
+        guard !tokens.isEmpty else {
+            return languageStatuses
+        }
+
+        return languageStatuses.filter { status in
+            matches(
+                tokens,
+                in: [
+                    status.language.displayName,
+                    status.language.id,
+                    status.readiness.displayText,
+                    status.detailText
+                ]
+            )
+        }
+    }
+
+    private var selectedSourceStatus: AppleLanguagePackLanguageStatus? {
+        guard let pair = model.appleLanguagePackSelection.pair else {
+            return nil
+        }
+
+        return selectedStatus(for: pair.sourceLanguage)
+    }
+
+    private var selectedTargetStatus: AppleLanguagePackLanguageStatus? {
+        guard let pair = model.appleLanguagePackSelection.pair else {
+            return nil
+        }
+
+        return selectedStatus(for: pair.targetLanguage)
+    }
+
+    private func selectedStatus(for language: TranslationLanguage) -> AppleLanguagePackLanguageStatus {
+        let knownStatus = languageStatusByID[language.id]
+        return AppleLanguagePackLanguageStatus(
+            language: language,
+            readiness: selectedLanguageReadiness(knownStatus?.readiness),
+            isPinned: knownStatus?.isPinned ?? false
+        )
+    }
+
+    private func selectedLanguageReadiness(_ knownReadiness: LanguagePackReadiness?) -> LanguagePackReadiness {
+        let selectionReadiness = model.appleLanguagePackSelection.readiness
+        if selectionReadiness == .ready || selectionReadiness == .unavailable {
+            return selectionReadiness
+        }
+
+        guard let knownReadiness else {
+            return selectionReadiness
+        }
+
+        if selectionReadiness == .needsDownload, knownReadiness == .unknown {
+            return .needsDownload
+        }
+
+        return knownReadiness
+    }
+
+    private func languageReadiness(for group: AppleLanguagePackGroup) -> LanguagePackReadiness {
+        let readinesses = group.rows.map(\.readiness)
+        guard !readinesses.isEmpty else {
+            return .unknown
+        }
+
+        if readinesses.contains(.ready) {
+            return .ready
+        }
+        if readinesses.contains(.unknown) {
+            return .unknown
+        }
+        if readinesses.contains(.needsDownload) {
+            return .needsDownload
+        }
+
+        return .unavailable
+    }
+
+    private func manageTranslationLanguages() {
+        if openTranslationLanguageSettings() {
+            systemSettingsSyncGeneration += 1
         }
     }
 
@@ -370,34 +396,80 @@ private struct AppleLanguagePackSearchField: View {
     }
 }
 
+private struct AppleLanguagePackLanguageStatus: Identifiable, Equatable {
+    let language: TranslationLanguage
+    let readiness: LanguagePackReadiness
+    let isPinned: Bool
+
+    var id: String {
+        language.id
+    }
+
+    var isChecking: Bool {
+        readiness == .unknown
+    }
+
+    var statusText: String {
+        readiness.displayText
+    }
+
+    var statusImage: String {
+        readiness.settingsStatusImage
+    }
+
+    var statusTint: Color {
+        readiness.settingsStatusTint
+    }
+
+    var detailText: String {
+        switch readiness {
+        case .unknown:
+            "Checking Apple Translation language status."
+        case .ready:
+            "Ready for on-device Apple Translation."
+        case .needsDownload:
+            "Manage this language in macOS before translating offline."
+        case .unavailable:
+            "Apple Translation does not support this language."
+        }
+    }
+}
+
 private struct AppleLanguagePackSelectionView: View {
     let selection: AppleLanguagePackSelection
+    let sourceStatus: AppleLanguagePackLanguageStatus?
+    let targetStatus: AppleLanguagePackLanguageStatus?
     let searchText: String
-    let prepare: () -> Void
-    let cancel: (AppleLanguagePackPair) -> Void
+    let manage: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            AppleLanguagePackStatusGlyph(
-                systemName: selection.settingsStatusImage,
-                tint: selection.settingsStatusTint,
-                isProgressing: selection.showsDownloadingControl,
-                isChecking: selection.isChecking
-            )
+            VStack(alignment: .leading, spacing: 6) {
+                if let sourceStatus, let targetStatus {
+                    HStack(spacing: 6) {
+                        AppleLanguageSelectionLineView(
+                            status: sourceStatus,
+                            searchText: searchText
+                        )
 
-            VStack(alignment: .leading, spacing: 3) {
-                if let pair = selection.pair {
-                    AppleLanguagePackPairTitleView(
-                        leadingLanguage: pair.sourceLanguage,
-                        trailingLanguage: pair.targetLanguage,
-                        searchText: searchText
-                    )
+                        Image(systemName: "arrow.left.arrow.right.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+
+                        AppleLanguageSelectionLineView(
+                            status: targetStatus,
+                            searchText: searchText
+                        )
+                    }
+                    .lineLimit(1)
                 } else {
                     SettingsSearchHighlightedText("Choose a Source Language", searchText: searchText)
+                        .font(.body.weight(.semibold))
                         .lineLimit(1)
                 }
 
-                SettingsSearchHighlightedText(selection.settingsMessage, searchText: searchText)
+                SettingsSearchHighlightedText(detailText, searchText: searchText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -411,56 +483,80 @@ private struct AppleLanguagePackSelectionView: View {
                     .foregroundStyle(selection.settingsStatusTint)
                     .lineLimit(1)
 
-                if selection.showsDownloadingControl {
-                    Button {} label: {
-                        AppleLanguagePackDownloadingButtonLabel()
-                    }
-                    .controlSize(.small)
-                    .disabled(true)
-                    .fixedSize(horizontal: true, vertical: false)
-                } else if selection.readiness == .needsDownload {
-                    Button {
-                        prepare()
-                    } label: {
-                        Label("Download", systemImage: "arrow.down.circle")
-                    }
-                    .controlSize(.small)
-                    .disabled(!selection.canPrepare)
-                    .fixedSize(horizontal: true, vertical: false)
+                Button {
+                    manage()
+                } label: {
+                    Label("Manage", systemImage: "gearshape")
                 }
+                .controlSize(.small)
+                .fixedSize(horizontal: true, vertical: false)
+                .help("Open Translation Languages in System Settings")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, SettingsLayout.rowVerticalPadding)
     }
+
+    private var detailText: String {
+        guard selection.pair != nil else {
+            return "Select concrete source and target languages to check Apple Translation assets."
+        }
+
+        switch selection.readiness {
+        case .unknown:
+            return "Checking selected languages for Apple Translation."
+        case .ready:
+            return "Ready for on-device Apple Translation."
+        case .needsDownload:
+            return "Manage the missing language in macOS before this pair is ready."
+        case .unavailable:
+            return "Apple Translation does not support this language pair."
+        }
+    }
 }
 
-private struct AppleLanguagePackGroupsView: View {
-    let groups: [AppleLanguagePackGroup]
+private struct AppleLanguageSelectionLineView: View {
+    let status: AppleLanguagePackLanguageStatus
     let searchText: String
-    let expandedBinding: (AppleLanguagePackGroup) -> Binding<Bool>
+
+    var body: some View {
+        HStack(spacing: 6) {
+            AppleLanguagePackStatusGlyph(
+                systemName: status.statusImage,
+                tint: status.statusTint,
+                isProgressing: false,
+                isChecking: status.isChecking
+            )
+
+            SettingsSearchHighlightedText(status.language.displayName, searchText: searchText)
+                .font(.body.weight(.semibold))
+                .lineLimit(1)
+        }
+    }
+}
+
+private struct AppleLanguagePackLanguagesView: View {
+    let languages: [AppleLanguagePackLanguageStatus]
+    let searchText: String
     let togglePin: (TranslationLanguage) -> Void
-    let preparePairs: ([AppleLanguagePackPair]) -> Void
-    let cancelPairs: ([AppleLanguagePackPair]) -> Void
+    let manage: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SettingsSearchHighlightedText("Language Groups", searchText: searchText)
+            SettingsSearchHighlightedText("Languages", searchText: searchText)
                 .font(.caption.weight(.semibold))
                 .padding(.bottom, 4)
 
-            ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
+            ForEach(Array(languages.enumerated()), id: \.element.id) { index, status in
                 if index > 0 {
                     SettingsDivider()
                 }
 
-                AppleLanguagePackGroupView(
-                    group: group,
+                AppleLanguagePackLanguageRowView(
+                    status: status,
                     searchText: searchText,
-                    isExpanded: expandedBinding(group),
                     togglePin: togglePin,
-                    preparePairs: preparePairs,
-                    cancelPairs: cancelPairs
+                    manage: manage
                 )
             }
         }
@@ -469,214 +565,55 @@ private struct AppleLanguagePackGroupsView: View {
     }
 }
 
-private struct AppleLanguagePackGroupView: View {
-    let group: AppleLanguagePackGroup
+private struct AppleLanguagePackLanguageRowView: View {
+    let status: AppleLanguagePackLanguageStatus
     let searchText: String
-    @Binding var isExpanded: Bool
     let togglePin: (TranslationLanguage) -> Void
-    let preparePairs: ([AppleLanguagePackPair]) -> Void
-    let cancelPairs: ([AppleLanguagePackPair]) -> Void
+    let manage: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Button {
-                    toggleExpansion()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                            .frame(width: 10)
-
-                        SettingsSearchHighlightedText(group.language.displayName, searchText: searchText)
-                            .font(.body.weight(.semibold))
-                            .lineLimit(1)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(isExpanded ? "Collapse language group" : "Expand language group")
-
-                Button {
-                    togglePin(group.language)
-                } label: {
-                    Image(systemName: group.isPinned ? "pin.fill" : "pin")
-                        .font(.body)
-                        .foregroundStyle(group.isPinned ? Color.accentColor : Color.secondary)
-                        .frame(width: 18, height: 18)
-                }
-                .buttonStyle(.plain)
-                .help(group.isPinned ? "Unpin language group" : "Pin language group")
-
-                Button {
-                    toggleExpansion()
-                } label: {
-                    HStack {
-                        Spacer(minLength: 8)
-
-                        AppleLanguagePackGroupSummaryView(
-                            text: summaryText,
-                            isChecking: isChecking
-                        )
-                    }
-                    .contentShape(Rectangle())
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                .buttonStyle(.plain)
-                .help(isExpanded ? "Collapse language group" : "Expand language group")
-            }
-            .padding(.vertical, 8)
-
-            if isExpanded {
-                expandedRows
-            }
-        }
-    }
-
-    private var expandedRows: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(group.rows.enumerated()), id: \.element.id) { index, row in
-                if index > 0 {
-                    SettingsDivider()
-                        .padding(.leading, 28)
-                }
-
-                AppleLanguagePackPairRowView(
-                    row: row,
-                    searchText: searchText,
-                    prepare: {
-                        preparePairs(row.pairs)
-                    },
-                    cancel: {
-                        cancelPairs(row.pairs)
-                    }
-                )
-            }
-        }
-        .padding(.top, 6)
-        .padding(.leading, 18)
-    }
-
-    private func toggleExpansion() {
-        withAnimation(.easeInOut(duration: 0.16)) {
-            isExpanded.toggle()
-        }
-    }
-
-    private var isChecking: Bool {
-        group.rows.contains(where: { $0.readiness == .unknown })
-    }
-
-    private var summaryText: String {
-        guard !isChecking else {
-            return "Checking"
-        }
-
-        let readyCount = group.rows.count(where: { $0.readiness == .ready })
-        return "\(readyCount)/\(group.rows.count) Ready"
-    }
-}
-
-private struct AppleLanguagePackPairRowView: View {
-    let row: AppleLanguagePackReadinessRow
-    let searchText: String
-    let prepare: () -> Void
-    let cancel: () -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             AppleLanguagePackStatusGlyph(
-                systemName: row.settingsStatusImage,
-                tint: row.settingsStatusTint,
-                isProgressing: row.showsDownloadingControl,
-                isChecking: row.isChecking
+                systemName: status.statusImage,
+                tint: status.statusTint,
+                isProgressing: false,
+                isChecking: status.isChecking
             )
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    AppleLanguagePackPairTitleView(
-                        leadingLanguage: row.language,
-                        trailingLanguage: row.pairedLanguage,
-                        searchText: searchText
-                    )
+            SettingsSearchHighlightedText(status.language.displayName, searchText: searchText)
+                .font(.body.weight(.semibold))
+                .lineLimit(1)
 
-                    if row.isCurrentPair {
-                        Label("Current", systemImage: "pin.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .labelStyle(.titleAndIcon)
-                    }
-                }
-
-                SettingsSearchHighlightedText(row.settingsMessage, searchText: searchText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            Button {
+                togglePin(status.language)
+            } label: {
+                Image(systemName: status.isPinned ? "pin.fill" : "pin")
+                    .font(.body)
+                    .foregroundStyle(status.isPinned ? Color.accentColor : Color.secondary)
+                    .frame(width: 18, height: 18)
             }
+            .buttonStyle(.plain)
+            .help(status.isPinned ? "Unpin language" : "Pin language")
 
             Spacer(minLength: 10)
 
             VStack(alignment: .trailing, spacing: 6) {
-                Text(row.settingsStatusText)
+                Text(status.statusText)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(row.settingsStatusTint)
+                    .foregroundStyle(status.statusTint)
                     .lineLimit(1)
 
-                if row.showsDownloadingControl {
-                    Button {} label: {
-                        AppleLanguagePackDownloadingButtonLabel()
-                    }
-                    .controlSize(.small)
-                    .disabled(true)
-                    .fixedSize(horizontal: true, vertical: false)
-                } else if row.readiness == .needsDownload {
-                    Button {
-                        prepare()
-                    } label: {
-                        Label("Download", systemImage: "arrow.down.circle")
-                    }
-                    .controlSize(.small)
-                    .disabled(!row.canPrepare)
-                    .fixedSize(horizontal: true, vertical: false)
+                Button {
+                    manage()
+                } label: {
+                    Label("Manage", systemImage: "gearshape")
                 }
+                .controlSize(.small)
+                .fixedSize(horizontal: true, vertical: false)
+                .help("Open Translation Languages in System Settings")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, SettingsLayout.rowVerticalPadding)
-    }
-}
-
-private struct AppleLanguagePackDownloadingButtonLabel: View {
-    var body: some View {
-        HStack(spacing: 6) {
-            ProgressView()
-                .controlSize(.small)
-                .scaleEffect(0.55)
-                .frame(width: 12, height: 12)
-
-            Text("Downloading")
-        }
-    }
-}
-
-private struct AppleLanguagePackPairTitleView: View {
-    let leadingLanguage: TranslationLanguage
-    let trailingLanguage: TranslationLanguage
-    let searchText: String
-
-    var body: some View {
-        HStack(spacing: 6) {
-            SettingsSearchHighlightedText(leadingLanguage.displayName, searchText: searchText)
-                .lineLimit(1)
-
-            Image(systemName: "arrow.left.arrow.right.circle.fill")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-
-            SettingsSearchHighlightedText(trailingLanguage.displayName, searchText: searchText)
-                .lineLimit(1)
-        }
     }
 }
