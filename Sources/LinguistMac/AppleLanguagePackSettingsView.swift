@@ -12,7 +12,7 @@ private let appleLanguagePackTaskLogger = Logger(
 )
 private let packVisibleRefreshNS: UInt64 = 30_000_000_000
 private let packSettingsSyncAttempts = 60
-private let packSettingsSyncNS: UInt64 = 5_000_000_000
+private let packSettingsSyncNS: UInt64 = 2_000_000_000
 
 struct AppleLanguagePackManagementView: View {
     @Environment(\.scenePhase) private var scenePhase

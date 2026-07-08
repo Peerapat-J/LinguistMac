@@ -7,6 +7,7 @@ struct LinguistMacApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model: AppShellModel
     @State private var keyboardInputMonitor = KeyboardInputMonitor()
+    @State private var didPreloadAppleLanguagePackStatus = false
     private let shortcutRegistry: SystemShortcutRegistry
 
     init() {
@@ -30,6 +31,7 @@ struct LinguistMacApp: App {
         .menuBarExtraStyle(.menu)
         .onChange(of: scenePhase, initial: true) { _, _ in
             startKeyboardInputMonitor()
+            preloadAppleLanguagePackStatusIfNeeded()
         }
 
         WindowGroup("LinguistMac", id: AppWindow.status.rawValue) {
@@ -78,6 +80,17 @@ struct LinguistMacApp: App {
             Task {
                 await model.refreshShortcutRegistrations()
             }
+        }
+    }
+
+    private func preloadAppleLanguagePackStatusIfNeeded() {
+        guard !didPreloadAppleLanguagePackStatus else {
+            return
+        }
+
+        didPreloadAppleLanguagePackStatus = true
+        Task {
+            await model.refreshAppleLanguagePackGroupsIfNeeded()
         }
     }
 }
