@@ -412,7 +412,7 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
     }
 
-    func testLanguagePackTimeoutReturnsToDownloadWhenDialogDoesNotStartDownload() async throws {
+    func testLanguagePackTimeoutReturnsToDownloadWhenSystemDialogIsIgnored() async throws {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["en->th": .needsDownload]
         )
@@ -425,11 +425,6 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         await model.refreshAppleLanguagePackSelection()
         await model.prepareAppleLanguagePack(for: pair)
         let request = try XCTUnwrap(model.appleLanguagePackPreparationRequests.first { $0.pair == pair })
-        await model.finishAppleLanguagePackPreparation(
-            for: pair,
-            requestID: request.id,
-            result: .failure(.missingLanguagePack(.apple))
-        )
 
         let staleNow = request.startedAt.addingTimeInterval(AppShellModel.appleLanguagePackPreparationTimeout + 1)
         await model.clearStaleAppleLanguagePackPreparationIfNeeded(now: staleNow)
@@ -471,7 +466,7 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
     }
 
-    func testStaleAppleLanguagePackPreparationKeepsWaitingForMacOSReadiness() async throws {
+    func testStaleAppleLanguagePackPreparationMarksReadyWhenMacOSFinishes() async throws {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["en->th": .needsDownload]
         )
@@ -485,16 +480,17 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         await model.prepareAppleLanguagePack(for: pair)
 
         let request = try XCTUnwrap(model.appleLanguagePackPreparationRequests.first)
+        await languageAvailability.setReadiness(.ready, for: pair)
         let staleNow = request.startedAt.addingTimeInterval(AppShellModel.appleLanguagePackPreparationTimeout + 1)
         await model.clearStaleAppleLanguagePackPreparationIfNeeded(now: staleNow)
 
-        XCTAssertTrue(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair })
+        XCTAssertFalse(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair })
         XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
-        XCTAssertTrue(model.appleLanguagePackSelection.isPreparing)
-        XCTAssertEqual(model.appleLanguagePackSelection.message, "macOS is still preparing this language pack.")
-        XCTAssertEqual(model.appleLanguagePackSelection.settingsStatusText, "Downloading")
-        XCTAssertTrue(model.appleLanguagePackSelection.showsDownloadingControl)
+        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .ready)
+        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
+        XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
+        XCTAssertEqual(model.appleLanguagePackSelection.settingsStatusText, "Ready")
+        XCTAssertFalse(model.appleLanguagePackSelection.showsDownloadingControl)
         XCTAssertFalse(model.appleLanguagePackSelection.canPrepare)
         XCTAssertFalse(model.appleLanguagePackSelection.hasPreparationFailure)
     }

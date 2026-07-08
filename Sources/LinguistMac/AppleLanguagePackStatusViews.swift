@@ -294,13 +294,6 @@ extension AppShellModel {
         }
     }
 
-    func preparationTimeoutMessage() -> AppleLanguagePackPreparationMessage {
-        AppleLanguagePackPreparationMessage(
-            text: "macOS is still preparing this language pack.",
-            kind: .notCompleted
-        )
-    }
-
     func preparationContinuingMessage() -> AppleLanguagePackPreparationMessage {
         AppleLanguagePackPreparationMessage(
             text: "macOS is still preparing this language pack."

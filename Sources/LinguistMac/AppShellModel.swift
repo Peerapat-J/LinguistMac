@@ -90,7 +90,6 @@ final class AppShellModel: ObservableObject {
     var activeSpokenOutputTask: Task<Void, Never>?
     var activeAppleLanguagePackTimeoutTasks: [UUID: Task<Void, Never>] = [:]
     var activeAppleLanguagePackRecheckTasks: [UUID: Task<Void, Never>] = [:]
-    var languagePackDialogReturnDates: [UUID: Date] = [:]
     var preparingAppleLanguagePackIDs: Set<String> = []
     var appleLanguagePackMessages: [String: AppleLanguagePackPreparationMessage] = [:]
     var isRefreshingAppleLanguagePackGroups = false
