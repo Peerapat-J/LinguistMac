@@ -412,6 +412,41 @@ final class AppShellModelLanguagePackDownloadTests: XCTestCase {
         XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
     }
 
+    func testLanguagePackTimeoutReturnsToDownloadWhenDialogDoesNotStartDownload() async throws {
+        let languageAvailability = LanguagePackTestAvailabilityChecker(
+            readinessByPair: ["en->th": .needsDownload]
+        )
+        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
+            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
+        )
+
+        await model.refreshAppleLanguagePackSelection()
+        await model.prepareAppleLanguagePack(for: pair)
+        let request = try XCTUnwrap(model.appleLanguagePackPreparationRequests.first { $0.pair == pair })
+        await model.finishAppleLanguagePackPreparation(
+            for: pair,
+            requestID: request.id,
+            result: .failure(.missingLanguagePack(.apple))
+        )
+
+        let staleNow = request.startedAt.addingTimeInterval(AppShellModel.appleLanguagePackPreparationTimeout + 1)
+        await model.clearStaleAppleLanguagePackPreparationIfNeeded(now: staleNow)
+
+        XCTAssertFalse(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair })
+        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
+        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
+        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
+        XCTAssertEqual(
+            model.appleLanguagePackSelection.message,
+            "Download was not started or has not completed."
+        )
+        XCTAssertEqual(model.appleLanguagePackSelection.settingsStatusText, "Needs Download")
+        XCTAssertTrue(model.appleLanguagePackSelection.canPrepare)
+        XCTAssertFalse(model.appleLanguagePackSelection.showsDownloadingControl)
+    }
+
     func testLanguagePackRecheckCanMarkDownloadReadyBeforeTaskReturns() async throws {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["en->th": .needsDownload]

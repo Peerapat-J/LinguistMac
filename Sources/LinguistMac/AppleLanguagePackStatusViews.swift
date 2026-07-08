@@ -307,6 +307,12 @@ extension AppShellModel {
         )
     }
 
+    func preparationNeedsDownloadMessage() -> AppleLanguagePackPreparationMessage {
+        AppleLanguagePackPreparationMessage(
+            text: "Download was not started or has not completed."
+        )
+    }
+
     func preparationCancellationMessage() -> AppleLanguagePackPreparationMessage {
         AppleLanguagePackPreparationMessage(
             text: "Download canceled. Try Download again.",
