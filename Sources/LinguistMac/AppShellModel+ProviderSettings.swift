@@ -277,7 +277,7 @@ extension AppShellModel {
         pair: AppleLanguagePackPair?,
         readiness: LanguagePackReadiness
     ) -> AppleLanguagePackSelection {
-        return AppleLanguagePackSelection(
+        AppleLanguagePackSelection(
             pair: pair,
             readiness: readiness
         )
@@ -367,7 +367,7 @@ extension AppShellModel {
                 }
             }
 
-            for _ in 0..<min(appleLanguagePackReadinessLookupLimit, pairs.count) {
+            for _ in 0 ..< min(appleLanguagePackReadinessLookupLimit, pairs.count) {
                 enqueueNextPair()
             }
 

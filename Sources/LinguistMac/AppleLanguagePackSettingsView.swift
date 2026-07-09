@@ -246,7 +246,7 @@ struct AppleLanguagePackManagementView: View {
     }
 
     private func pollAppleLanguagePackStatusAfterOpeningSystemSettings() async {
-        for attempt in 0..<packSettingsSyncAttempts {
+        for attempt in 0 ..< packSettingsSyncAttempts {
             guard !Task.isCancelled else {
                 return
             }
@@ -269,9 +269,9 @@ struct AppleLanguagePackManagementView: View {
         guard let translationLanguagesURL = URL(
             string: "x-apple.systempreferences:com.apple.Localization-Settings.extension?translation"
         ),
-              let languageRegionURL = URL(
-                  string: "x-apple.systempreferences:com.apple.Localization-Settings.extension"
-              )
+            let languageRegionURL = URL(
+                string: "x-apple.systempreferences:com.apple.Localization-Settings.extension"
+            )
         else {
             return false
         }
