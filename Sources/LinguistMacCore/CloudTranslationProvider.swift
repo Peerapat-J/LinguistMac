@@ -253,7 +253,9 @@ public struct CloudTranslationProvider: TranslationProviding {
             text: [text],
             targetLang: request.targetLanguage.deeplLanguageCode
         )
-        body.sourceLang = request.sourceLanguage.supportsAutoDetect ? nil : request.sourceLanguage.deeplLanguageCode
+        body.sourceLang = request.sourceLanguage.supportsAutoDetect
+            ? nil
+            : request.sourceLanguage.deeplSourceLanguageCode
 
         return try CloudTranslationHTTPRequest(
             providerID: id,
@@ -437,6 +439,15 @@ private extension TranslationLanguage {
             "ZH-HANS"
         default:
             id.uppercased()
+        }
+    }
+
+    var deeplSourceLanguageCode: String {
+        switch id {
+        case "pt-BR":
+            "PT"
+        default:
+            deeplLanguageCode
         }
     }
 }
