@@ -217,6 +217,22 @@ struct AppleLanguagePackManagementView: View {
         await model.refreshAppleLanguagePackGroups(force: true)
     }
 
+    private func refreshSelectedAppleLanguagePackStatus() async {
+        var languages: Set<TranslationLanguage> = []
+        if !model.settings.sourceLanguage.supportsAutoDetect {
+            languages.insert(model.settings.sourceLanguage)
+        }
+        if model.settings.targetLanguage.canBeTargetLanguage {
+            languages.insert(model.settings.targetLanguage)
+        }
+
+        if languages.isEmpty {
+            await refreshAppleLanguagePackStatus()
+        } else {
+            await model.refreshAppleLanguagePackGroups(for: languages)
+        }
+    }
+
     private func pollAppleLanguagePackStatusWhileVisible() async {
         while !Task.isCancelled {
             await refreshAppleLanguagePackStatus()
@@ -235,7 +251,7 @@ struct AppleLanguagePackManagementView: View {
                 return
             }
 
-            await refreshAppleLanguagePackStatus()
+            await refreshSelectedAppleLanguagePackStatus()
 
             guard attempt < packSettingsSyncAttempts - 1 else {
                 return

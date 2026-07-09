@@ -134,6 +134,38 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         XCTAssertEqual(thaiJapaneseRow.readiness, .unavailable)
     }
 
+    func testRefreshAppleLanguagePackGroupsForLanguagesChecksOnlyRequestedLanguagePairs() async throws {
+        let languageAvailability = LanguagePackTestAvailabilityChecker(
+            readinessByPair: [
+                "th->en": .needsDownload,
+                "en->th": .ready,
+                "th->ja": .unavailable
+            ]
+        )
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .thai, targetLanguage: .english),
+            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
+        )
+        let supportedLanguages = AppleLanguagePackCatalog.supportedLanguages(
+            from: TranslationLanguageCatalog.defaultLanguages
+        )
+        let expectedThaiPairCount = (supportedLanguages.count - 1) * 2
+
+        await model.refreshAppleLanguagePackGroups(for: [.thai])
+
+        let readinessPairIDs = await languageAvailability.readinessPairIDs()
+        let thaiEnglishRow = try languagePackRow(in: model.appleLanguagePackGroups, language: .thai, pairID: "th->en")
+        let thaiJapaneseRow = try languagePackRow(in: model.appleLanguagePackGroups, language: .thai, pairID: "th->ja")
+
+        XCTAssertEqual(Set(readinessPairIDs).count, expectedThaiPairCount)
+        XCTAssertEqual(readinessPairIDs.count, expectedThaiPairCount)
+        XCTAssertTrue(readinessPairIDs.allSatisfy { $0.contains("th") })
+        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
+        XCTAssertEqual(thaiEnglishRow.readinessByPairID["th->en"], .needsDownload)
+        XCTAssertEqual(thaiEnglishRow.readinessByPairID["en->th"], .ready)
+        XCTAssertEqual(thaiJapaneseRow.readiness, .unavailable)
+    }
+
     func testTogglePinnedAppleLanguagePackGroupMovesGroupFirstAndUpdatesSettings() {
         let model = AppShellModel(
             services: makeLanguagePackTestServices(

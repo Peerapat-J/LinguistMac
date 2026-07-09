@@ -59,6 +59,17 @@ extension AppShellModel {
     }
 
     func refreshAppleLanguagePackGroups(force: Bool = true) async {
+        await refreshAppleLanguagePackGroups(force: force, checkingLanguages: nil)
+    }
+
+    func refreshAppleLanguagePackGroups(for languages: Set<TranslationLanguage>) async {
+        await refreshAppleLanguagePackGroups(force: true, checkingLanguages: languages)
+    }
+
+    private func refreshAppleLanguagePackGroups(
+        force: Bool,
+        checkingLanguages languages: Set<TranslationLanguage>?
+    ) async {
         guard !isRefreshingAppleLanguagePackGroups,
               force || !didRefreshAppleLanguagePackGroups
         else {
@@ -71,9 +82,17 @@ extension AppShellModel {
         }
 
         let groupsToCheck = AppleLanguagePackCatalog.groups(from: availableLanguages, settings: settings)
-        var readinessByPairID: [String: LanguagePackReadiness] = [:]
+        let requestedLanguageIDs = languages.map {
+            Set($0.filter { !$0.supportsAutoDetect }.map(\.id))
+        }
+        let filteredGroupsToCheck = requestedLanguageIDs.map { languageIDs in
+            groupsToCheck.filter { languageIDs.contains($0.language.id) }
+        } ?? groupsToCheck
+        var readinessByPairID: [String: LanguagePackReadiness] = languages == nil
+            ? [:]
+            : appleLanguagePackReadinessByPairID()
 
-        for pair in uniqueAppleLanguagePackPairs(from: groupsToCheck) {
+        for pair in uniqueAppleLanguagePackPairs(from: filteredGroupsToCheck) {
             let readiness = await services.languageAvailability.readiness(
                 from: pair.sourceLanguage,
                 to: pair.targetLanguage,
@@ -102,7 +121,9 @@ extension AppShellModel {
             appleLanguagePackSelection = appleLanguagePackSelectionState(pair: nil, readiness: .unknown)
         }
 
-        didRefreshAppleLanguagePackGroups = true
+        if languages == nil {
+            didRefreshAppleLanguagePackGroups = true
+        }
     }
 
     func togglePinnedAppleLanguagePackGroup(_ language: TranslationLanguage) {
@@ -269,6 +290,14 @@ extension AppShellModel {
             .flatMap(\.rows)
             .reduce(into: [:]) { rowsByID, row in
                 rowsByID[row.id] = row
+            }
+    }
+
+    private func appleLanguagePackReadinessByPairID() -> [String: LanguagePackReadiness] {
+        appleLanguagePackGroups
+            .flatMap(\.rows)
+            .reduce(into: [:]) { readinessByPairID, row in
+                readinessByPairID.merge(row.readinessByPairID) { _, latest in latest }
             }
     }
 
