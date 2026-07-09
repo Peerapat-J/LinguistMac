@@ -1,29 +1,6 @@
 import LinguistMacCore
 import SwiftUI
 
-struct AppleLanguagePackGroupSummaryView: View {
-    let text: String
-    let isChecking: Bool
-
-    var body: some View {
-        HStack(spacing: 5) {
-            if isChecking {
-                ProgressView()
-                    .controlSize(.small)
-                    .scaleEffect(0.55)
-                    .tint(Color.secondary)
-                    .frame(width: 12, height: 12)
-            }
-
-            Text(text)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .frame(minWidth: 78, alignment: .trailing)
-    }
-}
-
 struct AppleLanguagePackStatusGlyph: View {
     let systemName: String
     let tint: Color
@@ -49,25 +26,6 @@ struct AppleLanguagePackStatusGlyph: View {
 }
 
 extension AppleLanguagePackSelection {
-    var isChecking: Bool {
-        readiness == .unknown && !isPreparing
-    }
-
-    var showsDownloadingControl: Bool {
-        isPreparing || hasIncompletePreparation
-    }
-
-    var settingsMessage: String {
-        if let message {
-            return message
-        }
-        guard pair != nil else {
-            return "Auto Detect cannot be prepared ahead of time. Select a concrete source language first."
-        }
-
-        return readiness.settingsDetailText
-    }
-
     var settingsStatusText: String {
         guard pair != nil else {
             return "Select Pair"
@@ -76,46 +34,12 @@ extension AppleLanguagePackSelection {
         return preparationStatusText
     }
 
-    var settingsStatusImage: String {
-        guard pair != nil else {
-            return "circle.dashed"
-        }
-
-        return preparationStatusImage
-    }
-
     var settingsStatusTint: Color {
         guard pair != nil else {
             return .secondary
         }
 
         return preparationStatusTint
-    }
-}
-
-extension AppleLanguagePackReadinessRow {
-    var isChecking: Bool {
-        readiness == .unknown && !isPreparing
-    }
-
-    var showsDownloadingControl: Bool {
-        isPreparing || hasIncompletePreparation
-    }
-
-    var settingsMessage: String {
-        message ?? readiness.settingsDetailText
-    }
-
-    var settingsStatusText: String {
-        preparationStatusText
-    }
-
-    var settingsStatusImage: String {
-        preparationStatusImage
-    }
-
-    var settingsStatusTint: Color {
-        preparationStatusTint
     }
 }
 
@@ -132,60 +56,6 @@ private extension AppleLanguagePackSelection {
         }
 
         return isPreparing ? "Downloading" : readiness.displayText
-    }
-
-    var preparationStatusImage: String {
-        if hasPreparationFailure {
-            return "xmark.circle.fill"
-        }
-        if hasIncompletePreparation {
-            return "circle.dotted"
-        }
-        if wasPreparationCanceled {
-            return "xmark.circle.fill"
-        }
-
-        return isPreparing ? "circle.dotted" : readiness.settingsStatusImage
-    }
-
-    var preparationStatusTint: Color {
-        AppleLanguagePackPreparationPresentation.tint(
-            isPreparing: isPreparing,
-            hasFailure: hasPreparationFailure,
-            hasIncompletePreparation: hasIncompletePreparation,
-            wasCanceled: wasPreparationCanceled,
-            fallback: readiness.settingsStatusTint
-        )
-    }
-}
-
-private extension AppleLanguagePackReadinessRow {
-    var preparationStatusText: String {
-        if hasPreparationFailure {
-            return "Download Failed"
-        }
-        if hasIncompletePreparation {
-            return "Downloading"
-        }
-        if wasPreparationCanceled {
-            return "Canceled"
-        }
-
-        return isPreparing ? "Downloading" : readiness.displayText
-    }
-
-    var preparationStatusImage: String {
-        if hasPreparationFailure {
-            return "xmark.circle.fill"
-        }
-        if hasIncompletePreparation {
-            return "circle.dotted"
-        }
-        if wasPreparationCanceled {
-            return "xmark.circle.fill"
-        }
-
-        return isPreparing ? "circle.dotted" : readiness.settingsStatusImage
     }
 
     var preparationStatusTint: Color {
@@ -250,19 +120,6 @@ extension LanguagePackReadiness {
             .red
         }
     }
-
-    var settingsDetailText: String {
-        switch self {
-        case .unknown:
-            "Checking Apple Translation availability for this pair."
-        case .ready:
-            "Ready for on-device Apple Translation."
-        case .needsDownload:
-            "Download or verify the required Apple language assets."
-        case .unavailable:
-            "Apple Translation does not support this language pair."
-        }
-    }
 }
 
 extension AppShellModel {
@@ -303,13 +160,6 @@ extension AppShellModel {
     func preparationNeedsDownloadMessage() -> AppleLanguagePackPreparationMessage {
         AppleLanguagePackPreparationMessage(
             text: "Download was not started or has not completed."
-        )
-    }
-
-    func preparationCancellationMessage() -> AppleLanguagePackPreparationMessage {
-        AppleLanguagePackPreparationMessage(
-            text: "Download canceled. Try Download again.",
-            kind: .canceled
         )
     }
 

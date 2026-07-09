@@ -1,5 +1,6 @@
 import AppKit
 import LinguistMacCore
+// swiftlint:disable:next unused_import
 import OSLog
 import SwiftUI
 #if compiler(>=6.3)

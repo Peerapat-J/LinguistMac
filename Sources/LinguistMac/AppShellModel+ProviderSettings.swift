@@ -1,4 +1,6 @@
+import Foundation
 import LinguistMacCore
+// swiftlint:disable:next unused_import
 import OSLog
 
 private let appleLanguagePackLogger = Logger(
@@ -47,10 +49,6 @@ extension AppShellModel {
 
         await refreshReadiness()
         await refreshAppleLanguagePackSelection()
-    }
-
-    var appleLanguagePackSupportedLanguages: [TranslationLanguage] {
-        AppleLanguagePackCatalog.supportedLanguages(from: availableLanguages)
     }
 
     func refreshAppleLanguagePackSelection() async {
@@ -121,39 +119,6 @@ extension AppShellModel {
         didRefreshAppleLanguagePackGroups = true
     }
 
-    func prepareSelectedAppleLanguagePack() async {
-        guard let pair = AppleLanguagePackPair.current(settings: settings) else {
-            return
-        }
-
-        await prepareAppleLanguagePack(for: pair)
-    }
-
-    func refreshAppleLanguagePackGroup(for language: TranslationLanguage) async {
-        guard let group = appleLanguagePackGroups.first(where: { $0.language == language }) else {
-            return
-        }
-
-        var rows: [AppleLanguagePackReadinessRow] = []
-        for row in group.rows {
-            var readinessByPairID = row.readinessByPairID
-            for pair in row.pairs {
-                let readiness = await services.languageAvailability.readiness(
-                    from: pair.sourceLanguage,
-                    to: pair.targetLanguage,
-                    sampleText: nil
-                )
-                readinessByPairID[pair.id] = readiness
-                refreshAppleLanguagePackSelectionIfNeeded(for: pair, readiness: readiness)
-            }
-            rows.append(appleLanguagePackRow(for: row, readinessByPairID: readinessByPairID))
-        }
-
-        replaceAppleLanguagePackGroup(
-            AppleLanguagePackGroup(language: group.language, rows: rows, isPinned: group.isPinned)
-        )
-    }
-
     func togglePinnedAppleLanguagePackGroup(_ language: TranslationLanguage) {
         if settings.pinnedAppleLanguagePackLanguageIDs.contains(language.id) {
             settings.pinnedAppleLanguagePackLanguageIDs.removeAll { $0 == language.id }
@@ -165,6 +130,7 @@ extension AppShellModel {
         refreshAppleLanguagePackGroupOrder()
     }
 
+    // swiftlint:disable:next unused_declaration
     func prepareAppleLanguagePack(for pair: AppleLanguagePackPair) async {
         await prepareAppleLanguagePacks(for: pair.bidirectionalPairs)
     }
@@ -255,34 +221,6 @@ extension AppShellModel {
         updateAppleLanguagePackRow(for: pair, readiness: readiness)
         if shouldRefreshGroups {
             await refreshAppleLanguagePackGroups(force: true)
-        }
-        await refreshReadiness()
-    }
-
-    func cancelAppleLanguagePackPreparation(for pair: AppleLanguagePackPair) async {
-        await cancelAppleLanguagePackPreparations(for: pair.bidirectionalPairs)
-    }
-
-    func cancelAppleLanguagePackPreparations(for pairs: [AppleLanguagePackPair]) async {
-        for pair in uniqueAppleLanguagePackPairs(pairs) {
-            guard let request = activeAppleLanguagePackPreparationRequest(for: pair) else {
-                continue
-            }
-
-            activeAppleLanguagePackTimeoutTasks.removeValue(forKey: request.id)?.cancel()
-            activeAppleLanguagePackRecheckTasks.removeValue(forKey: request.id)?.cancel()
-
-            let readiness = await services.languageAvailability.readiness(
-                from: pair.sourceLanguage,
-                to: pair.targetLanguage,
-                sampleText: nil
-            )
-            appleLanguagePackMessages[pair.id] = readiness == .ready
-                ? preparationMessage(for: readiness)
-                : preparationCancellationMessage()
-            removeAppleLanguagePackPreparationRequest(request)
-            updateAppleLanguagePackRow(for: pair, readiness: readiness)
-            appleLanguagePackLogger.info("Canceled Apple language pack preparation for \(pair.id, privacy: .public)")
         }
         await refreshReadiness()
     }
@@ -607,12 +545,6 @@ extension AppShellModel {
             )
         }
         refreshAppleLanguagePackSelectionIfNeeded(for: pair, readiness: readiness)
-    }
-
-    private func replaceAppleLanguagePackGroup(_ updatedGroup: AppleLanguagePackGroup) {
-        appleLanguagePackGroups = appleLanguagePackGroups.map { group in
-            group.id == updatedGroup.id ? updatedGroup : group
-        }
     }
 
     private func appleLanguagePackRowsByID() -> [String: AppleLanguagePackReadinessRow] {
