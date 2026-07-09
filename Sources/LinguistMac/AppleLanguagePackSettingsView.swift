@@ -1,16 +1,7 @@
 import AppKit
 import LinguistMacCore
-// swiftlint:disable:next unused_import
-import OSLog
 import SwiftUI
-#if compiler(>=6.3)
-    import _Translation_SwiftUI
-#endif
 
-private let appleLanguagePackTaskLogger = Logger(
-    subsystem: AppIdentity.linguistMac.bundleIdentifier,
-    category: "AppleLanguagePackTasks"
-)
 private let packVisibleRefreshNS: UInt64 = 30_000_000_000
 private let packSettingsSyncAttempts = 60
 private let packSettingsSyncNS: UInt64 = 2_000_000_000
@@ -71,14 +62,6 @@ struct AppleLanguagePackManagementView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
-
-            #if compiler(>=6.3)
-                if #available(macOS 26.0, *) {
-                    AppleLanguagePackPreparationTasksView(model: model)
-                        .frame(width: 0, height: 0)
-                        .accessibilityHidden(true)
-                }
-            #endif
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .task {
@@ -284,86 +267,6 @@ struct AppleLanguagePackManagementView: View {
         return true
     }
 }
-
-#if compiler(>=6.3)
-    @available(macOS 26.0, *)
-    private struct AppleLanguagePackPreparationTasksView: View {
-        @ObservedObject var model: AppShellModel
-
-        var body: some View {
-            ForEach(model.appleLanguagePackPreparationRequests) { request in
-                AppleLanguagePackPreparationTaskView(model: model, request: request)
-                    .id(request.id)
-            }
-        }
-    }
-
-    @available(macOS 26.0, *)
-    private struct AppleLanguagePackPreparationTaskView: View {
-        @ObservedObject var model: AppShellModel
-        let request: AppleLanguagePackPreparationRequest
-        @State private var configuration: TranslationSession.Configuration?
-
-        var body: some View {
-            Color.clear
-                .frame(width: 0, height: 0)
-                .onAppear {
-                    updateConfiguration()
-                }
-                .translationTask(configuration) { @Sendable session in
-                    guard await model.noteAppleLanguagePackPreparationSessionStarted(for: request) else {
-                        return
-                    }
-
-                    do {
-                        try await session.prepareTranslation()
-                        await model.finishAppleLanguagePackPreparation(
-                            for: request.pair,
-                            requestID: request.id,
-                            result: .success(())
-                        )
-                    } catch {
-                        let failure = AppleTranslationSessionAdapter.translationFailure(from: error)
-                        let failureDescription = String(describing: failure)
-                        appleLanguagePackTaskLogger.error(
-                            "Translation task failed for \(request.pair.id, privacy: .public)"
-                        )
-                        appleLanguagePackTaskLogger.error(
-                            "Translation failure: \(failureDescription, privacy: .public)"
-                        )
-                        await model.finishAppleLanguagePackPreparation(
-                            for: request.pair,
-                            requestID: request.id,
-                            result: .failure(failure)
-                        )
-                    }
-
-                    await MainActor.run {
-                        configuration = nil
-                    }
-                }
-        }
-
-        @MainActor
-        private func updateConfiguration() {
-            guard let source = request.pair.sourceLanguage.localeLanguage,
-                  let target = request.pair.targetLanguage.localeLanguage
-            else {
-                configuration = nil
-                Task {
-                    await model.finishAppleLanguagePackPreparation(
-                        for: request.pair,
-                        requestID: request.id,
-                        result: .failure(.unsupportedLanguagePair)
-                    )
-                }
-                return
-            }
-
-            configuration = TranslationSession.Configuration(source: source, target: target)
-        }
-    }
-#endif
 
 private struct AppleLanguagePackSearchField: View {
     @Binding var searchText: String

@@ -21,22 +21,6 @@ enum AppShellCommand: Equatable {
     case openSystemSettings(PermissionKind)
 }
 
-struct AppleLanguagePackPreparationRequest: Equatable, Identifiable {
-    let id: UUID
-    let pair: AppleLanguagePackPair
-    let startedAt: Date
-
-    init(
-        pair: AppleLanguagePackPair,
-        id: UUID = UUID(),
-        startedAt: Date = Date()
-    ) {
-        self.pair = pair
-        self.id = id
-        self.startedAt = startedAt
-    }
-}
-
 struct HistoryLoadErrorState: Equatable {
     let message: String
     let diagnosticDescription: String
@@ -63,7 +47,6 @@ final class AppShellModel: ObservableObject {
     @Published var readiness: OnboardingReadinessSnapshot
     @Published var appleLanguagePackSelection: AppleLanguagePackSelection
     @Published var appleLanguagePackGroups: [AppleLanguagePackGroup]
-    @Published var appleLanguagePackPreparationRequests: [AppleLanguagePackPreparationRequest] = []
     @Published var availableProviders: [TranslationProviderDescriptor]
     @Published var providerAPIKeyDrafts: [TranslationProviderID: String]
     @Published var providerAPIRegionDrafts: [TranslationProviderID: String]
@@ -88,10 +71,6 @@ final class AppShellModel: ObservableObject {
     var activeSpokenOutputID: UUID?
     var activeSpokenOutputResultID: UUID?
     var activeSpokenOutputTask: Task<Void, Never>?
-    var activeAppleLanguagePackTimeoutTasks: [UUID: Task<Void, Never>] = [:]
-    var activeAppleLanguagePackRecheckTasks: [UUID: Task<Void, Never>] = [:]
-    var preparingAppleLanguagePackIDs: Set<String> = []
-    var appleLanguagePackMessages: [String: AppleLanguagePackPreparationMessage] = [:]
     var isRefreshingAppleLanguagePackGroups = false
     var didRefreshAppleLanguagePackGroups = false
 
@@ -154,8 +133,6 @@ final class AppShellModel: ObservableObject {
         activeQuickWordTranslationTask?.cancel()
         activeQuickVoiceCaptureTask?.cancel()
         activeSpokenOutputTask?.cancel()
-        activeAppleLanguagePackTimeoutTasks.values.forEach { $0.cancel() }
-        activeAppleLanguagePackRecheckTasks.values.forEach { $0.cancel() }
     }
 
     var recentMenuItems: [TranslationResult] {

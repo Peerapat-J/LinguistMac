@@ -50,49 +50,6 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         )
     }
 
-    func testPrepareSelectedAppleLanguagePackUpdatesSelectionAndSetupReadiness() async {
-        let languageAvailability = LanguagePackTestAvailabilityChecker(
-            readinessByPair: ["en->th": .needsDownload]
-        )
-        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
-        let model = AppShellModel(
-            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
-            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
-        )
-
-        await model.refreshAppleLanguagePackSelection()
-        await model.prepareAppleLanguagePack(for: pair)
-
-        let requestsByPairID = Dictionary(
-            uniqueKeysWithValues: model.appleLanguagePackPreparationRequests.map { ($0.pair.id, $0) }
-        )
-
-        XCTAssertEqual(Set(model.appleLanguagePackPreparationRequests.map(\.pair)), Set(pair.bidirectionalPairs))
-        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
-        XCTAssertTrue(model.appleLanguagePackSelection.isPreparing)
-
-        await languageAvailability.setReadiness(.ready, for: pair)
-        await languageAvailability.setReadiness(.ready, for: pair.reversed)
-        await model.finishAppleLanguagePackPreparation(
-            for: pair,
-            requestID: requestsByPairID[pair.id]?.id,
-            result: .success(())
-        )
-        await model.finishAppleLanguagePackPreparation(
-            for: pair.reversed,
-            requestID: requestsByPairID[pair.reversed.id]?.id,
-            result: .success(())
-        )
-
-        let readinessItems = Dictionary(uniqueKeysWithValues: model.readiness.items.map { ($0.kind, $0) })
-
-        XCTAssertTrue(model.appleLanguagePackPreparationRequests.isEmpty)
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .ready)
-        XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
-        XCTAssertEqual(readinessItems[.appleTranslation]?.statusText, "Ready")
-    }
-
     func testRefreshAppleLanguagePackGroupMapsReadinessForLanguageRows() async throws {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: [
@@ -196,307 +153,6 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         XCTAssertFalse(model.appleLanguagePackGroups.contains { $0.isPinned })
     }
 
-    func testPrepareAppleLanguagePackUpdatesGroupedRowsSelectionAndSetupReadiness() async throws {
-        let languageAvailability = LanguagePackTestAvailabilityChecker(
-            readinessByPair: ["en->th": .needsDownload]
-        )
-        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
-        let model = AppShellModel(
-            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
-            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
-        )
-
-        await model.refreshAppleLanguagePackGroups()
-        await model.prepareAppleLanguagePack(for: pair)
-
-        let requestsByPairID = Dictionary(
-            uniqueKeysWithValues: model.appleLanguagePackPreparationRequests.map { ($0.pair.id, $0) }
-        )
-
-        XCTAssertEqual(Set(model.appleLanguagePackPreparationRequests.map(\.pair)), Set(pair.bidirectionalPairs))
-        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
-        XCTAssertTrue(model.appleLanguagePackSelection.isPreparing)
-
-        await languageAvailability.setReadiness(.ready, for: pair)
-        await languageAvailability.setReadiness(.ready, for: pair.reversed)
-        await model.finishAppleLanguagePackPreparation(
-            for: pair,
-            requestID: requestsByPairID[pair.id]?.id,
-            result: .success(())
-        )
-        await model.finishAppleLanguagePackPreparation(
-            for: pair.reversed,
-            requestID: requestsByPairID[pair.reversed.id]?.id,
-            result: .success(())
-        )
-
-        let readinessItems = Dictionary(uniqueKeysWithValues: model.readiness.items.map { ($0.kind, $0) })
-        let englishRow = try languagePackRow(
-            in: model.appleLanguagePackGroups,
-            language: .english,
-            pairID: pair.id
-        )
-        let thaiRow = try languagePackRow(
-            in: model.appleLanguagePackGroups,
-            language: .thai,
-            pairID: pair.id
-        )
-
-        XCTAssertTrue(model.appleLanguagePackPreparationRequests.isEmpty)
-        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .ready)
-        XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
-        XCTAssertEqual(englishRow.readiness, .ready)
-        XCTAssertEqual(englishRow.message, "Language pack is ready.")
-        XCTAssertEqual(thaiRow.readiness, .ready)
-        XCTAssertEqual(thaiRow.message, "Language pack is ready.")
-        XCTAssertEqual(readinessItems[.appleTranslation]?.statusText, "Ready")
-    }
-
-    func testSuccessfulAppleLanguagePackPreparationRefreshesAllGroupReadiness() async throws {
-        let preparedPair = AppleLanguagePackPair(sourceLanguage: .thai, targetLanguage: .japanese)
-        let relatedPair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .japanese)
-        let languageAvailability = LanguagePackTestAvailabilityChecker(
-            readinessByPair: [
-                preparedPair.id: .needsDownload,
-                preparedPair.reversed.id: .needsDownload,
-                relatedPair.id: .needsDownload,
-                relatedPair.reversed.id: .needsDownload
-            ]
-        )
-        let model = AppShellModel(
-            settings: AppSettings(sourceLanguage: .thai, targetLanguage: .japanese),
-            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
-        )
-
-        await model.refreshAppleLanguagePackGroups()
-        let initialRelatedRow = try languagePackRow(
-            in: model.appleLanguagePackGroups,
-            language: .english,
-            pairID: relatedPair.id
-        )
-
-        await model.prepareAppleLanguagePack(for: preparedPair)
-        let request = try XCTUnwrap(
-            model.appleLanguagePackPreparationRequests.first { $0.pair == preparedPair }
-        )
-        await languageAvailability.setReadiness(.ready, for: preparedPair)
-        await languageAvailability.setReadiness(.ready, for: preparedPair.reversed)
-        await languageAvailability.setReadiness(.ready, for: relatedPair)
-        await languageAvailability.setReadiness(.ready, for: relatedPair.reversed)
-        await model.finishAppleLanguagePackPreparation(
-            for: preparedPair,
-            requestID: request.id,
-            result: .success(())
-        )
-
-        let refreshedRelatedRow = try languagePackRow(
-            in: model.appleLanguagePackGroups,
-            language: .english,
-            pairID: relatedPair.id
-        )
-
-        XCTAssertEqual(initialRelatedRow.readiness, .needsDownload)
-        XCTAssertEqual(refreshedRelatedRow.readiness, .ready)
-    }
-}
-
-@MainActor
-final class AppShellModelLanguagePackDownloadTests: XCTestCase {
-    func testPrepareAppleLanguagePackAllowsMultipleActiveRequests() async throws {
-        let languageAvailability = LanguagePackTestAvailabilityChecker(
-            readinessByPair: [
-                "en->th": .needsDownload,
-                "ja->th": .needsDownload
-            ]
-        )
-        let currentPair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
-        let secondPair = AppleLanguagePackPair(sourceLanguage: .japanese, targetLanguage: .thai)
-        let model = AppShellModel(
-            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
-            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
-        )
-
-        await model.prepareAppleLanguagePack(for: currentPair)
-        await model.prepareAppleLanguagePack(for: secondPair)
-
-        let activePairs = Set(model.appleLanguagePackPreparationRequests.map(\.pair))
-        let currentRequest = try XCTUnwrap(
-            model.appleLanguagePackPreparationRequests.first { $0.pair == currentPair }
-        )
-        let secondRow = try languagePackRow(
-            in: model.appleLanguagePackGroups,
-            language: .japanese,
-            pairID: secondPair.id
-        )
-
-        XCTAssertEqual(activePairs, Set(currentPair.bidirectionalPairs + secondPair.bidirectionalPairs))
-        XCTAssertEqual(model.appleLanguagePackSelection.pair, currentPair)
-        XCTAssertTrue(model.appleLanguagePackSelection.isPreparing)
-        XCTAssertTrue(secondRow.isPreparing)
-
-        await languageAvailability.setReadiness(.ready, for: currentPair)
-        await model.finishAppleLanguagePackPreparation(
-            for: currentPair,
-            requestID: currentRequest.id,
-            result: .success(())
-        )
-
-        let remainingPairs = Set(model.appleLanguagePackPreparationRequests.map(\.pair))
-        let updatedSecondRow = try languagePackRow(
-            in: model.appleLanguagePackGroups,
-            language: .japanese,
-            pairID: secondPair.id
-        )
-
-        XCTAssertEqual(remainingPairs, Set([currentPair.reversed] + secondPair.bidirectionalPairs))
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .ready)
-        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
-        XCTAssertTrue(updatedSecondRow.isPreparing)
-    }
-
-    func testMissingLanguagePackFailureKeepsPreparationActiveWhileMacOSDownloads() async throws {
-        let languageAvailability = LanguagePackTestAvailabilityChecker(
-            readinessByPair: ["en->th": .needsDownload]
-        )
-        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
-        let model = AppShellModel(
-            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
-            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
-        )
-
-        await model.refreshAppleLanguagePackSelection()
-        await model.prepareAppleLanguagePack(for: pair)
-        let request = try XCTUnwrap(model.appleLanguagePackPreparationRequests.first { $0.pair == pair })
-        await model.finishAppleLanguagePackPreparation(
-            for: pair,
-            requestID: request.id,
-            result: .failure(.missingLanguagePack(.apple))
-        )
-
-        XCTAssertTrue(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair })
-        XCTAssertTrue(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair.reversed })
-        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
-        XCTAssertTrue(model.appleLanguagePackSelection.isPreparing)
-        XCTAssertEqual(
-            model.appleLanguagePackSelection.message,
-            "macOS is still preparing this language pack."
-        )
-        XCTAssertEqual(model.appleLanguagePackSelection.settingsStatusText, "Downloading")
-    }
-
-    func testLanguagePackRecheckMarksBackgroundDownloadReady() async throws {
-        let languageAvailability = LanguagePackTestAvailabilityChecker(
-            readinessByPair: ["en->th": .needsDownload]
-        )
-        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
-        let model = AppShellModel(
-            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
-            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
-        )
-
-        await model.refreshAppleLanguagePackSelection()
-        await model.prepareAppleLanguagePack(for: pair)
-        let request = try XCTUnwrap(model.appleLanguagePackPreparationRequests.first { $0.pair == pair })
-        await model.finishAppleLanguagePackPreparation(
-            for: pair,
-            requestID: request.id,
-            result: .failure(.missingLanguagePack(.apple))
-        )
-        await languageAvailability.setReadiness(.ready, for: pair)
-        await model.recheckAppleLanguagePackPreparation(requestID: request.id)
-
-        XCTAssertFalse(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair })
-        XCTAssertTrue(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair.reversed })
-        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .ready)
-        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
-        XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
-    }
-
-    func testLanguagePackTimeoutReturnsToDownloadWhenSystemDialogIsIgnored() async throws {
-        let languageAvailability = LanguagePackTestAvailabilityChecker(
-            readinessByPair: ["en->th": .needsDownload]
-        )
-        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
-        let model = AppShellModel(
-            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
-            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
-        )
-
-        await model.refreshAppleLanguagePackSelection()
-        await model.prepareAppleLanguagePack(for: pair)
-        let request = try XCTUnwrap(model.appleLanguagePackPreparationRequests.first { $0.pair == pair })
-
-        let staleNow = request.startedAt.addingTimeInterval(AppShellModel.appleLanguagePackPreparationTimeout + 1)
-        await model.clearStaleAppleLanguagePackPreparationIfNeeded(now: staleNow)
-
-        XCTAssertFalse(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair })
-        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .needsDownload)
-        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
-        XCTAssertEqual(
-            model.appleLanguagePackSelection.message,
-            "Download was not started or has not completed."
-        )
-        XCTAssertEqual(model.appleLanguagePackSelection.settingsStatusText, "Needs Download")
-        XCTAssertTrue(model.appleLanguagePackSelection.canPrepare)
-    }
-
-    func testLanguagePackRecheckCanMarkDownloadReadyBeforeTaskReturns() async throws {
-        let languageAvailability = LanguagePackTestAvailabilityChecker(
-            readinessByPair: ["en->th": .needsDownload]
-        )
-        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
-        let model = AppShellModel(
-            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
-            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
-        )
-
-        await model.refreshAppleLanguagePackSelection()
-        await model.prepareAppleLanguagePack(for: pair)
-        let request = try XCTUnwrap(model.appleLanguagePackPreparationRequests.first { $0.pair == pair })
-
-        await languageAvailability.setReadiness(.ready, for: pair)
-        await model.recheckAppleLanguagePackPreparation(requestID: request.id)
-
-        XCTAssertFalse(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair })
-        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .ready)
-        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
-        XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
-    }
-
-    func testStaleAppleLanguagePackPreparationMarksReadyWhenMacOSFinishes() async throws {
-        let languageAvailability = LanguagePackTestAvailabilityChecker(
-            readinessByPair: ["en->th": .needsDownload]
-        )
-        let pair = AppleLanguagePackPair(sourceLanguage: .english, targetLanguage: .thai)
-        let model = AppShellModel(
-            settings: AppSettings(sourceLanguage: .english, targetLanguage: .thai),
-            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
-        )
-
-        await model.refreshAppleLanguagePackSelection()
-        await model.prepareAppleLanguagePack(for: pair)
-
-        let request = try XCTUnwrap(model.appleLanguagePackPreparationRequests.first)
-        await languageAvailability.setReadiness(.ready, for: pair)
-        let staleNow = request.startedAt.addingTimeInterval(AppShellModel.appleLanguagePackPreparationTimeout + 1)
-        await model.clearStaleAppleLanguagePackPreparationIfNeeded(now: staleNow)
-
-        XCTAssertFalse(model.appleLanguagePackPreparationRequests.contains { $0.pair == pair })
-        XCTAssertEqual(model.appleLanguagePackSelection.pair, pair)
-        XCTAssertEqual(model.appleLanguagePackSelection.readiness, .ready)
-        XCTAssertFalse(model.appleLanguagePackSelection.isPreparing)
-        XCTAssertEqual(model.appleLanguagePackSelection.message, "Language pack is ready.")
-        XCTAssertEqual(model.appleLanguagePackSelection.settingsStatusText, "Ready")
-        XCTAssertFalse(model.appleLanguagePackSelection.canPrepare)
-        XCTAssertFalse(model.appleLanguagePackSelection.hasPreparationFailure)
-    }
-
     func testRefreshAppleLanguagePackSelectionSkipsAutoDetectSource() async {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["en->th": .needsDownload]
@@ -567,19 +223,14 @@ private func languagePackRow(
 private actor LanguagePackTestAvailabilityChecker: LanguageAvailabilityChecking {
     private var readinessByPair: [String: LanguagePackReadiness]
     private let defaultReadiness: LanguagePackReadiness
-    private let preparedReadiness: LanguagePackReadiness
-    private var preparedPairs: [String]
     private var readinessPairs: [String]
 
     init(
         defaultReadiness: LanguagePackReadiness = .ready,
-        readinessByPair: [String: LanguagePackReadiness] = [:],
-        preparedReadiness: LanguagePackReadiness = .ready
+        readinessByPair: [String: LanguagePackReadiness] = [:]
     ) {
         self.defaultReadiness = defaultReadiness
         self.readinessByPair = readinessByPair
-        self.preparedReadiness = preparedReadiness
-        preparedPairs = []
         readinessPairs = []
     }
 
@@ -599,21 +250,11 @@ private actor LanguagePackTestAvailabilityChecker: LanguageAvailabilityChecking 
         to target: TranslationLanguage
     ) async throws -> LanguagePackReadiness {
         let pairID = Self.pairID(source: source, target: target)
-        preparedPairs.append(pairID)
-        readinessByPair[pairID] = preparedReadiness
-        return preparedReadiness
-    }
-
-    func preparedPairIDs() -> [String] {
-        preparedPairs
+        return readinessByPair[pairID] ?? defaultReadiness
     }
 
     func readinessPairIDs() -> [String] {
         readinessPairs
-    }
-
-    func setReadiness(_ readiness: LanguagePackReadiness, for pair: AppleLanguagePackPair) {
-        readinessByPair[pair.id] = readiness
     }
 
     private static func pairID(

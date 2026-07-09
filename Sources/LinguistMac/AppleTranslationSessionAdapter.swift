@@ -41,14 +41,6 @@ enum AppleTranslationSessionAdapter {
         #endif
     }
 
-    static func translationFailure(from error: Error) -> TranslationFailure {
-        #if compiler(>=6.3)
-            mapAppleTranslationError(error)
-        #else
-            .providerFailed(error.localizedDescription)
-        #endif
-    }
-
     #if compiler(>=6.3)
         @available(macOS 26.0, *)
         private static func prepareWithAppleSession(
