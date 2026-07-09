@@ -15,6 +15,7 @@ final class AppShellModelLanguagePackTests: XCTestCase {
             "Download Failed",
             "Needs Download",
             "Downloading",
+            "Preparing",
             "Select Source",
             "Not Required",
             "Pin",

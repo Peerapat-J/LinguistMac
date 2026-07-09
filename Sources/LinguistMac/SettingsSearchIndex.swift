@@ -46,6 +46,7 @@ extension SettingsSectionID {
                 "Download",
                 "Download Failed",
                 "Downloading",
+                "Preparing",
                 "Remove",
                 "Needs Download",
                 "Pin",
