@@ -256,6 +256,10 @@ private final class RegionSelectionOverlayView: NSView {
         true
     }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: .crosshair)
     }

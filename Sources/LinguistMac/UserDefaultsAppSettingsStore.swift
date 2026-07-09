@@ -51,6 +51,8 @@ private extension UserDefaults {
         static let popupOriginX = "LinguistMac.settings.popupOriginX"
         static let popupOriginY = "LinguistMac.settings.popupOriginY"
         static let hasCompletedOnboarding = "LinguistMac.hasCompletedOnboarding"
+        static let pinnedAppleLanguagePackLanguageIDs =
+            "LinguistMac.settings.pinnedAppleLanguagePackLanguageIDs"
     }
 
     private struct ShortcutSettings {
@@ -119,7 +121,10 @@ private extension UserDefaults {
             screenTranslationNotificationsEnabled: presentation.screenTranslationNotificationsEnabled,
             popupOriginX: presentation.popupOriginX,
             popupOriginY: presentation.popupOriginY,
-            hasCompletedOnboarding: bool(forKey: Key.hasCompletedOnboarding)
+            hasCompletedOnboarding: bool(forKey: Key.hasCompletedOnboarding),
+            pinnedAppleLanguagePackLanguageIDs: stringArray(
+                forKey: Key.pinnedAppleLanguagePackLanguageIDs
+            ) ?? defaults.pinnedAppleLanguagePackLanguageIDs
         ).sanitized()
     }
 
@@ -217,6 +222,7 @@ private extension UserDefaults {
             removeObject(forKey: Key.popupOriginY)
         }
         set(settings.hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding)
+        set(settings.pinnedAppleLanguagePackLanguageIDs, forKey: Key.pinnedAppleLanguagePackLanguageIDs)
     }
 
     private func loadShortcut(

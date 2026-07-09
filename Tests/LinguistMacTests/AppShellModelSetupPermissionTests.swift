@@ -51,7 +51,7 @@ final class AppShellModelSetupPermissionTests: XCTestCase {
     }
 }
 
-private struct SetupPermissionNoOpService {}
+struct SetupPermissionNoOpService {}
 
 extension SetupPermissionNoOpService: ScreenCaptureServicing {
     func captureSelection() async throws -> CapturedScreenRegion {
@@ -152,6 +152,18 @@ extension SetupPermissionNoOpService: TranslationHistoryStoring {
     func recent(limit: Int) async throws -> [TranslationResult] {
         _ = limit
         return []
+    }
+}
+
+extension SetupPermissionNoOpService: PermissionChecking {
+    func status(for kind: PermissionKind) async -> PermissionStatus {
+        _ = kind
+        return .granted
+    }
+
+    func request(for kind: PermissionKind) async -> PermissionStatus {
+        _ = kind
+        return .granted
     }
 }
 

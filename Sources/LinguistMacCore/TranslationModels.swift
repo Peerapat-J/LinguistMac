@@ -24,11 +24,26 @@ public extension TranslationLanguage {
         supportsAutoDetect: true
     )
 
+    static let arabic = TranslationLanguage(id: "ar", displayName: "Arabic")
+    static let dutch = TranslationLanguage(id: "nl", displayName: "Dutch")
     static let english = TranslationLanguage(id: "en", displayName: "English")
-    static let thai = TranslationLanguage(id: "th", displayName: "Thai")
+    static let french = TranslationLanguage(id: "fr", displayName: "French")
+    static let german = TranslationLanguage(id: "de", displayName: "German")
+    static let hindi = TranslationLanguage(id: "hi", displayName: "Hindi")
+    static let indonesian = TranslationLanguage(id: "id", displayName: "Indonesian")
+    static let italian = TranslationLanguage(id: "it", displayName: "Italian")
     static let japanese = TranslationLanguage(id: "ja", displayName: "Japanese")
     static let korean = TranslationLanguage(id: "ko", displayName: "Korean")
     static let simplifiedChinese = TranslationLanguage(id: "zh-Hans", displayName: "Chinese Simplified")
+    static let traditionalChinese = TranslationLanguage(id: "zh-Hant", displayName: "Chinese Traditional")
+    static let polish = TranslationLanguage(id: "pl", displayName: "Polish")
+    static let brazilianPortuguese = TranslationLanguage(id: "pt-BR", displayName: "Portuguese (Brazil)")
+    static let russian = TranslationLanguage(id: "ru", displayName: "Russian")
+    static let spanish = TranslationLanguage(id: "es", displayName: "Spanish")
+    static let thai = TranslationLanguage(id: "th", displayName: "Thai")
+    static let turkish = TranslationLanguage(id: "tr", displayName: "Turkish")
+    static let ukrainian = TranslationLanguage(id: "uk", displayName: "Ukrainian")
+    static let vietnamese = TranslationLanguage(id: "vi", displayName: "Vietnamese")
 }
 
 public extension TranslationLanguage {

@@ -88,6 +88,29 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertEqual(body?["text"] as? [String], ["hello"])
     }
 
+    func testDeepLProviderMapsBrazilianPortugueseSourceToPortuguese() async throws {
+        let client = StubCloudTranslationClient(response: jsonResponse(#"{"translations":[{"text":"konnichiwa"}]}"#))
+        let provider = CloudTranslationProvider(
+            id: .deepl,
+            apiKeyStore: InMemoryAPIKeyStore(keys: [.deepl: "test-key"]),
+            client: client
+        )
+
+        _ = try await provider.translate(
+            request(
+                providerID: .deepl,
+                sourceLanguage: .brazilianPortuguese,
+                targetLanguage: .japanese
+            )
+        )
+        let requests = await client.requests
+        let sentRequest = try XCTUnwrap(requests.first)
+        let body = try bodyObject(from: sentRequest) as? [String: Any]
+
+        XCTAssertEqual(body?["source_lang"] as? String, "PT")
+        XCTAssertEqual(body?["target_lang"] as? String, "JA")
+    }
+
     func testDeepLProviderRejectsThaiLanguagePairsBeforeNetworkCall() async throws {
         let client = StubCloudTranslationClient(response: jsonResponse(#"{"translations":[{"text":"unused"}]}"#))
         let provider = CloudTranslationProvider(
