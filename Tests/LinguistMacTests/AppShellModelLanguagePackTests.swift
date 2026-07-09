@@ -154,6 +154,29 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         XCTAssertFalse(model.appleLanguagePackGroups.contains { $0.isPinned })
     }
 
+    func testRefreshAppleLanguagePackGroupsKeepsPinChangesMadeDuringRefresh() async throws {
+        let languageAvailability = BlockingLanguagePackChecker()
+        let model = AppShellModel(
+            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
+        )
+
+        let refreshTask = Task {
+            await model.refreshAppleLanguagePackGroups()
+        }
+        await languageAvailability.waitUntilFirstReadinessCall()
+
+        model.togglePinnedAppleLanguagePackGroup(.thai)
+        XCTAssertEqual(model.appleLanguagePackGroups.first?.language, .thai)
+
+        await languageAvailability.resumeFirstReadinessCall()
+        await refreshTask.value
+
+        let thaiGroup = try XCTUnwrap(model.appleLanguagePackGroups.first)
+        XCTAssertEqual(model.settings.pinnedAppleLanguagePackLanguageIDs, ["th"])
+        XCTAssertEqual(thaiGroup.language, .thai)
+        XCTAssertTrue(thaiGroup.isPinned)
+    }
+
     func testRefreshAppleLanguagePackSelectionSkipsAutoDetectSource() async {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["en->th": .needsDownload]
@@ -263,5 +286,56 @@ private actor LanguagePackTestAvailabilityChecker: LanguageAvailabilityChecking 
         target: TranslationLanguage
     ) -> String {
         "\(source.id)->\(target.id)"
+    }
+}
+
+private actor BlockingLanguagePackChecker: LanguageAvailabilityChecking {
+    private var didBlock = false
+    private var didBlockContinuation: CheckedContinuation<Void, Never>?
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+
+    func readiness(
+        from source: TranslationLanguage,
+        to target: TranslationLanguage,
+        sampleText: String?
+    ) async -> LanguagePackReadiness {
+        _ = source
+        _ = target
+        _ = sampleText
+
+        if !didBlock {
+            didBlock = true
+            didBlockContinuation?.resume()
+            didBlockContinuation = nil
+            await withCheckedContinuation { continuation in
+                releaseContinuation = continuation
+            }
+        }
+
+        return .ready
+    }
+
+    func prepareLanguagePack(
+        from source: TranslationLanguage,
+        to target: TranslationLanguage
+    ) async throws -> LanguagePackReadiness {
+        _ = source
+        _ = target
+        return .ready
+    }
+
+    func waitUntilFirstReadinessCall() async {
+        guard !didBlock else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            didBlockContinuation = continuation
+        }
+    }
+
+    func resumeFirstReadinessCall() {
+        releaseContinuation?.resume()
+        releaseContinuation = nil
     }
 }

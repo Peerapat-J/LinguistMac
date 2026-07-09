@@ -70,10 +70,10 @@ extension AppShellModel {
             isRefreshingAppleLanguagePackGroups = false
         }
 
-        let groups = AppleLanguagePackCatalog.groups(from: availableLanguages, settings: settings)
+        let groupsToCheck = AppleLanguagePackCatalog.groups(from: availableLanguages, settings: settings)
         var readinessByPairID: [String: LanguagePackReadiness] = [:]
 
-        for pair in uniqueAppleLanguagePackPairs(from: groups) {
+        for pair in uniqueAppleLanguagePackPairs(from: groupsToCheck) {
             let readiness = await services.languageAvailability.readiness(
                 from: pair.sourceLanguage,
                 to: pair.targetLanguage,
@@ -82,7 +82,8 @@ extension AppShellModel {
             readinessByPairID[pair.id] = readiness
         }
 
-        appleLanguagePackGroups = groups.map { group in
+        let currentGroups = AppleLanguagePackCatalog.groups(from: availableLanguages, settings: settings)
+        appleLanguagePackGroups = currentGroups.map { group in
             AppleLanguagePackGroup(
                 language: group.language,
                 rows: group.rows.map { row in
