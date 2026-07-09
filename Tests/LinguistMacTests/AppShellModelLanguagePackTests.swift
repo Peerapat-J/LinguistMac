@@ -209,6 +209,41 @@ final class AppShellModelLanguagePackTests: XCTestCase {
         XCTAssertTrue(thaiGroup.isPinned)
     }
 
+    func testRefreshAppleLanguagePackGroupsRunsQueuedRefreshAfterOverlap() async {
+        let languageAvailability = BlockingLanguagePackChecker()
+        let model = AppShellModel(
+            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
+        )
+        let supportedLanguageCount = AppleLanguagePackCatalog
+            .supportedLanguages(from: TranslationLanguageCatalog.defaultLanguages)
+            .count
+        let expectedUniquePairCount = supportedLanguageCount * (supportedLanguageCount - 1)
+
+        let refreshTask = Task {
+            await model.refreshAppleLanguagePackGroups()
+        }
+        await languageAvailability.waitUntilFirstReadinessCall()
+
+        await model.refreshAppleLanguagePackGroups(force: true)
+        await languageAvailability.resumeFirstReadinessCall()
+        await refreshTask.value
+
+        let readinessPairIDs = await languageAvailability.readinessPairIDs()
+        XCTAssertEqual(readinessPairIDs.count, expectedUniquePairCount * 2)
+    }
+
+    func testRefreshAppleLanguagePackGroupsChecksReadinessConcurrently() async {
+        let languageAvailability = ConcurrentLanguagePackChecker()
+        let model = AppShellModel(
+            services: makeLanguagePackTestServices(languageAvailability: languageAvailability)
+        )
+
+        await model.refreshAppleLanguagePackGroups(for: [.thai])
+
+        let maximumActiveReadinessCalls = await languageAvailability.maximumActiveReadinessCalls()
+        XCTAssertGreaterThan(maximumActiveReadinessCalls, 1)
+    }
+
     func testRefreshAppleLanguagePackSelectionSkipsAutoDetectSource() async {
         let languageAvailability = LanguagePackTestAvailabilityChecker(
             readinessByPair: ["en->th": .needsDownload]
@@ -325,15 +360,15 @@ private actor BlockingLanguagePackChecker: LanguageAvailabilityChecking {
     private var didBlock = false
     private var didBlockContinuation: CheckedContinuation<Void, Never>?
     private var releaseContinuation: CheckedContinuation<Void, Never>?
+    private var readinessPairs: [String] = []
 
     func readiness(
         from source: TranslationLanguage,
         to target: TranslationLanguage,
         sampleText: String?
     ) async -> LanguagePackReadiness {
-        _ = source
-        _ = target
         _ = sampleText
+        readinessPairs.append("\(source.id)->\(target.id)")
 
         if !didBlock {
             didBlock = true
@@ -369,5 +404,49 @@ private actor BlockingLanguagePackChecker: LanguageAvailabilityChecking {
     func resumeFirstReadinessCall() {
         releaseContinuation?.resume()
         releaseContinuation = nil
+    }
+
+    func readinessPairIDs() -> [String] {
+        readinessPairs
+    }
+}
+
+private actor ConcurrentLanguagePackChecker: LanguageAvailabilityChecking {
+    private var activeReadinessCallCount = 0
+    private var maxActiveReadinessCallCount = 0
+
+    func readiness(
+        from source: TranslationLanguage,
+        to target: TranslationLanguage,
+        sampleText: String?
+    ) async -> LanguagePackReadiness {
+        _ = source
+        _ = target
+        _ = sampleText
+        activeReadinessCallCount += 1
+        maxActiveReadinessCallCount = max(maxActiveReadinessCallCount, activeReadinessCallCount)
+
+        do {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        } catch {
+            activeReadinessCallCount -= 1
+            return .unknown
+        }
+
+        activeReadinessCallCount -= 1
+        return .ready
+    }
+
+    func prepareLanguagePack(
+        from source: TranslationLanguage,
+        to target: TranslationLanguage
+    ) async throws -> LanguagePackReadiness {
+        _ = source
+        _ = target
+        return .ready
+    }
+
+    func maximumActiveReadinessCalls() -> Int {
+        maxActiveReadinessCallCount
     }
 }

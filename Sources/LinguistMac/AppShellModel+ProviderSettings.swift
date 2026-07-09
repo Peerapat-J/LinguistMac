@@ -1,5 +1,7 @@
 import LinguistMacCore
 
+private let appleLanguagePackReadinessLookupLimit = 8
+
 @MainActor
 extension AppShellModel {
     var selectableProviders: [TranslationProviderDescriptor] {
@@ -70,17 +72,36 @@ extension AppShellModel {
         force: Bool,
         checkingLanguages languages: Set<TranslationLanguage>?
     ) async {
-        guard !isRefreshingAppleLanguagePackGroups,
-              force || !didRefreshAppleLanguagePackGroups
-        else {
+        if isRefreshingAppleLanguagePackGroups {
+            guard force || !didRefreshAppleLanguagePackGroups else {
+                return
+            }
+
+            queueAnotherAppleLanguagePackGroupsRefresh(checkingLanguages: languages)
+            return
+        }
+
+        guard force || !didRefreshAppleLanguagePackGroups else {
             return
         }
 
         isRefreshingAppleLanguagePackGroups = true
-        defer {
-            isRefreshingAppleLanguagePackGroups = false
+        await refreshAppleLanguagePackGroupsOnce(checkingLanguages: languages)
+        isRefreshingAppleLanguagePackGroups = false
+
+        guard needsApplePackGroupRefresh else {
+            return
         }
 
+        let pendingLanguages = pendingApplePackRefreshLanguages
+        needsApplePackGroupRefresh = false
+        pendingApplePackRefreshLanguages = nil
+        await refreshAppleLanguagePackGroups(force: true, checkingLanguages: pendingLanguages)
+    }
+
+    private func refreshAppleLanguagePackGroupsOnce(
+        checkingLanguages languages: Set<TranslationLanguage>?
+    ) async {
         let groupsToCheck = AppleLanguagePackCatalog.groups(from: availableLanguages, settings: settings)
         let requestedLanguageIDs = languages.map {
             Set($0.filter { !$0.supportsAutoDetect }.map(\.id))
@@ -92,14 +113,10 @@ extension AppShellModel {
             ? [:]
             : appleLanguagePackReadinessByPairID()
 
-        for pair in uniqueAppleLanguagePackPairs(from: filteredGroupsToCheck) {
-            let readiness = await services.languageAvailability.readiness(
-                from: pair.sourceLanguage,
-                to: pair.targetLanguage,
-                sampleText: nil
-            )
-            readinessByPairID[pair.id] = readiness
-        }
+        let checkedReadinessByPairID = await checkedAppleLanguagePackReadinessByPairID(
+            for: uniqueAppleLanguagePackPairs(from: filteredGroupsToCheck)
+        )
+        readinessByPairID.merge(checkedReadinessByPairID) { _, latest in latest }
 
         let currentGroups = AppleLanguagePackCatalog.groups(from: availableLanguages, settings: settings)
         appleLanguagePackGroups = currentGroups.map { group in
@@ -123,6 +140,25 @@ extension AppShellModel {
 
         if languages == nil {
             didRefreshAppleLanguagePackGroups = true
+        }
+    }
+
+    private func queueAnotherAppleLanguagePackGroupsRefresh(checkingLanguages languages: Set<TranslationLanguage>?) {
+        let alreadyQueuedRefresh = needsApplePackGroupRefresh
+        needsApplePackGroupRefresh = true
+
+        guard let languages else {
+            pendingApplePackRefreshLanguages = nil
+            return
+        }
+
+        guard alreadyQueuedRefresh else {
+            pendingApplePackRefreshLanguages = languages
+            return
+        }
+
+        if let pendingLanguages = pendingApplePackRefreshLanguages {
+            pendingApplePackRefreshLanguages = pendingLanguages.union(languages)
         }
     }
 
@@ -299,6 +335,49 @@ extension AppShellModel {
             .reduce(into: [:]) { readinessByPairID, row in
                 readinessByPairID.merge(row.readinessByPairID) { _, latest in latest }
             }
+    }
+
+    private func checkedAppleLanguagePackReadinessByPairID(
+        for pairs: [AppleLanguagePackPair]
+    ) async -> [String: LanguagePackReadiness] {
+        guard !pairs.isEmpty else {
+            return [:]
+        }
+
+        let languageAvailability = services.languageAvailability
+        var pairIterator = pairs.makeIterator()
+        return await withTaskGroup(
+            of: (String, LanguagePackReadiness).self,
+            returning: [String: LanguagePackReadiness].self
+        ) { group in
+            var readinessByPairID: [String: LanguagePackReadiness] = [:]
+
+            func enqueueNextPair() {
+                guard let pair = pairIterator.next() else {
+                    return
+                }
+
+                group.addTask {
+                    let readiness = await languageAvailability.readiness(
+                        from: pair.sourceLanguage,
+                        to: pair.targetLanguage,
+                        sampleText: nil
+                    )
+                    return (pair.id, readiness)
+                }
+            }
+
+            for _ in 0..<min(appleLanguagePackReadinessLookupLimit, pairs.count) {
+                enqueueNextPair()
+            }
+
+            while let result = await group.next() {
+                readinessByPairID[result.0] = result.1
+                enqueueNextPair()
+            }
+
+            return readinessByPairID
+        }
     }
 
     private func uniqueAppleLanguagePackPairs(

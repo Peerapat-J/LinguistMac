@@ -72,6 +72,8 @@ final class AppShellModel: ObservableObject {
     var activeSpokenOutputResultID: UUID?
     var activeSpokenOutputTask: Task<Void, Never>?
     var isRefreshingAppleLanguagePackGroups = false
+    var needsApplePackGroupRefresh = false
+    var pendingApplePackRefreshLanguages: Set<TranslationLanguage>?
     var didRefreshAppleLanguagePackGroups = false
 
     init(
