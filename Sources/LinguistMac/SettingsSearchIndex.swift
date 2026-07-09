@@ -44,6 +44,8 @@ extension SettingsSectionID {
                 "Search Language Packs",
                 "Supported Languages",
                 "Download",
+                "Download Failed",
+                "Downloading",
                 "Remove",
                 "Needs Download",
                 "Pin",
@@ -59,6 +61,8 @@ extension SettingsSectionID {
                 "Checking",
                 "Unsupported",
                 "Auto Detect",
+                "Select Source",
+                "Not Required",
                 "On Device",
                 "System Managed Assets"
             ] + TranslationLanguageCatalog.defaultLanguages.flatMap {

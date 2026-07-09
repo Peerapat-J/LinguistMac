@@ -8,13 +8,15 @@ final class AppShellModelLanguagePackTests: XCTestCase {
     func testTranslationSettingsSearchMatchesLanguagePackTerms() {
         let languagePackQueries = [
             "Apple Language Packs",
-            "Language Groups",
+            "Languages",
             "Search language packs",
             "Thai",
             "Japanese",
             "Download Failed",
             "Needs Download",
-            "Preparing",
+            "Downloading",
+            "Select Source",
+            "Not Required",
             "Pin",
             "Current"
         ]
