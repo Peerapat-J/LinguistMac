@@ -177,6 +177,20 @@ public protocol LanguageAvailabilityChecking: Sendable {
         to target: TranslationLanguage,
         sampleText: String?
     ) async -> LanguagePackReadiness
+
+    func prepareLanguagePack(
+        from source: TranslationLanguage,
+        to target: TranslationLanguage
+    ) async throws -> LanguagePackReadiness
+}
+
+public extension LanguageAvailabilityChecking {
+    func prepareLanguagePack(
+        from source: TranslationLanguage,
+        to target: TranslationLanguage
+    ) async throws -> LanguagePackReadiness {
+        await readiness(from: source, to: target, sampleText: nil)
+    }
 }
 
 public protocol AppSettingsStoring: Sendable {

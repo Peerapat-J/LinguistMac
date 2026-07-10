@@ -3,6 +3,23 @@ import LinguistMacCore
 import Translation
 
 enum AppleTranslationSessionAdapter {
+    static func prepareLanguagePack(
+        source: Locale.Language,
+        target: Locale.Language
+    ) async throws {
+        #if compiler(>=6.3)
+            guard #available(macOS 26.0, *) else {
+                throw TranslationFailure.providerUnavailable(.apple)
+            }
+
+            try await prepareWithAppleSession(source: source, target: target)
+        #else
+            _ = source
+            _ = target
+            throw TranslationFailure.providerUnavailable(.apple)
+        #endif
+    }
+
     static func translate(
         _ request: TranslationRequest,
         source: Locale.Language,
@@ -25,6 +42,19 @@ enum AppleTranslationSessionAdapter {
     }
 
     #if compiler(>=6.3)
+        @available(macOS 26.0, *)
+        private static func prepareWithAppleSession(
+            source: Locale.Language,
+            target: Locale.Language
+        ) async throws {
+            do {
+                let session = TranslationSession(installedSource: source, target: target)
+                try await session.prepareTranslation()
+            } catch {
+                throw mapAppleTranslationError(error)
+            }
+        }
+
         @available(macOS 26.0, *)
         private static func translateWithAppleSession(
             _ request: TranslationRequest,
