@@ -70,7 +70,8 @@ final class AppShellModelVoiceTests: XCTestCase {
             sourceLanguage: .english,
             targetLanguage: .japanese,
             inputMode: .quickTranslate,
-            providerID: .deepl
+            providerID: .deepl,
+            requestsReadings: false
         )
         let translationRequests = await provider.capturedRequests()
         XCTAssertEqual(translationRequests, [expectedRequest])

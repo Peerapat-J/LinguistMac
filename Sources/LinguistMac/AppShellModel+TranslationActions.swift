@@ -103,7 +103,8 @@ extension AppShellModel {
             let translationSettings = settingsWithSupportedProvider()
             let request = try await quickTranslationRequest(
                 settings: translationSettings,
-                sourceLanguageOverride: sourceLanguageOverride
+                sourceLanguageOverride: sourceLanguageOverride,
+                requestsReadings: voiceCaptureID == nil
             )
             guard try shouldContinueQuickVoiceCapture(voiceCaptureID) else {
                 return
@@ -203,16 +204,24 @@ extension AppShellModel {
 
     private func quickTranslationRequest(
         settings: AppSettings,
-        sourceLanguageOverride: TranslationLanguage? = nil
+        sourceLanguageOverride: TranslationLanguage? = nil,
+        requestsReadings: Bool = true
     ) async throws -> TranslationRequest {
         var draft = quickDraft
         if let sourceLanguageOverride {
             draft.sourceLanguage = sourceLanguageOverride
         }
 
-        var request = try draft
-            .makeRequest(providerID: settings.selectedProviderID)
-            .resolvingAutoDetectedSource()
+        let draftRequest = try draft.makeRequest(providerID: settings.selectedProviderID)
+        var request = TranslationRequest(
+            text: draftRequest.text,
+            sourceLanguage: draftRequest.sourceLanguage,
+            targetLanguage: draftRequest.targetLanguage,
+            inputMode: draftRequest.inputMode,
+            providerID: draftRequest.providerID,
+            requestsReadings: requestsReadings
+        )
+        .resolvingAutoDetectedSource()
         let providerID = await services.translatorRegistry.supportedProviderID(
             preferred: request.providerID,
             sourceLanguage: request.sourceLanguage,

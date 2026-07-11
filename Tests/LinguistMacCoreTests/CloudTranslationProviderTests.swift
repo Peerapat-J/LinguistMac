@@ -237,6 +237,33 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertEqual(queryItems(from: requests[2].url)["fromScript"], "Thai")
     }
 
+    func testMicrosoftAzureProviderSkipsReadingsWhenRequestDoesNotRequestThem() async throws {
+        let client = StubCloudTranslationClient(
+            response: jsonResponse(#"[{"translations":[{"text":"สวัสดี","to":"th"}]}]"#)
+        )
+        let provider = CloudTranslationProvider(
+            id: .microsoftAzure,
+            apiKeyStore: InMemoryAPIKeyStore(keys: [.microsoftAzure: "test-key"]),
+            client: client
+        )
+        let request = TranslationRequest(
+            text: "こんにちは",
+            sourceLanguage: .japanese,
+            targetLanguage: .thai,
+            inputMode: .quickTranslate,
+            providerID: .microsoftAzure,
+            requestsReadings: false
+        )
+
+        let result = try await provider.translate(request)
+        let requests = await client.requests
+
+        XCTAssertEqual(result.translatedText, "สวัสดี")
+        XCTAssertNil(result.sourceReading)
+        XCTAssertNil(result.translatedReading)
+        XCTAssertEqual(requests.map(\.url.path), ["/translate"])
+    }
+
     func testMicrosoftAzureProviderKeepsTranslationWhenReadingFails() async throws {
         let client = StubCloudTranslationClient(
             responses: [
