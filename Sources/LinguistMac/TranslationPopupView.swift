@@ -18,7 +18,9 @@ struct TranslationPopupView: View {
 
             footer
         }
-        .padding(20)
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 12)
         .frame(
             minWidth: 320,
             idealWidth: model.settings.popupWidth,
