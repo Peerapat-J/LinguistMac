@@ -52,6 +52,8 @@ final class AppShellModel: ObservableObject {
 
     @Published var recentTranslations: [TranslationResult]
     @Published var popupState: TranslationPopupState
+    @Published var popupSourceDraft: String
+    @Published var isPopupSourceDirty: Bool
     @Published var quickDraft: QuickTranslateDraft
     @Published var quickSessionState: TranslationSessionState
     @Published var quickVoiceState: SpeechRecognitionSessionState
@@ -110,6 +112,8 @@ final class AppShellModel: ObservableObject {
         self.settings = initialSettings
         self.recentTranslations = recentTranslations
         popupState = .empty
+        popupSourceDraft = ""
+        isPopupSourceDirty = false
         quickDraft = QuickTranslateDraft(
             sourceLanguage: initialSettings.sourceLanguage,
             targetLanguage: initialSettings.targetLanguage
@@ -297,8 +301,16 @@ final class AppShellModel: ObservableObject {
         speakPopupText(.translation, result: result)
     }
 
-    func speakPopupText(_ role: TranslationTextRole, result: TranslationResult) {
-        let request = spokenOutputRequest(for: role, result: result)
+    func speakPopupText(
+        _ role: TranslationTextRole,
+        result: TranslationResult,
+        textOverride: String? = nil
+    ) {
+        let request = spokenOutputRequest(
+            for: role,
+            result: result,
+            textOverride: textOverride
+        )
         let context = SpokenOutputContext(resultID: result.id, role: role)
         stopSpokenOutput()
         let outputID = UUID()

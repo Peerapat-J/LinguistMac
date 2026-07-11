@@ -31,6 +31,21 @@ extension AppShellModel {
             .isEmpty == false
     }
 
+    var canTranslatePopupDraft: Bool {
+        !popupSourceDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var canSwapPopupLanguages: Bool {
+        guard case let .success(result, _, _) = popupState else {
+            return false
+        }
+
+        return !isPopupSourceDirty && LanguageSelection(
+            source: result.request.sourceLanguage,
+            target: result.request.targetLanguage
+        ).canSwap && !result.translatedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     func selectPopupSourceLanguage(_ language: TranslationLanguage) {
         startPopupRetranslation(
             sourceLanguage: language,
@@ -45,18 +60,92 @@ extension AppShellModel {
         )
     }
 
+    func preparePopupSourceEditor(for result: TranslationResult) {
+        popupSourceDraft = result.originalText
+        isPopupSourceDirty = false
+    }
+
+    func preparePopupSourceEditorIfNeeded() {
+        guard popupSourceDraft.isEmpty,
+              let sourceText = currentPopupTranslationContext?.sourceText
+        else {
+            return
+        }
+
+        popupSourceDraft = sourceText
+        isPopupSourceDirty = false
+    }
+
+    func updatePopupSourceDraft(_ text: String) {
+        popupSourceDraft = text
+        isPopupSourceDirty = true
+    }
+
+    func clearPopupSourceDraft() {
+        updatePopupSourceDraft("")
+    }
+
+    func translatePopupDraft() {
+        guard canTranslatePopupDraft,
+              let currentContext = currentPopupTranslationContext
+        else {
+            return
+        }
+
+        let context = PopupTranslationContext(
+            sourceText: popupSourceDraft,
+            inputMode: currentContext.inputMode,
+            showsOriginal: true
+        )
+        startPopupRetranslation(
+            sourceLanguage: popupSourceLanguage,
+            targetLanguage: popupTargetLanguage,
+            context: context
+        )
+    }
+
+    func swapPopupLanguages() {
+        guard case let .success(result, _, _) = popupState else {
+            return
+        }
+
+        var selection = LanguageSelection(
+            source: result.request.sourceLanguage,
+            target: result.request.targetLanguage
+        )
+        guard selection.canSwap else {
+            return
+        }
+
+        selection.swap()
+        let context = PopupTranslationContext(
+            sourceText: result.translatedText,
+            inputMode: result.request.inputMode,
+            showsOriginal: true
+        )
+        popupSourceDraft = result.translatedText
+        isPopupSourceDirty = false
+        startPopupRetranslation(
+            sourceLanguage: selection.source,
+            targetLanguage: selection.target,
+            context: context
+        )
+    }
+
     func cancelPopupRetranslation() {
         activePopupTranslationID = nil
         activePopupTranslationTask?.cancel()
         activePopupTranslationTask = nil
         popupTranslationContext = nil
+        popupSourceDraft = ""
+        isPopupSourceDirty = false
     }
 
     private var currentPopupTranslationContext: PopupTranslationContext? {
         switch popupState {
         case let .success(result, showsOriginal, _):
             PopupTranslationContext(
-                sourceText: result.originalText,
+                sourceText: isPopupSourceDirty ? popupSourceDraft : result.originalText,
                 inputMode: result.request.inputMode,
                 showsOriginal: showsOriginal
             )
@@ -77,9 +166,10 @@ extension AppShellModel {
 
     private func startPopupRetranslation(
         sourceLanguage: TranslationLanguage,
-        targetLanguage: TranslationLanguage
+        targetLanguage: TranslationLanguage,
+        context contextOverride: PopupTranslationContext? = nil
     ) {
-        guard let context = currentPopupTranslationContext else {
+        guard let context = contextOverride ?? currentPopupTranslationContext else {
             return
         }
 
@@ -138,6 +228,7 @@ extension AppShellModel {
             }
 
             popupState = .success(result, showsOriginal: context.showsOriginal)
+            preparePopupSourceEditor(for: result)
             popupTranslationContext = PopupTranslationContext(
                 sourceText: result.originalText,
                 inputMode: result.request.inputMode,

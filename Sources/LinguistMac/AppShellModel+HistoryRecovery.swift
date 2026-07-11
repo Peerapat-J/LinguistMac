@@ -18,12 +18,13 @@ extension AppShellModel {
 
     func spokenOutputRequest(
         for role: TranslationTextRole,
-        result: TranslationResult
+        result: TranslationResult,
+        textOverride: String? = nil
     ) -> SpokenOutputRequest {
         switch role {
         case .source:
             SpokenOutputRequest(
-                text: result.originalText,
+                text: textOverride ?? result.originalText,
                 language: result.request.sourceLanguage
             )
         case .translation:
@@ -46,7 +47,10 @@ extension AppShellModel {
         )
     }
 
-    func copyPopupText(_ role: TranslationTextRole) async {
+    func copyPopupText(
+        _ role: TranslationTextRole,
+        textOverride: String? = nil
+    ) async {
         guard let result = popupState.result else {
             return
         }
@@ -54,7 +58,7 @@ extension AppShellModel {
         record(.copyTranslation)
         let text = switch role {
         case .source:
-            result.originalText
+            textOverride ?? result.originalText
         case .translation:
             result.translatedText
         }
@@ -73,6 +77,7 @@ extension AppShellModel {
         let wordCard = result.shownWordCards.first.map {
             TranslationPopupWordCardState(shownContent: $0, result: result)
         }
+        preparePopupSourceEditor(for: result)
         popupState = .success(result, showsOriginal: false, wordCard: wordCard)
     }
 

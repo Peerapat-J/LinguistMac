@@ -332,6 +332,30 @@ final class PopupLanguageSelectionTests: XCTestCase {
         let savedResults = await historyStore.capturedResults()
         XCTAssertEqual(savedResults.map(\.translatedText), ["translated-ja"])
     }
+
+    func testSwapUsesTranslatedTextAsEditableSourceAndPersistsReversedPair() async {
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .japanese),
+            services: makePopupTranslationServices(
+                provider: PopupTranslationTestProvider(),
+                historyStore: PopupTranslationHistoryStore()
+            )
+        )
+        model.popupState = .success(popupResult(source: .english, target: .japanese), showsOriginal: false)
+
+        model.swapPopupLanguages()
+        await model.activePopupTranslationTask?.value
+
+        XCTAssertEqual(model.settings.sourceLanguage, .japanese)
+        XCTAssertEqual(model.settings.targetLanguage, .english)
+        XCTAssertEqual(model.popupSourceDraft, "translated-ja")
+        guard case let .success(result, showsOriginal, _) = model.popupState else {
+            return XCTFail("Expected swapped popup translation.")
+        }
+        XCTAssertEqual(result.originalText, "translated-ja")
+        XCTAssertEqual(result.request.targetLanguage, .english)
+        XCTAssertTrue(showsOriginal)
+    }
 }
 
 final class UserDefaultsLanguagePackSettingsTests: XCTestCase {

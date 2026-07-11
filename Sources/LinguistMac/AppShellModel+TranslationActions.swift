@@ -24,6 +24,7 @@ extension AppShellModel {
 
         switch finalState {
         case let .completed(result):
+            preparePopupSourceEditor(for: result)
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
             await persistRecentTranslation(result)
@@ -162,6 +163,7 @@ extension AppShellModel {
         }
 
         quickSessionState = .completed(result)
+        preparePopupSourceEditor(for: result)
         popupState = .success(result, showsOriginal: false)
         saveRecent(result)
         await persistRecentTranslation(result)
@@ -673,6 +675,7 @@ extension AppShellModel {
 
         switch finalState {
         case let .completed(result):
+            preparePopupSourceEditor(for: result)
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
         case let .failed(failure):
