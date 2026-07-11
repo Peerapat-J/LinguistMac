@@ -207,6 +207,56 @@ final class CloudTranslationProviderTests: XCTestCase {
         XCTAssertEqual(sentRequest.headers["Ocp-Apim-Subscription-Region"], "eastus")
     }
 
+    func testMicrosoftAzureProviderAddsSupportedSourceAndTranslationReadings() async throws {
+        let client = StubCloudTranslationClient(
+            responses: [
+                jsonResponse(#"[{"translations":[{"text":"สวัสดี","to":"th"}]}]"#),
+                jsonResponse(#"[{"text":"Kon'nichiwa","script":"Latn"}]"#),
+                jsonResponse(#"[{"text":"sawatdi","script":"Latn"}]"#)
+            ]
+        )
+        let provider = CloudTranslationProvider(
+            id: .microsoftAzure,
+            apiKeyStore: InMemoryAPIKeyStore(keys: [.microsoftAzure: "test-key"]),
+            client: client
+        )
+
+        let result = try await provider.translate(
+            request(
+                providerID: .microsoftAzure,
+                sourceLanguage: .japanese,
+                targetLanguage: .thai
+            )
+        )
+        let requests = await client.requests
+
+        XCTAssertEqual(result.sourceReading, "Kon'nichiwa")
+        XCTAssertEqual(result.translatedReading, "sawatdi")
+        XCTAssertEqual(requests.map(\.url.path), ["/translate", "/transliterate", "/transliterate"])
+        XCTAssertEqual(queryItems(from: requests[1].url)["fromScript"], "Jpan")
+        XCTAssertEqual(queryItems(from: requests[2].url)["fromScript"], "Thai")
+    }
+
+    func testMicrosoftAzureProviderKeepsTranslationWhenReadingFails() async throws {
+        let client = StubCloudTranslationClient(
+            responses: [
+                jsonResponse(#"[{"translations":[{"text":"สวัสดี","to":"th"}]}]"#),
+                jsonResponse(#"{"unexpected":true}"#)
+            ]
+        )
+        let provider = CloudTranslationProvider(
+            id: .microsoftAzure,
+            apiKeyStore: InMemoryAPIKeyStore(keys: [.microsoftAzure: "test-key"]),
+            client: client
+        )
+
+        let result = try await provider.translate(request(providerID: .microsoftAzure))
+
+        XCTAssertEqual(result.translatedText, "สวัสดี")
+        XCTAssertNil(result.sourceReading)
+        XCTAssertNil(result.translatedReading)
+    }
+
     func testSensitiveValueRedactorRemovesKnownSecrets() {
         let message = SensitiveValueRedactor.redact(
             "request failed with key test-key",

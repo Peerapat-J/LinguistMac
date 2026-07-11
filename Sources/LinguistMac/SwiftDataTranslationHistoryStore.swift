@@ -47,6 +47,8 @@ final class TranslationHistoryRecord {
     var id: UUID
     var originalText: String
     var translatedText: String
+    var sourceReading: String?
+    var translatedReading: String?
     var wordTranslationsJSON: String?
     var shownWordCardsJSON: String?
     var sourceLanguageID: String
@@ -63,6 +65,8 @@ final class TranslationHistoryRecord {
         id = result.id
         originalText = result.originalText
         translatedText = result.translatedText
+        sourceReading = result.sourceReading
+        translatedReading = result.translatedReading
         wordTranslationsJSON = Self.encodedWordTranslations(result.wordTranslations)
         shownWordCardsJSON = Self.encodedShownWordCards(result.shownWordCards)
         sourceLanguageID = result.request.sourceLanguage.id
@@ -79,6 +83,8 @@ final class TranslationHistoryRecord {
     func update(with result: TranslationResult) {
         originalText = result.originalText
         translatedText = result.translatedText
+        sourceReading = result.sourceReading
+        translatedReading = result.translatedReading
         wordTranslationsJSON = Self.encodedWordTranslations(result.wordTranslations)
         shownWordCardsJSON = Self.encodedShownWordCards(result.shownWordCards)
         sourceLanguageID = result.request.sourceLanguage.id
@@ -118,6 +124,8 @@ final class TranslationHistoryRecord {
             request: request,
             translatedText: translatedText,
             originalText: originalText,
+            sourceReading: sourceReading,
+            translatedReading: translatedReading,
             wordTranslations: Self.decodedWordTranslations(from: wordTranslationsJSON),
             shownWordCards: Self.decodedShownWordCards(from: shownWordCardsJSON),
             createdAt: createdAt

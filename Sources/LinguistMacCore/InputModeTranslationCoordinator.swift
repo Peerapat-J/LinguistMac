@@ -234,6 +234,8 @@ public enum WordTranslationAugmenter {
             request: result.request,
             translatedText: result.translatedText,
             originalText: result.originalText,
+            sourceReading: result.sourceReading,
+            translatedReading: result.translatedReading,
             wordTranslations: wordTranslations,
             shownWordCards: result.shownWordCards,
             createdAt: result.createdAt
@@ -260,7 +262,8 @@ public enum WordTranslationAugmenter {
                     sourceLanguage: request.sourceLanguage,
                     targetLanguage: request.targetLanguage,
                     inputMode: request.inputMode,
-                    providerID: request.providerID
+                    providerID: request.providerID,
+                    requestsReadings: false
                 )
                 translatedText = try await provider.translate(wordRequest).translatedText
                 translatedBySource[sourceWord] = translatedText

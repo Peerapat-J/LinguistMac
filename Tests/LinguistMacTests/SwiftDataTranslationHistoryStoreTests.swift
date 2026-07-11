@@ -52,6 +52,21 @@ final class SwiftDataTranslationHistoryStoreTests: XCTestCase {
         XCTAssertEqual(recent.first?.shownWordCards, [shownWordCard])
     }
 
+    func testSwiftDataHistoryStorePreservesOptionalReadings() async throws {
+        let result = makeResult(
+            text: "こんにちは",
+            sourceReading: "Kon'nichiwa",
+            translatedReading: "sawatdi"
+        )
+        let (store, _) = try makeSwiftDataHistoryStore(trimLimit: 10)
+
+        try await store.save(result)
+
+        let recent = try await store.recent(limit: 10)
+        XCTAssertEqual(recent.first?.sourceReading, "Kon'nichiwa")
+        XCTAssertEqual(recent.first?.translatedReading, "sawatdi")
+    }
+
     func testSwiftDataHistoryStoreFallsBackWhenShownWordCardJSONCannotDecode() async throws {
         let wordTranslation = WordTranslation(sourceText: "bank", translatedText: "ธนาคาร")
         let result = makeResult(
@@ -109,6 +124,8 @@ final class SwiftDataTranslationHistoryStoreTests: XCTestCase {
     private func makeResult(
         id: UUID = UUID(),
         text: String,
+        sourceReading: String? = nil,
+        translatedReading: String? = nil,
         wordTranslations: [WordTranslation] = [],
         shownWordCards: [ShownWordCardContent] = [],
         createdAt: Date = Date(timeIntervalSince1970: 1)
@@ -124,6 +141,8 @@ final class SwiftDataTranslationHistoryStoreTests: XCTestCase {
             id: id,
             request: request,
             translatedText: text,
+            sourceReading: sourceReading,
+            translatedReading: translatedReading,
             wordTranslations: wordTranslations,
             shownWordCards: shownWordCards,
             createdAt: createdAt

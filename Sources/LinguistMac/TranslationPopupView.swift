@@ -64,6 +64,10 @@ struct TranslationPopupView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
+                    if let translatedReading = result.translatedReading {
+                        ReadingText(text: translatedReading, role: .translation)
+                    }
+
                     PopupTextActions(model: model, result: result, role: .translation)
 
                     if !result.wordTranslations.isEmpty || wordCard != nil {
@@ -110,6 +114,10 @@ struct TranslationPopupView: View {
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if let sourceReading = result.sourceReading {
+                            ReadingText(text: sourceReading, role: .source)
+                        }
                     }
                 }
             }
@@ -196,6 +204,29 @@ struct TranslationPopupView: View {
                 dismiss()
             }
             .keyboardShortcut(.defaultAction)
+        }
+    }
+}
+
+private struct ReadingText: View {
+    let text: String
+    let role: TranslationTextRole
+
+    var body: some View {
+        Text(text)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel("\(accessibilityPrefix) reading: \(text)")
+    }
+
+    private var accessibilityPrefix: String {
+        switch role {
+        case .source:
+            "Original"
+        case .translation:
+            "Translation"
         }
     }
 }
