@@ -25,6 +25,35 @@ struct AppleLanguagePackStatusGlyph: View {
     }
 }
 
+struct PopupLanguagePickerOption: View {
+    let language: TranslationLanguage
+    let readiness: LanguagePackReadiness?
+
+    var body: some View {
+        Group {
+            if let readiness {
+                Label {
+                    Text(LocalizedStringKey(language.displayName))
+                } icon: {
+                    Image(systemName: readiness.settingsStatusImage)
+                        .foregroundStyle(readiness.settingsStatusTint)
+                }
+            } else {
+                Text(LocalizedStringKey(language.displayName))
+            }
+        }
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        guard let readiness else {
+            return language.displayName
+        }
+
+        return "\(language.displayName), Apple language pack \(readiness.displayText)"
+    }
+}
+
 extension AppleLanguagePackSelection {
     var settingsStatusText: String {
         guard pair != nil else {

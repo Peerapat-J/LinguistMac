@@ -159,6 +159,62 @@ final class PopupRetranslationReviewTests: XCTestCase {
     }
 }
 
+@MainActor
+final class PopupLanguagePackReadinessTests: XCTestCase {
+    func testPopupLanguagePackReadinessMatchesSettingsLanguageListStatus() {
+        let model = AppShellModel(services: makeServices())
+        model.appleLanguagePackGroups = [
+            languageGroup(.japanese, readinesses: [.needsDownload, .ready]),
+            languageGroup(.thai, readinesses: [.needsDownload]),
+            languageGroup(.english, readinesses: [.unavailable])
+        ]
+
+        XCTAssertEqual(model.popupLanguagePackReadiness(for: .japanese), .ready)
+        XCTAssertEqual(model.popupLanguagePackReadiness(for: .thai), .needsDownload)
+        XCTAssertEqual(model.popupLanguagePackReadiness(for: .english), .unavailable)
+        XCTAssertNil(model.popupLanguagePackReadiness(for: .autoDetect))
+    }
+
+    private func makeServices() -> LinguistServices {
+        let noOpService = SetupPermissionNoOpService()
+        return LinguistServices(
+            screenCapture: noOpService,
+            ocr: noOpService,
+            translatorRegistry: noOpService,
+            languageAvailability: noOpService,
+            settingsStore: noOpService,
+            apiKeyStore: noOpService,
+            launchAtLogin: noOpService,
+            historyStore: noOpService,
+            permissionChecker: noOpService,
+            clipboard: noOpService,
+            selectedTextCapture: noOpService,
+            shortcutRegistry: noOpService,
+            screenTranslationSoundPlayer: NoOpScreenTranslationSoundPlayer(),
+            screenTranslationNotifier: NoOpScreenTranslationNotifier()
+        )
+    }
+
+    private func languageGroup(
+        _ language: TranslationLanguage,
+        readinesses: [LanguagePackReadiness]
+    ) -> AppleLanguagePackGroup {
+        AppleLanguagePackGroup(
+            language: language,
+            rows: readinesses.enumerated().map { index, readiness in
+                AppleLanguagePackReadinessRow(
+                    pair: AppleLanguagePackPair(
+                        sourceLanguage: language,
+                        targetLanguage: index.isMultiple(of: 2) ? .english : .thai
+                    ),
+                    readiness: readiness,
+                    isCurrentPair: false
+                )
+            }
+        )
+    }
+}
+
 struct SetupPermissionNoOpService {}
 
 extension SetupPermissionNoOpService: ScreenCaptureServicing {

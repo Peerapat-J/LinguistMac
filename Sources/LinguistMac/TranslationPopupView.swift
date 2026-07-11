@@ -37,6 +37,9 @@ struct TranslationPopupView: View {
         }
         .onAppear {
             model.preparePopupSourceEditorIfNeeded()
+            Task {
+                await model.refreshAppleLanguagePackGroupsIfNeeded()
+            }
         }
     }
 
@@ -44,8 +47,11 @@ struct TranslationPopupView: View {
         HStack(spacing: 10) {
             Picker("Source Language", selection: popupSourceLanguageBinding) {
                 ForEach(model.availableLanguages, id: \.id) { language in
-                    Text(LocalizedStringKey(language.displayName))
-                        .tag(language)
+                    PopupLanguagePickerOption(
+                        language: language,
+                        readiness: model.popupLanguagePackReadiness(for: language)
+                    )
+                    .tag(language)
                 }
             }
             .labelsHidden()
@@ -64,8 +70,11 @@ struct TranslationPopupView: View {
 
             Picker("Target Language", selection: popupTargetLanguageBinding) {
                 ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
-                    Text(LocalizedStringKey(language.displayName))
-                        .tag(language)
+                    PopupLanguagePickerOption(
+                        language: language,
+                        readiness: model.popupLanguagePackReadiness(for: language)
+                    )
+                    .tag(language)
                 }
             }
             .labelsHidden()
