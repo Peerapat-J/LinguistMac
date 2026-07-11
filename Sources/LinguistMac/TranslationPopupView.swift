@@ -125,17 +125,6 @@ struct TranslationPopupView: View {
                             role: .source,
                             textOverride: model.popupSourceDraft
                         )
-
-                        Button {
-                            model.clearPopupSourceDraft()
-                        } label: {
-                            Label("Clear Original", systemImage: "xmark.circle.fill")
-                                .labelStyle(.iconOnly)
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Clear Original")
-                        .accessibilityLabel("Clear Original")
-                        .disabled(model.popupSourceDraft.isEmpty)
                     }
 
                     if showsOriginal {

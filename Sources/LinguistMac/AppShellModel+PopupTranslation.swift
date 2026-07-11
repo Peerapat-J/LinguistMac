@@ -81,10 +81,6 @@ extension AppShellModel {
         isPopupSourceDirty = true
     }
 
-    func clearPopupSourceDraft() {
-        updatePopupSourceDraft("")
-    }
-
     func translatePopupDraft() {
         guard canTranslatePopupDraft,
               let currentContext = currentPopupTranslationContext
