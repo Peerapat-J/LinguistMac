@@ -16,6 +16,12 @@ struct SpokenOutputContext: Equatable {
     let role: TranslationTextRole
 }
 
+struct PopupTranslationContext: Equatable {
+    let sourceText: String
+    let inputMode: TranslationInputMode
+    let showsOriginal: Bool
+}
+
 enum AppShellCommand: Equatable {
     case screenTranslate
     case quickTranslate
@@ -74,6 +80,9 @@ final class AppShellModel: ObservableObject {
     var doubleCopyTriggerDetector: DoubleCopyTriggerDetector
     var activePopupWordLookupID: UUID?
     var activePopupWordLookupTask: Task<WordLookupState, Never>?
+    var activePopupTranslationID: UUID?
+    var activePopupTranslationTask: Task<Void, Never>?
+    var popupTranslationContext: PopupTranslationContext?
     var activeQuickWordTranslationID: UUID?
     var activeQuickWordTranslationTask: Task<Void, Never>?
     var activeQuickVoiceCaptureID: UUID?
@@ -142,6 +151,7 @@ final class AppShellModel: ObservableObject {
 
     deinit {
         activePopupWordLookupTask?.cancel()
+        activePopupTranslationTask?.cancel()
         activeQuickWordTranslationTask?.cancel()
         activeQuickVoiceCaptureTask?.cancel()
         activeSpokenOutputTask?.cancel()

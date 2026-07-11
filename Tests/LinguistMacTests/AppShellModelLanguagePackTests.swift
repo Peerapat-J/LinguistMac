@@ -260,6 +260,80 @@ final class AppShellModelLanguagePackTests: XCTestCase {
     }
 }
 
+@MainActor
+final class PopupLanguageSelectionTests: XCTestCase {
+    func testSelectingPopupTargetPersistsPairAndRetranslatesOriginalText() async throws {
+        let provider = PopupTranslationTestProvider()
+        let historyStore = PopupTranslationHistoryStore()
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .japanese),
+            services: makePopupTranslationServices(
+                provider: provider,
+                historyStore: historyStore
+            )
+        )
+        model.popupState = .success(
+            popupResult(source: .english, target: .japanese),
+            showsOriginal: true
+        )
+
+        model.selectPopupTargetLanguage(.thai)
+        let task = try XCTUnwrap(model.activePopupTranslationTask)
+        await task.value
+
+        XCTAssertEqual(model.settings.sourceLanguage, .english)
+        XCTAssertEqual(model.settings.targetLanguage, .thai)
+        guard case let .success(result, showsOriginal, _) = model.popupState else {
+            return XCTFail("Expected the popup retranslation to complete.")
+        }
+        XCTAssertEqual(result.originalText, "hello")
+        XCTAssertEqual(result.translatedText, "translated-th")
+        XCTAssertEqual(result.request.targetLanguage, .thai)
+        XCTAssertTrue(showsOriginal)
+
+        let requests = await provider.capturedRequests()
+        XCTAssertEqual(requests.map(\.text), ["hello"])
+        XCTAssertEqual(requests.map(\.targetLanguage), [.thai])
+        let savedResults = await historyStore.capturedResults()
+        XCTAssertEqual(savedResults.map(\.translatedText), ["translated-th"])
+    }
+
+    func testLatestPopupLanguageSelectionWinsWhenEarlierProviderCallFinishesLate() async throws {
+        let provider = GatedPopupTranslationTestProvider()
+        let historyStore = PopupTranslationHistoryStore()
+        let model = AppShellModel(
+            settings: AppSettings(sourceLanguage: .english, targetLanguage: .japanese),
+            services: makePopupTranslationServices(
+                provider: provider,
+                historyStore: historyStore
+            )
+        )
+        model.popupState = .success(
+            popupResult(source: .english, target: .japanese),
+            showsOriginal: false
+        )
+
+        model.selectPopupTargetLanguage(.thai)
+        let firstTask = try XCTUnwrap(model.activePopupTranslationTask)
+        await provider.waitUntilFirstRequestStarts()
+
+        model.selectPopupTargetLanguage(.japanese)
+        let secondTask = try XCTUnwrap(model.activePopupTranslationTask)
+        await secondTask.value
+        await provider.releaseFirstRequest()
+        await firstTask.value
+
+        guard case let .success(result, showsOriginal, _) = model.popupState else {
+            return XCTFail("Expected the latest popup translation to remain visible.")
+        }
+        XCTAssertEqual(result.request.targetLanguage, .japanese)
+        XCTAssertEqual(result.translatedText, "translated-ja")
+        XCTAssertFalse(showsOriginal)
+        let savedResults = await historyStore.capturedResults()
+        XCTAssertEqual(savedResults.map(\.translatedText), ["translated-ja"])
+    }
+}
+
 final class UserDefaultsLanguagePackSettingsTests: XCTestCase {
     func testPinnedLanguagePackGroupsRoundTripThroughUserDefaults() async throws {
         let suiteName = "LinguistMacTests.\(UUID().uuidString)"
@@ -275,6 +349,156 @@ final class UserDefaultsLanguagePackSettingsTests: XCTestCase {
         let loadedSettings = try await store.loadSettings()
 
         XCTAssertEqual(loadedSettings.pinnedAppleLanguagePackLanguageIDs, ["th", "ja"])
+    }
+}
+
+private func makePopupTranslationServices(
+    provider: any TranslationProviding,
+    historyStore: any TranslationHistoryStoring
+) -> LinguistServices {
+    let noOpService = SetupPermissionNoOpService()
+    return LinguistServices(
+        screenCapture: noOpService,
+        ocr: noOpService,
+        translatorRegistry: PopupTranslationTestRegistry(provider: provider),
+        languageAvailability: noOpService,
+        settingsStore: noOpService,
+        apiKeyStore: noOpService,
+        launchAtLogin: noOpService,
+        historyStore: historyStore,
+        permissionChecker: noOpService,
+        clipboard: noOpService,
+        selectedTextCapture: noOpService,
+        shortcutRegistry: noOpService,
+        screenTranslationSoundPlayer: NoOpScreenTranslationSoundPlayer(),
+        screenTranslationNotifier: NoOpScreenTranslationNotifier()
+    )
+}
+
+private func popupResult(
+    source: TranslationLanguage,
+    target: TranslationLanguage
+) -> TranslationResult {
+    TranslationResult(
+        request: TranslationRequest(
+            text: "hello",
+            sourceLanguage: source,
+            targetLanguage: target,
+            inputMode: .quickTranslate,
+            providerID: .apple
+        ),
+        translatedText: "translated-\(target.id)"
+    )
+}
+
+private struct PopupTranslationTestRegistry: TranslationProviderRegistry {
+    let provider: any TranslationProviding
+
+    func provider(for id: TranslationProviderID) async throws -> any TranslationProviding {
+        _ = id
+        return provider
+    }
+
+    func availableProviders() async -> [TranslationProviderDescriptor] {
+        [
+            TranslationProviderDescriptor(
+                id: provider.id,
+                displayName: provider.displayName,
+                requiresAPIKey: false,
+                usesNetwork: provider.usesNetwork
+            )
+        ]
+    }
+}
+
+private actor PopupTranslationTestProvider: TranslationProviding {
+    let id = TranslationProviderID.apple
+    let displayName = "Popup Test Provider"
+    let detail = "Popup language selection tests"
+    let requiresAPIKey = false
+    let usesNetwork = true
+    let privacySummary = "Test provider"
+    private var requests: [TranslationRequest] = []
+
+    func configurationStatus() async -> TranslationProviderConfigurationStatus {
+        .ready
+    }
+
+    func translate(_ request: TranslationRequest) async throws -> TranslationResult {
+        requests.append(request)
+        return TranslationResult(
+            request: request,
+            translatedText: "translated-\(request.targetLanguage.id)"
+        )
+    }
+
+    func capturedRequests() -> [TranslationRequest] {
+        requests
+    }
+}
+
+private actor GatedPopupTranslationTestProvider: TranslationProviding {
+    let id = TranslationProviderID.apple
+    let displayName = "Gated Popup Test Provider"
+    let detail = "Popup request ordering tests"
+    let requiresAPIKey = false
+    let usesNetwork = true
+    let privacySummary = "Test provider"
+    private var requests: [TranslationRequest] = []
+    private var firstRequestStarted = false
+    private var firstRequestStartContinuation: CheckedContinuation<Void, Never>?
+    private var firstRequestReleaseContinuation: CheckedContinuation<Void, Never>?
+
+    func configurationStatus() async -> TranslationProviderConfigurationStatus {
+        .ready
+    }
+
+    func translate(_ request: TranslationRequest) async throws -> TranslationResult {
+        requests.append(request)
+        if requests.count == 1 {
+            firstRequestStarted = true
+            firstRequestStartContinuation?.resume()
+            firstRequestStartContinuation = nil
+            await withCheckedContinuation { continuation in
+                firstRequestReleaseContinuation = continuation
+            }
+        }
+
+        return TranslationResult(
+            request: request,
+            translatedText: "translated-\(request.targetLanguage.id)"
+        )
+    }
+
+    func waitUntilFirstRequestStarts() async {
+        guard !firstRequestStarted else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            firstRequestStartContinuation = continuation
+        }
+    }
+
+    func releaseFirstRequest() {
+        firstRequestReleaseContinuation?.resume()
+        firstRequestReleaseContinuation = nil
+    }
+}
+
+private actor PopupTranslationHistoryStore: TranslationHistoryStoring {
+    private var results: [TranslationResult] = []
+
+    func save(_ result: TranslationResult) async throws {
+        results.append(result)
+    }
+
+    func recent(limit: Int) async throws -> [TranslationResult] {
+        Array(results.suffix(limit))
+    }
+
+    func capturedResults() -> [TranslationResult] {
+        results
     }
 }
 

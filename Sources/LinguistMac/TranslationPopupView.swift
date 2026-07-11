@@ -10,6 +10,8 @@ struct TranslationPopupView: View {
         VStack(alignment: .leading, spacing: 16) {
             header
 
+            languageBar
+
             Divider()
 
             content
@@ -41,6 +43,49 @@ struct TranslationPopupView: View {
         HStack {
             Label("Translation", systemImage: "text.bubble")
                 .font(.headline)
+        }
+    }
+
+    private var languageBar: some View {
+        HStack(spacing: 10) {
+            Picker("Source Language", selection: popupSourceLanguageBinding) {
+                ForEach(model.availableLanguages, id: \.id) { language in
+                    Text(LocalizedStringKey(language.displayName))
+                        .tag(language)
+                }
+            }
+            .labelsHidden()
+            .accessibilityLabel("Source Language")
+
+            Image(systemName: "arrow.right")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+
+            Picker("Target Language", selection: popupTargetLanguageBinding) {
+                ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
+                    Text(LocalizedStringKey(language.displayName))
+                        .tag(language)
+                }
+            }
+            .labelsHidden()
+            .accessibilityLabel("Target Language")
+        }
+        .disabled(!model.canRetranslatePopup)
+    }
+
+    private var popupSourceLanguageBinding: Binding<TranslationLanguage> {
+        Binding {
+            model.popupSourceLanguage
+        } set: { language in
+            model.selectPopupSourceLanguage(language)
+        }
+    }
+
+    private var popupTargetLanguageBinding: Binding<TranslationLanguage> {
+        Binding {
+            model.popupTargetLanguage
+        } set: { language in
+            model.selectPopupTargetLanguage(language)
         }
     }
 
