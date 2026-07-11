@@ -1,3 +1,4 @@
+import AppKit
 import LinguistMacCore
 import SwiftUI
 
@@ -35,8 +36,8 @@ struct PopupLanguagePickerOption: View {
                 Label {
                     Text(LocalizedStringKey(language.displayName))
                 } icon: {
-                    Image(systemName: readiness.settingsStatusImage)
-                        .foregroundStyle(readiness.settingsStatusTint)
+                    Image(nsImage: popupLanguagePackStatusMenuImage(for: readiness))
+                        .renderingMode(.original)
                 }
             } else {
                 Text(LocalizedStringKey(language.displayName))
@@ -52,6 +53,18 @@ struct PopupLanguagePickerOption: View {
 
         return "\(language.displayName), Apple language pack \(readiness.displayText)"
     }
+}
+
+func popupLanguagePackStatusMenuImage(for readiness: LanguagePackReadiness) -> NSImage {
+    let configuration = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
+        .applying(NSImage.SymbolConfiguration(paletteColors: [readiness.settingsStatusNSColor]))
+    let image = NSImage(
+        systemSymbolName: readiness.settingsStatusImage,
+        accessibilityDescription: readiness.displayText
+    )?
+        .withSymbolConfiguration(configuration) ?? NSImage(size: NSSize(width: 12, height: 12))
+    image.isTemplate = false
+    return image
 }
 
 extension AppleLanguagePackSelection {
@@ -96,6 +109,19 @@ extension LanguagePackReadiness {
             .orange
         case .unavailable:
             .red
+        }
+    }
+
+    var settingsStatusNSColor: NSColor {
+        switch self {
+        case .unknown:
+            .secondaryLabelColor
+        case .ready:
+            .systemGreen
+        case .needsDownload:
+            .systemOrange
+        case .unavailable:
+            .systemRed
         }
     }
 }

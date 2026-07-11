@@ -161,6 +161,11 @@ final class PopupRetranslationReviewTests: XCTestCase {
 
 @MainActor
 final class PopupLanguagePackReadinessTests: XCTestCase {
+    func testPopupLanguagePackStatusMenuImagesKeepOriginalRendering() {
+        XCTAssertFalse(popupLanguagePackStatusMenuImage(for: .ready).isTemplate)
+        XCTAssertFalse(popupLanguagePackStatusMenuImage(for: .needsDownload).isTemplate)
+    }
+
     func testPopupLanguagePackReadinessMatchesSettingsLanguageListStatus() {
         let model = AppShellModel(services: makeServices())
         model.appleLanguagePackGroups = [
