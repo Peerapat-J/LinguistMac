@@ -130,7 +130,7 @@ struct TranslationPopupView: View {
                         if showsOriginal {
                             TextEditor(text: popupSourceDraftBinding)
                                 .scrollContentBackground(.hidden)
-                                .font(.callout)
+                                .font(popupFont)
                                 .frame(minHeight: 80, maxHeight: 160)
                                 .accessibilityLabel("Original Text")
 
@@ -198,7 +198,7 @@ struct TranslationPopupView: View {
 
                 if let originalText, !originalText.isEmpty {
                     Text(originalText)
-                        .font(.callout)
+                        .font(popupFont)
                         .textSelection(.enabled)
                 }
 
