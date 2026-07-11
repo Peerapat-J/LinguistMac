@@ -64,6 +64,8 @@ struct TranslationPopupView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
+                    PopupTextActions(model: model, result: result, role: .translation)
+
                     if !result.wordTranslations.isEmpty || wordCard != nil {
                         Divider()
                         TranslationWordLookupSection(
@@ -94,9 +96,15 @@ struct TranslationPopupView: View {
 
                     if showsOriginal {
                         Divider()
-                        Text("Original")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack {
+                            Text("Original")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            Spacer()
+
+                            PopupTextActions(model: model, result: result, role: .source)
+                        }
                         Text(result.originalText)
                             .font(.callout)
                             .foregroundStyle(.secondary)
@@ -172,15 +180,6 @@ struct TranslationPopupView: View {
     private var footer: some View {
         HStack(alignment: .bottom) {
             Button {
-                Task {
-                    await model.copyPopupText()
-                }
-            } label: {
-                Label("Copy", systemImage: "doc.on.doc")
-            }
-            .disabled(model.popupState.copyableText == nil)
-
-            Button {
                 model.togglePopupOriginal()
             } label: {
                 if model.popupState.showsOriginal {
@@ -190,10 +189,6 @@ struct TranslationPopupView: View {
                 }
             }
             .disabled(model.popupState.copyableText == nil)
-
-            if let result = model.popupState.result {
-                SpokenOutputControls(model: model, result: result)
-            }
 
             Spacer()
 
@@ -205,25 +200,62 @@ struct TranslationPopupView: View {
     }
 }
 
-struct SpokenOutputControls: View {
+private struct PopupTextActions: View {
     @ObservedObject var model: AppShellModel
     let result: TranslationResult
+    let role: TranslationTextRole
 
     var body: some View {
         HStack(spacing: 8) {
-            if model.isSpokenOutputActive(for: result) {
+            Button {
+                Task {
+                    await model.copyPopupText(role)
+                }
+            } label: {
+                Label(copyLabel, systemImage: "doc.on.doc")
+            }
+            .help(copyLabel)
+            .accessibilityLabel(copyLabel)
+
+            SpokenOutputControls(model: model, result: result, role: role)
+        }
+        .controlSize(.small)
+    }
+
+    private var copyLabel: String {
+        switch role {
+        case .source:
+            "Copy Original"
+        case .translation:
+            "Copy Translation"
+        }
+    }
+}
+
+struct SpokenOutputControls: View {
+    @ObservedObject var model: AppShellModel
+    let result: TranslationResult
+    var role: TranslationTextRole = .translation
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if model.isSpokenOutputActive(context: context) {
                 Button {
                     model.stopSpokenOutput()
                 } label: {
                     Label("Stop", systemImage: "speaker.slash.fill")
                 }
+                .help("Stop Speaking")
+                .accessibilityLabel("Stop Speaking")
             } else {
                 Button {
-                    model.speakTranslation(result)
+                    model.speakPopupText(role, result: result)
                 } label: {
-                    Label("Speak", systemImage: "speaker.wave.2.fill")
+                    Label(speakLabel, systemImage: "speaker.wave.2.fill")
                 }
-                .disabled(SpokenOutputRequest(result: result).trimmedText.isEmpty)
+                .help(speakLabel)
+                .accessibilityLabel(speakLabel)
+                .disabled(request.trimmedText.isEmpty)
             }
 
             if let statusText {
@@ -236,7 +268,7 @@ struct SpokenOutputControls: View {
     }
 
     private var statusText: String? {
-        guard model.activeSpokenOutputResultID == result.id else {
+        guard model.activeSpokenOutputContext == context else {
             return nil
         }
 
@@ -251,6 +283,23 @@ struct SpokenOutputControls: View {
             return "Spoken"
         case let .failed(failure, _):
             return failure.displayText
+        }
+    }
+
+    private var context: SpokenOutputContext {
+        SpokenOutputContext(resultID: result.id, role: role)
+    }
+
+    private var request: SpokenOutputRequest {
+        model.spokenOutputRequest(for: role, result: result)
+    }
+
+    private var speakLabel: String {
+        switch role {
+        case .source:
+            "Speak Original"
+        case .translation:
+            "Speak Translation"
         }
     }
 

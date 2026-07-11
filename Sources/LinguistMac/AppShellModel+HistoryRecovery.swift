@@ -3,6 +3,34 @@ import LinguistMacCore
 
 @MainActor
 extension AppShellModel {
+    func isSpokenOutputActive(context: SpokenOutputContext) -> Bool {
+        guard activeSpokenOutputContext == context else {
+            return false
+        }
+
+        switch spokenOutputState {
+        case .preparing, .speaking:
+            return true
+        case .idle, .completed, .failed:
+            return false
+        }
+    }
+
+    func spokenOutputRequest(
+        for role: TranslationTextRole,
+        result: TranslationResult
+    ) -> SpokenOutputRequest {
+        switch role {
+        case .source:
+            SpokenOutputRequest(
+                text: result.originalText,
+                language: result.request.sourceLanguage
+            )
+        case .translation:
+            SpokenOutputRequest(result: result)
+        }
+    }
+
     var savedPopupWindowFrame: CGRect? {
         guard let originX = settings.popupOriginX,
               let originY = settings.popupOriginY
@@ -18,12 +46,18 @@ extension AppShellModel {
         )
     }
 
-    func copyPopupText() async {
-        guard let text = popupState.copyableText else {
+    func copyPopupText(_ role: TranslationTextRole) async {
+        guard let result = popupState.result else {
             return
         }
 
         record(.copyTranslation)
+        let text = switch role {
+        case .source:
+            result.originalText
+        case .translation:
+            result.translatedText
+        }
         await services.clipboard.writeText(text)
     }
 

@@ -6,6 +6,16 @@ enum AppWindow: String {
     case status, quickTranslate, translationPopup, onboarding
 }
 
+enum TranslationTextRole: Equatable {
+    case source
+    case translation
+}
+
+struct SpokenOutputContext: Equatable {
+    let resultID: UUID
+    let role: TranslationTextRole
+}
+
 enum AppShellCommand: Equatable {
     case screenTranslate
     case quickTranslate
@@ -69,7 +79,7 @@ final class AppShellModel: ObservableObject {
     var activeQuickVoiceCaptureID: UUID?
     var activeQuickVoiceCaptureTask: Task<Void, Never>?
     var activeSpokenOutputID: UUID?
-    var activeSpokenOutputResultID: UUID?
+    var activeSpokenOutputContext: SpokenOutputContext?
     var activeSpokenOutputTask: Task<Void, Never>?
     var isRefreshingAppleLanguagePackGroups = false
     var needsApplePackGroupRefresh = false
@@ -274,11 +284,16 @@ final class AppShellModel: ObservableObject {
     }
 
     func speakTranslation(_ result: TranslationResult) {
+        speakPopupText(.translation, result: result)
+    }
+
+    func speakPopupText(_ role: TranslationTextRole, result: TranslationResult) {
+        let request = spokenOutputRequest(for: role, result: result)
+        let context = SpokenOutputContext(resultID: result.id, role: role)
         stopSpokenOutput()
         let outputID = UUID()
-        let request = SpokenOutputRequest(result: result)
         activeSpokenOutputID = outputID
-        activeSpokenOutputResultID = result.id
+        activeSpokenOutputContext = context
         spokenOutputState = .preparing(request.normalized)
         activeSpokenOutputTask = Task {
             await runSpokenOutput(request, outputID: outputID)
@@ -287,23 +302,16 @@ final class AppShellModel: ObservableObject {
 
     func stopSpokenOutput() {
         activeSpokenOutputID = nil
-        activeSpokenOutputResultID = nil
+        activeSpokenOutputContext = nil
         activeSpokenOutputTask?.cancel()
         activeSpokenOutputTask = nil
         spokenOutputState = .idle
     }
 
     func isSpokenOutputActive(for result: TranslationResult) -> Bool {
-        guard activeSpokenOutputResultID == result.id else {
-            return false
-        }
-
-        switch spokenOutputState {
-        case .preparing, .speaking:
-            return true
-        case .idle, .completed, .failed:
-            return false
-        }
+        isSpokenOutputActive(
+            context: SpokenOutputContext(resultID: result.id, role: .translation)
+        )
     }
 
     private func persistSettings() {
