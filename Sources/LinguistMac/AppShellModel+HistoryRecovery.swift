@@ -91,11 +91,6 @@ extension AppShellModel {
         settings.popupHeight = height
     }
 
-    func resizePopup(widthDelta: Double, heightDelta: Double) {
-        settings.popupWidth = min(max(settings.popupWidth + widthDelta, 320), 720)
-        settings.popupHeight = min(max(settings.popupHeight + heightDelta, 240), 640)
-    }
-
     func openSystemSettings(for kind: PermissionKind) {
         record(.openSystemSettings(kind))
 

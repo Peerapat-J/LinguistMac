@@ -199,10 +199,6 @@ struct TranslationPopupView: View {
                 dismiss()
             }
             .keyboardShortcut(.defaultAction)
-
-            PopupResizeGrip { widthDelta, heightDelta in
-                model.resizePopup(widthDelta: widthDelta, heightDelta: heightDelta)
-            }
         }
     }
 }
@@ -464,32 +460,6 @@ struct TranslationWordLookupSection: View {
                 .controlSize(.small)
             }
         }
-    }
-}
-
-private struct PopupResizeGrip: View {
-    @State private var previousTranslation: CGSize = .zero
-    let onResize: (Double, Double) -> Void
-
-    var body: some View {
-        Image(systemName: "arrow.down.right.and.arrow.up.left")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .frame(width: 22, height: 22)
-            .contentShape(Rectangle())
-            .accessibilityLabel("Resize translation popup")
-            .gesture(
-                DragGesture(minimumDistance: 2)
-                    .onChanged { value in
-                        let widthDelta = value.translation.width - previousTranslation.width
-                        let heightDelta = value.translation.height - previousTranslation.height
-                        previousTranslation = value.translation
-                        onResize(widthDelta, heightDelta)
-                    }
-                    .onEnded { _ in
-                        previousTranslation = .zero
-                    }
-            )
     }
 }
 
