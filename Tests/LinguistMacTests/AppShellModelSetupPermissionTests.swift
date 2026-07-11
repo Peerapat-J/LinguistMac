@@ -90,6 +90,34 @@ final class PopupRetranslationReviewTests: XCTestCase {
         }
     }
 
+    func testPopupRetranslationAutoCopiesTheLatestResult() async throws {
+        let provider = PopupRetranslationReviewProvider()
+        let clipboard = PopupRetranslationReviewClipboard(text: "ก่อนแปลใหม่")
+        let model = AppShellModel(
+            settings: AppSettings(
+                sourceLanguage: .english,
+                targetLanguage: .japanese,
+                autoCopyEnabled: true
+            ),
+            services: makeServices(provider: provider, clipboard: clipboard)
+        )
+        model.popupState = .success(
+            popupResult(
+                text: "hello world",
+                targetLanguage: .japanese,
+                inputMode: .quickTranslate
+            ),
+            showsOriginal: true
+        )
+
+        model.selectPopupTargetLanguage(.thai)
+        let task = try XCTUnwrap(model.activePopupTranslationTask)
+        await task.value
+
+        let copiedText = await clipboard.textValue()
+        XCTAssertEqual(copiedText, "สวัสดีชาวโลก")
+    }
+
     private func makeServices(
         provider: any TranslationProviding,
         clipboard: any ClipboardServicing = SetupPermissionNoOpService()
@@ -353,5 +381,25 @@ private actor PopupRetranslationReviewProvider: TranslationProviding {
 
     func capturedRequests() -> [TranslationRequest] {
         requests
+    }
+}
+
+private actor PopupRetranslationReviewClipboard: ClipboardServicing {
+    private var text: String?
+
+    init(text: String? = nil) {
+        self.text = text
+    }
+
+    func readText() async -> String? {
+        text
+    }
+
+    func writeText(_ text: String) async {
+        self.text = text
+    }
+
+    func textValue() -> String? {
+        text
     }
 }

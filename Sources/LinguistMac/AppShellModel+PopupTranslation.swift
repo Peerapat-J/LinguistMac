@@ -237,6 +237,9 @@ extension AppShellModel {
             )
             saveRecent(result)
             await persistRecentTranslation(result)
+            if settings.autoCopyEnabled, isCurrentPopupTranslation(translationID) {
+                await services.clipboard.writeText(result.translatedText)
+            }
             finishPopupTranslation(translationID)
         } catch is CancellationError {
             finishPopupTranslation(translationID)
