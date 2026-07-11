@@ -28,6 +28,7 @@ struct TranslationPopupView: View {
             idealHeight: model.settings.popupHeight,
             maxHeight: 680
         )
+        .background(Color(nsColor: .windowBackgroundColor))
         .background {
             WindowFrameObserver(savedFrame: model.savedPopupWindowFrame) { frame in
                 model.rememberPopupWindowFrame(frame)
@@ -289,12 +290,12 @@ private struct PopupTextPanel<Content: View>: View {
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                Color.primary.opacity(0.035),
+                Color(nsColor: .underPageBackgroundColor),
                 in: RoundedRectangle(cornerRadius: 8, style: .continuous)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.75), lineWidth: 1)
             }
     }
 }
