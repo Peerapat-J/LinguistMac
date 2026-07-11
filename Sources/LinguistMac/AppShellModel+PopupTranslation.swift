@@ -217,7 +217,12 @@ extension AppShellModel {
 
             popupState = .loading(request)
             let translator = try await readyTranslator(for: request)
-            let result = try await translator.translate(request)
+            let translatedResult = try await translator.translate(request)
+            let result = await WordTranslationAugmenter.resultWithWordTranslationsIfNeeded(
+                translatedResult,
+                provider: translator,
+                eligibleInputModes: [.quickTranslate, .selectedText]
+            )
             try Task.checkCancellation()
             guard isCurrentPopupTranslation(translationID) else {
                 return
