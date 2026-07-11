@@ -103,84 +103,90 @@ struct TranslationPopupView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .success(result, showsOriginal, wordCard):
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Button {
-                        model.togglePopupOriginal()
-                        model.preparePopupSourceEditorIfNeeded()
-                    } label: {
-                        Label(
-                            showsOriginal ? "Hide Original" : "Show Original",
-                            systemImage: showsOriginal ? "chevron.down" : "chevron.right"
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
-
-                    PopupTextActions(
-                        model: model,
-                        result: result,
-                        role: .source,
-                        textOverride: model.popupSourceDraft
-                    )
-                }
-
-                if showsOriginal {
-                    TextEditor(text: popupSourceDraftBinding)
-                        .font(.callout)
-                        .frame(minHeight: 80, maxHeight: 160)
-                        .accessibilityLabel("Original Text")
-
-                    if let sourceReading = result.sourceReading, !model.isPopupSourceDirty {
-                        ReadingText(text: sourceReading, role: .source)
-                    }
-                }
-
-                Divider()
-
-                ScrollView {
+                PopupTextPanel {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(result.translatedText)
-                            .font(popupFont)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack {
+                            Button {
+                                model.togglePopupOriginal()
+                                model.preparePopupSourceEditorIfNeeded()
+                            } label: {
+                                Label(
+                                    showsOriginal ? "Hide Original" : "Show Original",
+                                    systemImage: showsOriginal ? "chevron.down" : "chevron.right"
+                                )
+                            }
+                            .buttonStyle(.plain)
 
-                        if let translatedReading = result.translatedReading {
-                            ReadingText(text: translatedReading, role: .translation)
+                            Spacer()
+
+                            PopupTextActions(
+                                model: model,
+                                result: result,
+                                role: .source,
+                                textOverride: model.popupSourceDraft
+                            )
                         }
 
-                        PopupTextActions(model: model, result: result, role: .translation)
+                        if showsOriginal {
+                            TextEditor(text: popupSourceDraftBinding)
+                                .scrollContentBackground(.hidden)
+                                .font(.callout)
+                                .frame(minHeight: 80, maxHeight: 160)
+                                .accessibilityLabel("Original Text")
 
-                        if !result.wordTranslations.isEmpty || wordCard != nil {
-                            Divider()
-                            TranslationWordLookupSection(
-                                wordTranslations: result.wordTranslations,
-                                wordCard: wordCard,
-                                isSelectionEnabled: true,
-                                onSelectWord: { wordTranslation, index in
-                                    Task {
-                                        await model.selectPopupWord(
-                                            wordTranslation,
-                                            at: index,
+                            if let sourceReading = result.sourceReading, !model.isPopupSourceDirty {
+                                ReadingText(text: sourceReading, role: .source)
+                            }
+                        }
+                    }
+                }
+
+                PopupTextPanel {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(result.translatedText)
+                                .font(popupFont)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if let translatedReading = result.translatedReading {
+                                ReadingText(text: translatedReading, role: .translation)
+                            }
+
+                            PopupTextActions(model: model, result: result, role: .translation)
+
+                            if !result.wordTranslations.isEmpty || wordCard != nil {
+                                Divider()
+                                TranslationWordLookupSection(
+                                    wordTranslations: result.wordTranslations,
+                                    wordCard: wordCard,
+                                    isSelectionEnabled: true,
+                                    onSelectWord: { wordTranslation, index in
+                                        Task {
+                                            await model.selectPopupWord(
+                                                wordTranslation,
+                                                at: index,
+                                                resultID: result.id
+                                            )
+                                        }
+                                    },
+                                    onDismissWordCard: {
+                                        model.dismissPopupWordCard()
+                                    },
+                                    onRecoveryAction: { action, card in
+                                        handleWordLookupRecovery(
+                                            action,
+                                            card: card,
                                             resultID: result.id
                                         )
                                     }
-                                },
-                                onDismissWordCard: {
-                                    model.dismissPopupWordCard()
-                                },
-                                onRecoveryAction: { action, card in
-                                    handleWordLookupRecovery(
-                                        action,
-                                        card: card,
-                                        resultID: result.id
-                                    )
-                                }
-                            )
+                                )
+                            }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         case let .failed(failure, originalText):
             let presentation = failure.presentation
@@ -272,6 +278,24 @@ struct TranslationPopupView: View {
             .keyboardShortcut(.return, modifiers: [.command])
             .disabled(!model.canTranslatePopupDraft)
         }
+    }
+}
+
+private struct PopupTextPanel<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                Color.primary.opacity(0.035),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+            }
     }
 }
 
