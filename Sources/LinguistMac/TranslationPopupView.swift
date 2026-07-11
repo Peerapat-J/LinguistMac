@@ -8,8 +8,6 @@ struct TranslationPopupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            header
-
             languageBar
 
             Divider()
@@ -39,13 +37,6 @@ struct TranslationPopupView: View {
         }
         .onAppear {
             model.preparePopupSourceEditorIfNeeded()
-        }
-    }
-
-    private var header: some View {
-        HStack {
-            Label("Translation", systemImage: "text.bubble")
-                .font(.headline)
         }
     }
 
