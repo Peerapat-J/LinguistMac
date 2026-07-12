@@ -297,10 +297,6 @@ final class AppShellModel: ObservableObject {
         await services.screenTranslationNotifier.openNotificationSettings()
     }
 
-    func speakTranslation(_ result: TranslationResult) {
-        speakPopupText(.translation, result: result)
-    }
-
     func speakPopupText(
         _ role: TranslationTextRole,
         result: TranslationResult,
@@ -328,12 +324,6 @@ final class AppShellModel: ObservableObject {
         activeSpokenOutputTask?.cancel()
         activeSpokenOutputTask = nil
         spokenOutputState = .idle
-    }
-
-    func isSpokenOutputActive(for result: TranslationResult) -> Bool {
-        isSpokenOutputActive(
-            context: SpokenOutputContext(resultID: result.id, role: .translation)
-        )
     }
 
     private func persistSettings() {
