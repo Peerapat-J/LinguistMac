@@ -36,7 +36,7 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let result = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
         model.quickSessionState = .completed(result)
 
-        model.speakTranslation(result)
+        model.speakPopupText(.translation, result: result)
         let task = try XCTUnwrap(model.activeSpokenOutputTask)
         await spokenOutput.waitUntilSpeakStarts()
 
@@ -51,7 +51,7 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let requests = await spokenOutput.capturedRequests()
         XCTAssertEqual(requests, [SpokenOutputRequest(text: "สวัสดี", language: .thai)])
         XCTAssertEqual(model.spokenOutputState, .completed(SpokenOutputRequest(text: "สวัสดี", language: .thai)))
-        XCTAssertFalse(model.isSpokenOutputActive(for: result))
+        XCTAssertFalse(model.isSpokenOutputActive(context: translationContext(for: result)))
     }
 
     func testSpeakPopupTranslationSurfacesUnsupportedTargetLanguage() async throws {
@@ -60,7 +60,7 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let result = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
         model.popupState = .success(result, showsOriginal: false)
 
-        model.speakTranslation(result)
+        model.speakPopupText(.translation, result: result)
         let task = try XCTUnwrap(model.activeSpokenOutputTask)
         await task.value
 
@@ -121,11 +121,11 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let model = AppShellModel(services: makeServices(spokenOutput: spokenOutput))
         let result = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
 
-        model.speakTranslation(result)
+        model.speakPopupText(.translation, result: result)
         let task = try XCTUnwrap(model.activeSpokenOutputTask)
         await spokenOutput.waitUntilSpeakStarts()
 
-        XCTAssertTrue(model.isSpokenOutputActive(for: result))
+        XCTAssertTrue(model.isSpokenOutputActive(context: translationContext(for: result)))
 
         model.stopSpokenOutput()
         await task.value
@@ -148,10 +148,10 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let firstResult = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
         let secondResult = makeSpokenOutputResult(translatedText: "ขอบคุณ", targetLanguage: .thai)
 
-        model.speakTranslation(firstResult)
+        model.speakPopupText(.translation, result: firstResult)
         await spokenOutput.waitUntilSpeakStarts(count: 1)
 
-        model.speakTranslation(secondResult)
+        model.speakPopupText(.translation, result: secondResult)
         await spokenOutput.waitUntilSpeakStarts(count: 2)
         await spokenOutput.waitUntilStopCallCount(1)
 
@@ -165,8 +165,8 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
             model.spokenOutputState,
             .speaking(SpokenOutputRequest(text: "ขอบคุณ", language: .thai))
         )
-        XCTAssertFalse(model.isSpokenOutputActive(for: firstResult))
-        XCTAssertTrue(model.isSpokenOutputActive(for: secondResult))
+        XCTAssertFalse(model.isSpokenOutputActive(context: translationContext(for: firstResult)))
+        XCTAssertTrue(model.isSpokenOutputActive(context: translationContext(for: secondResult)))
 
         await spokenOutput.releaseSpeech(sessionID: secondSessionID)
         let task = try XCTUnwrap(model.activeSpokenOutputTask)
@@ -198,6 +198,10 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
             shortcutRegistry: SpokenOutputShortcutRegistry(),
             spokenOutput: spokenOutput
         )
+    }
+
+    private func translationContext(for result: TranslationResult) -> SpokenOutputContext {
+        SpokenOutputContext(resultID: result.id, role: .translation)
     }
 }
 
