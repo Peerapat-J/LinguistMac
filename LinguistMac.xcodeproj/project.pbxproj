@@ -87,6 +87,7 @@
 		C10000000000000000000008 /* AppShellModelLanguagePackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000008 /* AppShellModelLanguagePackTests.swift */; };
 		C10000000000000000000002 /* libLinguistMacCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B20000000000000000000030 /* libLinguistMacCore.a */; };
 		D10000000000000000000001 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = D90000000000000000000002 /* KeyboardShortcuts */; };
+		E10000000000000000000001 /* AppShellModel+PopupTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* AppShellModel+PopupTranslation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -204,6 +205,7 @@
 		C20000000000000000000007 /* AppShellModelSetupPermissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelSetupPermissionTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000008 /* AppShellModelLanguagePackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellModelLanguagePackTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000002 /* LinguistMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LinguistMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E20000000000000000000001 /* AppShellModel+PopupTranslation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppShellModel+PopupTranslation.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -270,6 +272,7 @@
 				B2000000000000000000002B /* AppShellModel+TranslationActions.swift */,
 				B2000000000000000000002C /* AppShellModel+HistoryRecovery.swift */,
 				B2000000000000000000002D /* AppShellModel+ProviderSettings.swift */,
+				E20000000000000000000001 /* AppShellModel+PopupTranslation.swift */,
 				B20000000000000000000006 /* MenuBarMenuView.swift */,
 				B20000000000000000000007 /* SettingsView.swift */,
 				B20000000000000000000054 /* SettingsSupportViews.swift */,
@@ -558,6 +561,7 @@
 				B10000000000000000000029 /* AppShellModel+TranslationActions.swift in Sources */,
 				B1000000000000000000002A /* AppShellModel+HistoryRecovery.swift in Sources */,
 				B1000000000000000000002B /* AppShellModel+ProviderSettings.swift in Sources */,
+				E10000000000000000000001 /* AppShellModel+PopupTranslation.swift in Sources */,
 				B10000000000000000000006 /* MenuBarMenuView.swift in Sources */,
 				B10000000000000000000007 /* SettingsView.swift in Sources */,
 				B10000000000000000000054 /* SettingsSupportViews.swift in Sources */,

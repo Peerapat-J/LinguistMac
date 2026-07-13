@@ -5,6 +5,7 @@ import LinguistMacCore
 extension AppShellModel {
     func runScreenTranslation() async {
         record(.screenTranslate)
+        cancelPopupRetranslation()
         stopSpokenOutput()
         cancelPopupWordLookup()
         let translationSettings = settingsWithSupportedProvider()
@@ -23,6 +24,7 @@ extension AppShellModel {
 
         switch finalState {
         case let .completed(result):
+            preparePopupSourceEditor(for: result)
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
             await persistRecentTranslation(result)
@@ -101,7 +103,8 @@ extension AppShellModel {
             let translationSettings = settingsWithSupportedProvider()
             let request = try await quickTranslationRequest(
                 settings: translationSettings,
-                sourceLanguageOverride: sourceLanguageOverride
+                sourceLanguageOverride: sourceLanguageOverride,
+                requestsReadings: voiceCaptureID == nil
             )
             guard try shouldContinueQuickVoiceCapture(voiceCaptureID) else {
                 return
@@ -109,7 +112,7 @@ extension AppShellModel {
             quickSessionState = .translating(request)
             popupState = .loading(request)
 
-            let translator = try await readyQuickTranslator(for: request)
+            let translator = try await readyTranslator(for: request)
             guard try shouldContinueQuickVoiceCapture(voiceCaptureID) else {
                 return
             }
@@ -135,6 +138,7 @@ extension AppShellModel {
 
     private func prepareQuickTranslation(preservingVoiceTranscript: Bool) {
         record(.quickTranslate)
+        cancelPopupRetranslation()
         stopSpokenOutput()
         cancelPopupWordLookup()
         cancelQuickWordTranslation()
@@ -160,6 +164,7 @@ extension AppShellModel {
         }
 
         quickSessionState = .completed(result)
+        preparePopupSourceEditor(for: result)
         popupState = .success(result, showsOriginal: false)
         saveRecent(result)
         await persistRecentTranslation(result)
@@ -199,16 +204,24 @@ extension AppShellModel {
 
     private func quickTranslationRequest(
         settings: AppSettings,
-        sourceLanguageOverride: TranslationLanguage? = nil
+        sourceLanguageOverride: TranslationLanguage? = nil,
+        requestsReadings: Bool = true
     ) async throws -> TranslationRequest {
         var draft = quickDraft
         if let sourceLanguageOverride {
             draft.sourceLanguage = sourceLanguageOverride
         }
 
-        var request = try draft
-            .makeRequest(providerID: settings.selectedProviderID)
-            .resolvingAutoDetectedSource()
+        let draftRequest = try draft.makeRequest(providerID: settings.selectedProviderID)
+        var request = TranslationRequest(
+            text: draftRequest.text,
+            sourceLanguage: draftRequest.sourceLanguage,
+            targetLanguage: draftRequest.targetLanguage,
+            inputMode: draftRequest.inputMode,
+            providerID: draftRequest.providerID,
+            requestsReadings: requestsReadings
+        )
+        .resolvingAutoDetectedSource()
         let providerID = await services.translatorRegistry.supportedProviderID(
             preferred: request.providerID,
             sourceLanguage: request.sourceLanguage,
@@ -218,7 +231,7 @@ extension AppShellModel {
         return request
     }
 
-    private func readyQuickTranslator(for request: TranslationRequest) async throws -> any TranslationProviding {
+    func readyTranslator(for request: TranslationRequest) async throws -> any TranslationProviding {
         let translator = try await services.translatorRegistry.provider(for: request.providerID)
         guard !translator.usesNetwork else {
             return translator
@@ -586,7 +599,7 @@ extension AppShellModel {
         popupState = popupState.updatingWordCard(nil)
     }
 
-    private func cancelPopupWordLookup() {
+    func cancelPopupWordLookup() {
         activePopupWordLookupID = nil
         activePopupWordLookupTask?.cancel()
         activePopupWordLookupTask = nil
@@ -630,7 +643,7 @@ extension AppShellModel {
         )
     }
 
-    private func saveRecent(_ result: TranslationResult) {
+    func saveRecent(_ result: TranslationResult) {
         recentTranslations = TranslationHistoryPolicy.inserting(
             result,
             into: recentTranslations,
@@ -638,7 +651,7 @@ extension AppShellModel {
         )
     }
 
-    private func persistRecentTranslation(_ result: TranslationResult) async {
+    func persistRecentTranslation(_ result: TranslationResult) async {
         do {
             try await services.historyStore.save(result)
             historyLoadError = nil
@@ -651,6 +664,7 @@ extension AppShellModel {
         _ inputMode: TranslationInputMode,
         operation: (InputModeTranslationCoordinator, AppSettings) async -> TranslationSessionState
     ) async {
+        cancelPopupRetranslation()
         stopSpokenOutput()
         cancelPopupWordLookup()
         let translationSettings = settingsWithSupportedProvider()
@@ -670,6 +684,7 @@ extension AppShellModel {
 
         switch finalState {
         case let .completed(result):
+            preparePopupSourceEditor(for: result)
             popupState = .success(result, showsOriginal: false)
             saveRecent(result)
         case let .failed(failure):

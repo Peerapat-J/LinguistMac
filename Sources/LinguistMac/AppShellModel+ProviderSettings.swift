@@ -8,6 +8,28 @@ extension AppShellModel {
         providersSupportingCurrentLanguages(from: availableProviders)
     }
 
+    func popupLanguagePackReadiness(for language: TranslationLanguage) -> LanguagePackReadiness? {
+        guard !language.supportsAutoDetect else {
+            return nil
+        }
+        guard let group = appleLanguagePackGroups.first(where: { $0.language == language }) else {
+            return .unknown
+        }
+
+        let readinesses = group.rows.map(\.readiness)
+        if readinesses.contains(.ready) {
+            return .ready
+        }
+        if readinesses.contains(.unknown) {
+            return .unknown
+        }
+        if readinesses.contains(.needsDownload) {
+            return .needsDownload
+        }
+
+        return .unavailable
+    }
+
     func setSourceLanguage(_ language: TranslationLanguage) {
         settings.sourceLanguage = language
         sanitizeSelectedProviderForCurrentLanguages()

@@ -8,17 +8,18 @@ struct TranslationPopupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            header
+            languageBar
 
             Divider()
 
             content
-
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             footer
         }
-        .padding(20)
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 12)
         .frame(
             minWidth: 320,
             idealWidth: model.settings.popupWidth,
@@ -27,18 +28,74 @@ struct TranslationPopupView: View {
             idealHeight: model.settings.popupHeight,
             maxHeight: 680
         )
+        .background(Color(nsColor: .windowBackgroundColor))
         .background {
             WindowFrameObserver(savedFrame: model.savedPopupWindowFrame) { frame in
                 model.rememberPopupWindowFrame(frame)
             }
             .frame(width: 0, height: 0)
         }
+        .onAppear {
+            model.preparePopupSourceEditorIfNeeded()
+            Task {
+                await model.refreshAppleLanguagePackGroupsIfNeeded()
+            }
+        }
     }
 
-    private var header: some View {
-        HStack {
-            Label("Translation", systemImage: "text.bubble")
-                .font(.headline)
+    private var languageBar: some View {
+        HStack(spacing: 10) {
+            Picker("Source Language", selection: popupSourceLanguageBinding) {
+                ForEach(model.availableLanguages, id: \.id) { language in
+                    PopupLanguagePickerOption(
+                        language: language,
+                        readiness: model.popupLanguagePackReadiness(for: language)
+                    )
+                    .tag(language)
+                }
+            }
+            .labelsHidden()
+            .accessibilityLabel("Source Language")
+
+            Button {
+                model.swapPopupLanguages()
+            } label: {
+                Label("Swap Languages", systemImage: "arrow.left.arrow.right")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
+            .help("Swap Languages")
+            .accessibilityLabel("Swap Languages")
+            .disabled(!model.canSwapPopupLanguages)
+
+            Picker("Target Language", selection: popupTargetLanguageBinding) {
+                ForEach(model.availableLanguages.filter(\.canBeTargetLanguage), id: \.id) { language in
+                    PopupLanguagePickerOption(
+                        language: language,
+                        readiness: model.popupLanguagePackReadiness(for: language)
+                    )
+                    .tag(language)
+                }
+            }
+            .labelsHidden()
+            .accessibilityLabel("Target Language")
+        }
+        .disabled(!model.canRetranslatePopup)
+    }
+
+    private var popupSourceLanguageBinding: Binding<TranslationLanguage> {
+        Binding {
+            model.popupSourceLanguage
+        } set: { language in
+            model.selectPopupSourceLanguage(language)
+        }
+    }
+
+    private var popupTargetLanguageBinding: Binding<TranslationLanguage> {
+        Binding {
+            model.popupTargetLanguage
+        } set: { language in
+            model.selectPopupTargetLanguage(language)
         }
     }
 
@@ -55,53 +112,91 @@ struct TranslationPopupView: View {
             ProgressView("Translating...")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .success(result, showsOriginal, wordCard):
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(result.translatedText)
-                        .font(popupFont)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if !result.wordTranslations.isEmpty || wordCard != nil {
-                        Divider()
-                        TranslationWordLookupSection(
-                            wordTranslations: result.wordTranslations,
-                            wordCard: wordCard,
-                            isSelectionEnabled: true,
-                            onSelectWord: { wordTranslation, index in
-                                Task {
-                                    await model.selectPopupWord(
-                                        wordTranslation,
-                                        at: index,
-                                        resultID: result.id
-                                    )
-                                }
-                            },
-                            onDismissWordCard: {
-                                model.dismissPopupWordCard()
-                            },
-                            onRecoveryAction: { action, card in
-                                handleWordLookupRecovery(
-                                    action,
-                                    card: card,
-                                    resultID: result.id
+            VStack(alignment: .leading, spacing: 12) {
+                PopupTextPanel {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Button {
+                                model.togglePopupOriginal()
+                                model.preparePopupSourceEditorIfNeeded()
+                            } label: {
+                                Label(
+                                    showsOriginal ? "Hide Original" : "Show Original",
+                                    systemImage: showsOriginal ? "chevron.down" : "chevron.right"
                                 )
                             }
-                        )
-                    }
+                            .buttonStyle(.plain)
 
-                    if showsOriginal {
-                        Divider()
-                        Text("Original")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(result.originalText)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            Spacer()
+
+                            PopupTextActions(
+                                model: model,
+                                result: result,
+                                role: .source,
+                                textOverride: model.popupSourceDraft
+                            )
+                        }
+
+                        if showsOriginal {
+                            TextEditor(text: popupSourceDraftBinding)
+                                .scrollContentBackground(.hidden)
+                                .font(popupFont)
+                                .frame(minHeight: 80, maxHeight: 160)
+                                .accessibilityLabel("Original Text")
+
+                            if let sourceReading = result.sourceReading, !model.isPopupSourceDirty {
+                                ReadingText(text: sourceReading, role: .source)
+                            }
+                        }
                     }
                 }
+
+                PopupTextPanel {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(result.translatedText)
+                                .font(popupFont)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if let translatedReading = result.translatedReading {
+                                ReadingText(text: translatedReading, role: .translation)
+                            }
+
+                            PopupTextActions(model: model, result: result, role: .translation)
+
+                            if !result.wordTranslations.isEmpty || wordCard != nil {
+                                Divider()
+                                TranslationWordLookupSection(
+                                    wordTranslations: result.wordTranslations,
+                                    wordCard: wordCard,
+                                    isSelectionEnabled: true,
+                                    onSelectWord: { wordTranslation, index in
+                                        Task {
+                                            await model.selectPopupWord(
+                                                wordTranslation,
+                                                at: index,
+                                                resultID: result.id
+                                            )
+                                        }
+                                    },
+                                    onDismissWordCard: {
+                                        model.dismissPopupWordCard()
+                                    },
+                                    onRecoveryAction: { action, card in
+                                        handleWordLookupRecovery(
+                                            action,
+                                            card: card,
+                                            resultID: result.id
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         case let .failed(failure, originalText):
             let presentation = failure.presentation
@@ -113,7 +208,7 @@ struct TranslationPopupView: View {
 
                 if let originalText, !originalText.isEmpty {
                     Text(originalText)
-                        .font(.callout)
+                        .font(popupFont)
                         .textSelection(.enabled)
                 }
 
@@ -167,42 +262,124 @@ struct TranslationPopupView: View {
         return .custom(model.settings.popupFontFamily, size: model.settings.popupFontSize)
     }
 
+    private var popupSourceDraftBinding: Binding<String> {
+        Binding {
+            model.popupSourceDraft
+        } set: { text in
+            model.updatePopupSourceDraft(text)
+        }
+    }
+
     private var footer: some View {
         HStack(alignment: .bottom) {
-            Button {
-                Task {
-                    await model.copyPopupText()
-                }
-            } label: {
-                Label("Copy", systemImage: "doc.on.doc")
-            }
-            .disabled(model.popupState.copyableText == nil)
-
-            Button {
-                model.togglePopupOriginal()
-            } label: {
-                if model.popupState.showsOriginal {
-                    Label("Hide Original", systemImage: "text.quote")
-                } else {
-                    Label("Show Original", systemImage: "text.quote")
-                }
-            }
-            .disabled(model.popupState.copyableText == nil)
-
-            if let result = model.popupState.result {
-                SpokenOutputControls(model: model, result: result)
-            }
-
             Spacer()
 
             Button("Done") {
                 dismiss()
             }
-            .keyboardShortcut(.defaultAction)
+            .keyboardShortcut(.cancelAction)
 
-            PopupResizeGrip { widthDelta, heightDelta in
-                model.resizePopup(widthDelta: widthDelta, heightDelta: heightDelta)
+            Button {
+                model.translatePopupDraft()
+            } label: {
+                Label("Translate", systemImage: "play.fill")
             }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.return, modifiers: [.command])
+            .disabled(!model.canTranslatePopupDraft)
+        }
+    }
+}
+
+private struct PopupTextPanel<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                Color(nsColor: .underPageBackgroundColor),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.75), lineWidth: 1)
+            }
+    }
+}
+
+private struct ReadingText: View {
+    let text: String
+    let role: TranslationTextRole
+
+    var body: some View {
+        Text(text)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel("\(accessibilityPrefix) reading: \(text)")
+    }
+
+    private var accessibilityPrefix: String {
+        switch role {
+        case .source:
+            "Original"
+        case .translation:
+            "Translation"
+        }
+    }
+}
+
+private struct PopupTextActions: View {
+    @ObservedObject var model: AppShellModel
+    let result: TranslationResult
+    let role: TranslationTextRole
+    var textOverride: String?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button {
+                Task {
+                    await model.copyPopupText(role, textOverride: textOverride)
+                }
+            } label: {
+                Label(copyLabel, systemImage: "doc.on.doc")
+            }
+            .help(copyLabel)
+            .accessibilityLabel(copyLabel)
+            .disabled(effectiveText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            SpokenOutputControls(
+                model: model,
+                result: result,
+                role: role,
+                textOverride: textOverride
+            )
+        }
+        .controlSize(.small)
+    }
+
+    private var copyLabel: String {
+        switch role {
+        case .source:
+            "Copy Original"
+        case .translation:
+            "Copy Translation"
+        }
+    }
+
+    private var effectiveText: String {
+        if let textOverride {
+            return textOverride
+        }
+
+        return switch role {
+        case .source:
+            result.originalText
+        case .translation:
+            result.translatedText
         }
     }
 }
@@ -210,22 +387,32 @@ struct TranslationPopupView: View {
 struct SpokenOutputControls: View {
     @ObservedObject var model: AppShellModel
     let result: TranslationResult
+    var role: TranslationTextRole = .translation
+    var textOverride: String?
 
     var body: some View {
         HStack(spacing: 8) {
-            if model.isSpokenOutputActive(for: result) {
+            if model.isSpokenOutputActive(context: context) {
                 Button {
                     model.stopSpokenOutput()
                 } label: {
                     Label("Stop", systemImage: "speaker.slash.fill")
                 }
+                .help("Stop Speaking")
+                .accessibilityLabel("Stop Speaking")
             } else {
                 Button {
-                    model.speakTranslation(result)
+                    model.speakPopupText(
+                        role,
+                        result: result,
+                        textOverride: textOverride
+                    )
                 } label: {
-                    Label("Speak", systemImage: "speaker.wave.2.fill")
+                    Label(speakLabel, systemImage: "speaker.wave.2.fill")
                 }
-                .disabled(SpokenOutputRequest(result: result).trimmedText.isEmpty)
+                .help(speakLabel)
+                .accessibilityLabel(speakLabel)
+                .disabled(request.trimmedText.isEmpty)
             }
 
             if let statusText {
@@ -238,7 +425,7 @@ struct SpokenOutputControls: View {
     }
 
     private var statusText: String? {
-        guard model.activeSpokenOutputResultID == result.id else {
+        guard model.activeSpokenOutputContext == context else {
             return nil
         }
 
@@ -253,6 +440,27 @@ struct SpokenOutputControls: View {
             return "Spoken"
         case let .failed(failure, _):
             return failure.displayText
+        }
+    }
+
+    private var context: SpokenOutputContext {
+        SpokenOutputContext(resultID: result.id, role: role)
+    }
+
+    private var request: SpokenOutputRequest {
+        model.spokenOutputRequest(
+            for: role,
+            result: result,
+            textOverride: textOverride
+        )
+    }
+
+    private var speakLabel: String {
+        switch role {
+        case .source:
+            "Speak Original"
+        case .translation:
+            "Speak Translation"
         }
     }
 
@@ -464,32 +672,6 @@ struct TranslationWordLookupSection: View {
                 .controlSize(.small)
             }
         }
-    }
-}
-
-private struct PopupResizeGrip: View {
-    @State private var previousTranslation: CGSize = .zero
-    let onResize: (Double, Double) -> Void
-
-    var body: some View {
-        Image(systemName: "arrow.down.right.and.arrow.up.left")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .frame(width: 22, height: 22)
-            .contentShape(Rectangle())
-            .accessibilityLabel("Resize translation popup")
-            .gesture(
-                DragGesture(minimumDistance: 2)
-                    .onChanged { value in
-                        let widthDelta = value.translation.width - previousTranslation.width
-                        let heightDelta = value.translation.height - previousTranslation.height
-                        previousTranslation = value.translation
-                        onResize(widthDelta, heightDelta)
-                    }
-                    .onEnded { _ in
-                        previousTranslation = .zero
-                    }
-            )
     }
 }
 

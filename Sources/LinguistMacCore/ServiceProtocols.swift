@@ -69,7 +69,8 @@ public struct ProviderBackedWordLookupService: WordLookupProviding {
                 sourceLanguage: normalizedRequest.sourceLanguage,
                 targetLanguage: normalizedRequest.targetLanguage,
                 inputMode: normalizedRequest.inputMode,
-                providerID: normalizedRequest.providerID
+                providerID: normalizedRequest.providerID,
+                requestsReadings: false
             )
             let result = try await provider.translate(translationRequest)
             let translatedText = displayText(from: result.translatedText)

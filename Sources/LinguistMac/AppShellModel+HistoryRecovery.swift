@@ -3,6 +3,35 @@ import LinguistMacCore
 
 @MainActor
 extension AppShellModel {
+    func isSpokenOutputActive(context: SpokenOutputContext) -> Bool {
+        guard activeSpokenOutputContext == context else {
+            return false
+        }
+
+        switch spokenOutputState {
+        case .preparing, .speaking:
+            return true
+        case .idle, .completed, .failed:
+            return false
+        }
+    }
+
+    func spokenOutputRequest(
+        for role: TranslationTextRole,
+        result: TranslationResult,
+        textOverride: String? = nil
+    ) -> SpokenOutputRequest {
+        switch role {
+        case .source:
+            SpokenOutputRequest(
+                text: textOverride ?? result.originalText,
+                language: result.request.sourceLanguage
+            )
+        case .translation:
+            SpokenOutputRequest(result: result)
+        }
+    }
+
     var savedPopupWindowFrame: CGRect? {
         guard let originX = settings.popupOriginX,
               let originY = settings.popupOriginY
@@ -18,12 +47,21 @@ extension AppShellModel {
         )
     }
 
-    func copyPopupText() async {
-        guard let text = popupState.copyableText else {
+    func copyPopupText(
+        _ role: TranslationTextRole,
+        textOverride: String? = nil
+    ) async {
+        guard let result = popupState.result else {
             return
         }
 
         record(.copyTranslation)
+        let text = switch role {
+        case .source:
+            textOverride ?? result.originalText
+        case .translation:
+            result.translatedText
+        }
         await services.clipboard.writeText(text)
     }
 
@@ -34,10 +72,12 @@ extension AppShellModel {
 
     func showHistoryResult(_ result: TranslationResult) {
         record(.history)
+        cancelPopupRetranslation()
         stopSpokenOutput()
         let wordCard = result.shownWordCards.first.map {
             TranslationPopupWordCardState(shownContent: $0, result: result)
         }
+        preparePopupSourceEditor(for: result)
         popupState = .success(result, showsOriginal: false, wordCard: wordCard)
     }
 
@@ -89,11 +129,6 @@ extension AppShellModel {
         settings.popupOriginY = frame.origin.y
         settings.popupWidth = width
         settings.popupHeight = height
-    }
-
-    func resizePopup(widthDelta: Double, heightDelta: Double) {
-        settings.popupWidth = min(max(settings.popupWidth + widthDelta, 320), 720)
-        settings.popupHeight = min(max(settings.popupHeight + heightDelta, 240), 640)
     }
 
     func openSystemSettings(for kind: PermissionKind) {
