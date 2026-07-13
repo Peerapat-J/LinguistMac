@@ -49,11 +49,14 @@ enum PopupWindowSizingPolicy {
         bySettingHeight preferredHeight: CGFloat,
         from currentFrame: CGRect,
         visibleFrame: CGRect,
-        minimumHeight: CGFloat = minimumFrameHeight
+        minimumHeight: CGFloat = minimumFrameHeight,
+        anchoredAt topLeft: CGPoint? = nil
     ) -> CGRect {
+        let topLeft = topLeft ?? CGPoint(x: currentFrame.minX, y: currentFrame.maxY)
         var frame = currentFrame
         frame.size.height = preferredHeight
-        frame.origin.y = currentFrame.maxY - preferredHeight
+        frame.origin.x = topLeft.x
+        frame.origin.y = topLeft.y - preferredHeight
         return clampedFrame(frame, visibleFrame: visibleFrame, minimumHeight: minimumHeight)
     }
 
@@ -85,6 +88,8 @@ private final class WindowFrameObserverView: NSView {
     private var didApplySavedFrame = false
     private var appliedAutomaticResizeRevision: String?
     private var didObserveManualResize = false
+    private var automaticResizeTopLeft: CGPoint?
+    private var lastAutomaticFrame: CGRect?
     private var moveObserver: NSObjectProtocol?
     private var resizeObserver: NSObjectProtocol?
     private var liveResizeObserver: NSObjectProtocol?
@@ -93,6 +98,7 @@ private final class WindowFrameObserverView: NSView {
         super.viewDidMoveToWindow()
         observe(window)
         applySavedFrameIfNeeded()
+        rememberAutomaticResizeTopLeft(from: window)
         applyAutomaticResizeIfNeeded()
         publishFrame()
     }
@@ -147,10 +153,13 @@ private final class WindowFrameObserverView: NSView {
             bySettingHeight: preferredFrameHeight,
             from: window.frame,
             visibleFrame: visibleFrame,
-            minimumHeight: minimumFrameHeight
+            minimumHeight: minimumFrameHeight,
+            anchoredAt: automaticResizeTopLeft
         )
 
         appliedAutomaticResizeRevision = request.revision
+        automaticResizeTopLeft = topLeft(of: frame)
+        lastAutomaticFrame = frame
         guard frame != window.frame else {
             return
         }
@@ -175,8 +184,12 @@ private final class WindowFrameObserverView: NSView {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.clampWindowToVisibleFrameIfNeeded()
-                self?.publishFrame()
+                guard let self else {
+                    return
+                }
+                self.clampWindowToVisibleFrameIfNeeded()
+                self.rememberAutomaticResizeTopLeft(from: self.window)
+                self.publishFrame()
             }
         }
 
@@ -207,6 +220,8 @@ private final class WindowFrameObserverView: NSView {
         didApplySavedFrame = false
         appliedAutomaticResizeRevision = nil
         didObserveManualResize = false
+        automaticResizeTopLeft = nil
+        lastAutomaticFrame = nil
     }
 
     private func stopObserving() {
@@ -229,6 +244,10 @@ private final class WindowFrameObserverView: NSView {
             return
         }
 
+        if let lastAutomaticFrame, framesMatch(window.frame, lastAutomaticFrame) {
+            return
+        }
+        lastAutomaticFrame = nil
         onFrameChange?(window.frame)
     }
 
@@ -265,7 +284,30 @@ private final class WindowFrameObserverView: NSView {
         guard frame != window.frame else {
             return
         }
+        automaticResizeTopLeft = topLeft(of: frame)
+        lastAutomaticFrame = frame
         window.setFrame(frame, display: true)
+    }
+
+    private func rememberAutomaticResizeTopLeft(from window: NSWindow?) {
+        guard let window else {
+            return
+        }
+        guard lastAutomaticFrame.map({ framesMatch(window.frame, $0) }) != true else {
+            return
+        }
+        automaticResizeTopLeft = topLeft(of: window.frame)
+    }
+
+    private func topLeft(of frame: CGRect) -> CGPoint {
+        CGPoint(x: frame.minX, y: frame.maxY)
+    }
+
+    private func framesMatch(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+        abs(lhs.minX - rhs.minX) < 0.5
+            && abs(lhs.minY - rhs.minY) < 0.5
+            && abs(lhs.width - rhs.width) < 0.5
+            && abs(lhs.height - rhs.height) < 0.5
     }
 
     private func configureSizeLimits(
