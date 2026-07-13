@@ -74,6 +74,7 @@ final class AppShellModel: ObservableObject {
     @Published var screenTranslationNotificationMessage: String?
     @Published var historyLoadError: HistoryLoadErrorState?
     @Published private(set) var lastCommand: AppShellCommand?
+    @Published private(set) var hasManuallyResizedPopup = false
 
     let availableLanguages = TranslationLanguageCatalog.defaultLanguages
 
@@ -96,6 +97,10 @@ final class AppShellModel: ObservableObject {
     var needsApplePackGroupRefresh = false
     var pendingApplePackRefreshLanguages: Set<TranslationLanguage>?
     var didRefreshAppleLanguagePackGroups = false
+
+    func notePopupManualResize() {
+        hasManuallyResizedPopup = true
+    }
 
     init(
         settings: AppSettings? = nil,

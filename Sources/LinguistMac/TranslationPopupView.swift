@@ -5,20 +5,13 @@ struct TranslationPopupView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var model: AppShellModel
+    @State private var measuredNaturalHeight: PopupNaturalHeightMeasurement?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            languageBar
-            Divider()
-
+        popupLayout {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-            footer
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-        .padding(.bottom, 12)
         .frame(
             minWidth: 320,
             idealWidth: model.settings.popupWidth,
@@ -28,10 +21,35 @@ struct TranslationPopupView: View {
             maxHeight: 680
         )
         .background(Color(nsColor: .windowBackgroundColor))
-        .background {
-            WindowFrameObserver(savedFrame: model.savedPopupWindowFrame) { frame in
-                model.rememberPopupWindowFrame(frame)
+        .background(alignment: .topLeading) {
+            naturalHeightMeasurement
+        }
+        .onPreferenceChange(PopupNaturalHeightPreferenceKey.self) { measurement in
+            guard let measurement, measurement.height > 0 else {
+                measuredNaturalHeight = nil
+                return
             }
+
+            let roundedMeasurement = PopupNaturalHeightMeasurement(
+                revision: measurement.revision,
+                height: ceil(measurement.height)
+            )
+            if measuredNaturalHeight != roundedMeasurement {
+                measuredNaturalHeight = roundedMeasurement
+            }
+        }
+        .background {
+            WindowFrameObserver(
+                automaticResizeRequest: automaticResizeRequest,
+                automaticResizeEnabled: !model.hasManuallyResizedPopup,
+                savedFrame: model.savedPopupWindowFrame,
+                onFrameChange: { frame in
+                    model.rememberPopupWindowFrame(frame)
+                },
+                onManualResize: {
+                    model.notePopupManualResize()
+                }
+            )
             .frame(width: 0, height: 0)
         }
         .onAppear {
@@ -40,6 +58,75 @@ struct TranslationPopupView: View {
                 await model.refreshAppleLanguagePackGroupsIfNeeded()
             }
         }
+    }
+}
+
+extension TranslationPopupView {
+    func popupLayout(
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            languageBar
+            Divider()
+            content()
+            footer
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 12)
+    }
+
+    private var automaticResizeRequest: PopupWindowAutomaticResizeRequest? {
+        guard case let .success(result, showsOriginal, _) = model.popupState else {
+            return nil
+        }
+
+        let revision = automaticResizeRevision(result: result, showsOriginal: showsOriginal)
+        guard let measuredNaturalHeight,
+              measuredNaturalHeight.revision == revision
+        else {
+            return nil
+        }
+
+        let minimumContentHeight = showsOriginal
+            ? PopupTextPanelLayout.minimumExpandedContentHeight
+            : PopupTextPanelLayout.minimumCollapsedContentHeight
+        return PopupWindowAutomaticResizeRequest(
+            revision: revision,
+            preferredContentHeight: max(measuredNaturalHeight.height, minimumContentHeight),
+            minimumContentHeight: minimumContentHeight
+        )
+    }
+
+    @ViewBuilder
+    private var naturalHeightMeasurement: some View {
+        if case let .success(result, showsOriginal, wordCard) = model.popupState {
+            let revision = automaticResizeRevision(result: result, showsOriginal: showsOriginal)
+            GeometryReader { geometry in
+                popupLayout {
+                    naturalSuccessContent(
+                        result: result,
+                        showsOriginal: showsOriginal,
+                        wordCard: wordCard
+                    )
+                }
+                .frame(width: geometry.size.width)
+                .fixedSize(horizontal: false, vertical: true)
+                .background {
+                    PopupNaturalHeightReader(revision: revision)
+                }
+                .hidden()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private func automaticResizeRevision(
+        result: TranslationResult,
+        showsOriginal: Bool
+    ) -> String {
+        "\(result.id.uuidString):\(showsOriginal)"
     }
 
     private var languageBar: some View {
@@ -111,93 +198,11 @@ struct TranslationPopupView: View {
             ProgressView("Translating...")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .success(result, showsOriginal, wordCard):
-            VStack(alignment: .leading, spacing: 12) {
-                PopupTextPanel {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Button {
-                                model.togglePopupOriginal()
-                                model.preparePopupSourceEditorIfNeeded()
-                            } label: {
-                                Label(
-                                    showsOriginal ? "Hide Original" : "Show Original",
-                                    systemImage: showsOriginal ? "chevron.down" : "chevron.right"
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .focusEffectDisabled()
-
-                            Spacer()
-
-                            PopupTextActions(
-                                model: model,
-                                result: result,
-                                role: .source,
-                                textOverride: model.popupSourceDraft
-                            )
-                        }
-
-                        if showsOriginal {
-                            TextEditor(text: popupSourceDraftBinding)
-                                .scrollContentBackground(.hidden)
-                                .font(popupFont)
-                                .frame(minHeight: 80, maxHeight: 160)
-                                .accessibilityLabel("Original Text")
-
-                            if let sourceReading = result.sourceReading, !model.isPopupSourceDirty {
-                                ReadingText(text: sourceReading, role: .source)
-                            }
-                        }
-                    }
-                }
-
-                PopupTextPanel {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(result.translatedText)
-                                .font(popupFont)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
-                            if let translatedReading = result.translatedReading {
-                                ReadingText(text: translatedReading, role: .translation)
-                            }
-
-                            PopupTextActions(model: model, result: result, role: .translation)
-
-                            if !result.wordTranslations.isEmpty || wordCard != nil {
-                                Divider()
-                                TranslationWordLookupSection(
-                                    wordTranslations: result.wordTranslations,
-                                    wordCard: wordCard,
-                                    isSelectionEnabled: true,
-                                    onSelectWord: { wordTranslation, index in
-                                        Task {
-                                            await model.selectPopupWord(
-                                                wordTranslation,
-                                                at: index,
-                                                resultID: result.id
-                                            )
-                                        }
-                                    },
-                                    onDismissWordCard: {
-                                        model.dismissPopupWordCard()
-                                    },
-                                    onRecoveryAction: { action, card in
-                                        handleWordLookupRecovery(
-                                            action,
-                                            card: card,
-                                            resultID: result.id
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            flexibleSuccessContent(
+                result: result,
+                showsOriginal: showsOriginal,
+                wordCard: wordCard
+            )
         case let .failed(failure, originalText):
             let presentation = failure.presentation
             VStack(alignment: .leading, spacing: 10) {
@@ -224,7 +229,7 @@ struct TranslationPopupView: View {
         }
     }
 
-    private func handleWordLookupRecovery(
+    func handleWordLookupRecovery(
         _ action: TranslationRecoveryAction,
         card: TranslationPopupWordCardState,
         resultID: UUID
@@ -254,7 +259,7 @@ struct TranslationPopupView: View {
         }
     }
 
-    private var popupFont: Font {
+    var popupFont: Font {
         guard !model.settings.popupFontFamily.isEmpty else {
             return .system(size: model.settings.popupFontSize)
         }
@@ -262,7 +267,7 @@ struct TranslationPopupView: View {
         return .custom(model.settings.popupFontFamily, size: model.settings.popupFontSize)
     }
 
-    private var popupSourceDraftBinding: Binding<String> {
+    var popupSourceDraftBinding: Binding<String> {
         Binding {
             model.popupSourceDraft
         } set: { text in
@@ -287,99 +292,6 @@ struct TranslationPopupView: View {
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.return, modifiers: [.command])
             .disabled(!model.canTranslatePopupDraft)
-        }
-    }
-}
-
-private struct PopupTextPanel<Content: View>: View {
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        content
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                Color(nsColor: .underPageBackgroundColor),
-                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.75), lineWidth: 1)
-            }
-    }
-}
-
-private struct ReadingText: View {
-    let text: String
-    let role: TranslationTextRole
-
-    var body: some View {
-        Text(text)
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityLabel("\(accessibilityPrefix) reading: \(text)")
-    }
-
-    private var accessibilityPrefix: String {
-        switch role {
-        case .source:
-            "Original"
-        case .translation:
-            "Translation"
-        }
-    }
-}
-
-private struct PopupTextActions: View {
-    @ObservedObject var model: AppShellModel
-    let result: TranslationResult
-    let role: TranslationTextRole
-    var textOverride: String?
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Button {
-                Task {
-                    await model.copyPopupText(role, textOverride: textOverride)
-                }
-            } label: {
-                Label(copyLabel, systemImage: "doc.on.doc")
-            }
-            .help(copyLabel)
-            .accessibilityLabel(copyLabel)
-            .disabled(effectiveText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-            SpokenOutputControls(
-                model: model,
-                result: result,
-                role: role,
-                textOverride: textOverride
-            )
-        }
-        .controlSize(.small)
-    }
-
-    private var copyLabel: String {
-        switch role {
-        case .source:
-            "Copy Original"
-        case .translation:
-            "Copy Translation"
-        }
-    }
-
-    private var effectiveText: String {
-        if let textOverride {
-            return textOverride
-        }
-
-        return switch role {
-        case .source:
-            result.originalText
-        case .translation:
-            result.translatedText
         }
     }
 }

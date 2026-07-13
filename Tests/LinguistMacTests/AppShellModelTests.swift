@@ -309,6 +309,14 @@ final class AppShellModelTests: XCTestCase {
         )
     }
 
+    func testNotePopupManualResizeDisablesFutureAutomaticSizing() {
+        let model = AppShellModel(services: makeServices())
+
+        model.notePopupManualResize()
+
+        XCTAssertTrue(model.hasManuallyResizedPopup)
+    }
+
     private func makeServices(
         translatorRegistry: (any TranslationProviderRegistry)? = nil,
         historyStore: any TranslationHistoryStoring = TestTranslationHistoryStore(),
