@@ -9,7 +9,6 @@ struct TranslationPopupView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             languageBar
-
             Divider()
 
             content
@@ -126,6 +125,7 @@ struct TranslationPopupView: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .focusEffectDisabled()
 
                             Spacer()
 
