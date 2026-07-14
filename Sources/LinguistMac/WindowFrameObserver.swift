@@ -1,4 +1,5 @@
 import AppKit
+import LinguistMacCore
 import SwiftUI
 
 struct WindowFrameObserver: NSViewRepresentable {
@@ -34,9 +35,16 @@ struct WindowFrameObserver: NSViewRepresentable {
 }
 
 struct PopupWindowAutomaticResizeRequest: Equatable {
-    let revision: String
+    let revision: PopupWindowContentRevision
     let preferredContentHeight: CGFloat
     let minimumContentHeight: CGFloat
+}
+
+struct PopupWindowContentRevision: Equatable {
+    let resultID: UUID
+    let showsOriginal: Bool
+    let wordTranslations: [WordTranslation]
+    let wordCard: TranslationPopupWordCardState?
 }
 
 enum PopupWindowSizingPolicy {
@@ -86,7 +94,7 @@ private final class WindowFrameObserverView: NSView {
 
     private weak var observedWindow: NSWindow?
     private var didApplySavedFrame = false
-    private var appliedAutomaticResizeRevision: String?
+    private var appliedAutomaticResizeRevision: PopupWindowContentRevision?
     private var didObserveManualResize = false
     private var automaticResizeTopLeft: CGPoint?
     private var lastAutomaticFrame: CGRect?

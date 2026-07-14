@@ -1,7 +1,46 @@
 @testable import LinguistMac
+@testable import LinguistMacCore
 import XCTest
 
 final class TranslationPopupSizingTests: XCTestCase {
+    func testAutomaticResizeRevisionChangesForWordContent() {
+        let resultID = UUID()
+        let baseRevision = PopupWindowContentRevision(
+            resultID: resultID,
+            showsOriginal: false,
+            wordTranslations: [],
+            wordCard: nil
+        )
+        let wordTranslation = WordTranslation(sourceText: "hello", translatedText: "สวัสดี")
+        let wordTranslationsRevision = PopupWindowContentRevision(
+            resultID: resultID,
+            showsOriginal: false,
+            wordTranslations: [wordTranslation],
+            wordCard: nil
+        )
+        let wordCardRevision = PopupWindowContentRevision(
+            resultID: resultID,
+            showsOriginal: false,
+            wordTranslations: [wordTranslation],
+            wordCard: TranslationPopupWordCardState(
+                wordTranslation: wordTranslation,
+                lookupState: .empty(
+                    WordLookupRequest(
+                        sourceText: "hello",
+                        sentenceContext: "hello world",
+                        sourceLanguage: .english,
+                        targetLanguage: .thai,
+                        providerID: .apple,
+                        inputMode: .quickTranslate
+                    )
+                )
+            )
+        )
+
+        XCTAssertNotEqual(baseRevision, wordTranslationsRevision)
+        XCTAssertNotEqual(wordTranslationsRevision, wordCardRevision)
+    }
+
     func testPanelLayoutGivesTranslationMostAdditionalHeight() {
         let availableHeight: CGFloat = 500
 

@@ -173,7 +173,7 @@ extension TranslationPopupView {
 }
 
 struct PopupNaturalHeightMeasurement: Equatable {
-    let revision: String
+    let revision: PopupWindowContentRevision
     let height: CGFloat
 }
 
@@ -189,7 +189,7 @@ struct PopupNaturalHeightPreferenceKey: PreferenceKey {
 }
 
 struct PopupNaturalHeightReader: View {
-    let revision: String
+    let revision: PopupWindowContentRevision
 
     var body: some View {
         GeometryReader { geometry in

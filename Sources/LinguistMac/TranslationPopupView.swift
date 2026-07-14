@@ -77,11 +77,15 @@ extension TranslationPopupView {
     }
 
     private var automaticResizeRequest: PopupWindowAutomaticResizeRequest? {
-        guard case let .success(result, showsOriginal, _) = model.popupState else {
+        guard case let .success(result, showsOriginal, wordCard) = model.popupState else {
             return nil
         }
 
-        let revision = automaticResizeRevision(result: result, showsOriginal: showsOriginal)
+        let revision = automaticResizeRevision(
+            result: result,
+            showsOriginal: showsOriginal,
+            wordCard: wordCard
+        )
         guard let measuredNaturalHeight,
               measuredNaturalHeight.revision == revision
         else {
@@ -101,7 +105,11 @@ extension TranslationPopupView {
     @ViewBuilder
     private var naturalHeightMeasurement: some View {
         if case let .success(result, showsOriginal, wordCard) = model.popupState {
-            let revision = automaticResizeRevision(result: result, showsOriginal: showsOriginal)
+            let revision = automaticResizeRevision(
+                result: result,
+                showsOriginal: showsOriginal,
+                wordCard: wordCard
+            )
             GeometryReader { geometry in
                 popupLayout {
                     naturalSuccessContent(
@@ -124,9 +132,15 @@ extension TranslationPopupView {
 
     private func automaticResizeRevision(
         result: TranslationResult,
-        showsOriginal: Bool
-    ) -> String {
-        "\(result.id.uuidString):\(showsOriginal)"
+        showsOriginal: Bool,
+        wordCard: TranslationPopupWordCardState?
+    ) -> PopupWindowContentRevision {
+        PopupWindowContentRevision(
+            resultID: result.id,
+            showsOriginal: showsOriginal,
+            wordTranslations: result.wordTranslations,
+            wordCard: wordCard
+        )
     }
 
     private var languageBar: some View {
