@@ -44,8 +44,14 @@ extension TranslationPopupView {
                 .frame(height: showsOriginal ? sourceHeight : nil)
 
                 PopupTextPanel(fillsHeight: true) {
-                    ScrollView {
-                        translationPanelContent(result: result, wordCard: wordCard)
+                    VStack(alignment: .leading, spacing: 12) {
+                        ScrollView {
+                            translationTextContent(result: result, wordCard: wordCard)
+                        }
+                        .frame(maxHeight: .infinity)
+
+                        Divider()
+                        PopupTextActionBar(model: model, result: result, role: .translation)
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -68,7 +74,11 @@ extension TranslationPopupView {
             }
 
             PopupTextPanel {
-                translationPanelContent(result: result, wordCard: wordCard)
+                VStack(alignment: .leading, spacing: 12) {
+                    translationTextContent(result: result, wordCard: wordCard)
+                    Divider()
+                    PopupTextActionBar(model: model, result: result, role: .translation)
+                }
             }
         }
     }
@@ -93,13 +103,6 @@ extension TranslationPopupView {
                 .focusEffectDisabled()
 
                 Spacer()
-
-                PopupTextActions(
-                    model: model,
-                    result: result,
-                    role: .source,
-                    textOverride: model.popupSourceDraft
-                )
             }
 
             if showsOriginal {
@@ -121,10 +124,18 @@ extension TranslationPopupView {
                     ReadingText(text: sourceReading, role: .source)
                 }
             }
+
+            Divider()
+            PopupTextActionBar(
+                model: model,
+                result: result,
+                role: .source,
+                textOverride: model.popupSourceDraft
+            )
         }
     }
 
-    private func translationPanelContent(
+    private func translationTextContent(
         result: TranslationResult,
         wordCard: TranslationPopupWordCardState?
     ) -> some View {
@@ -137,8 +148,6 @@ extension TranslationPopupView {
             if let translatedReading = result.translatedReading {
                 ReadingText(text: translatedReading, role: .translation)
             }
-
-            PopupTextActions(model: model, result: result, role: .translation)
 
             if !result.wordTranslations.isEmpty || wordCard != nil {
                 Divider()
@@ -255,6 +264,27 @@ private struct ReadingText: View {
         case .translation:
             "Translation"
         }
+    }
+}
+
+private struct PopupTextActionBar: View {
+    @ObservedObject var model: AppShellModel
+    let result: TranslationResult
+    let role: TranslationTextRole
+    var textOverride: String?
+
+    var body: some View {
+        HStack {
+            Spacer()
+
+            PopupTextActions(
+                model: model,
+                result: result,
+                role: role,
+                textOverride: textOverride
+            )
+        }
+        .accessibilityElement(children: .contain)
     }
 }
 
