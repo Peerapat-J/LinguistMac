@@ -75,7 +75,7 @@ extension TranslationPopupView {
         }
         .padding(.horizontal, 20)
         .padding(.top, 20)
-        .padding(.bottom, 12)
+        .padding(.bottom, 20)
     }
 
     private var automaticResizeRequest: PopupWindowAutomaticResizeRequest? {

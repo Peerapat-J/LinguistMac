@@ -120,6 +120,26 @@ enum PopupWindowSizingPolicy {
             currentFrameHeight + expandedContentHeightIncrement
         )
     }
+
+    static func shouldApplyAutomaticResize(
+        after previousRequest: PopupWindowAutomaticResizeRequest?,
+        next request: PopupWindowAutomaticResizeRequest
+    ) -> Bool {
+        guard let previousRequest else {
+            return true
+        }
+        guard previousRequest.revision == request.revision else {
+            return true
+        }
+        return request.preferredContentHeight
+            > previousRequest.preferredContentHeight + automaticFrameComparisonTolerance
+            || request.minimumContentHeight
+            > previousRequest.minimumContentHeight + automaticFrameComparisonTolerance
+    }
+
+    static func requiresFrameHeightChange(from currentFrame: CGRect, to nextFrame: CGRect) -> Bool {
+        abs(currentFrame.height - nextFrame.height) > automaticFrameComparisonTolerance
+    }
 }
 
 @MainActor
@@ -131,7 +151,7 @@ final class PopupWindowFrameController: ObservableObject {
     private var onFrameChange: ((CGRect) -> Void)?
     private var onManualResize: (() -> Void)?
     private var didApplySavedFrame = false
-    private var appliedAutomaticResizeRevision: PopupWindowContentRevision?
+    private var appliedAutomaticResizeRequest: PopupWindowAutomaticResizeRequest?
     private var didObserveManualResize = false
     private var lastAutomaticFrame: CGRect?
 
@@ -159,7 +179,7 @@ final class PopupWindowFrameController: ObservableObject {
         if self.window !== window {
             self.window = window
             didApplySavedFrame = false
-            appliedAutomaticResizeRevision = nil
+            appliedAutomaticResizeRequest = nil
             didObserveManualResize = false
             lastAutomaticFrame = nil
         }
@@ -220,12 +240,15 @@ final class PopupWindowFrameController: ObservableObject {
         }
 
         configureSizeLimits(for: window, request: request, visibleFrame: visibleFrame)
-        guard request.revision != appliedAutomaticResizeRevision else {
+        guard PopupWindowSizingPolicy.shouldApplyAutomaticResize(
+            after: appliedAutomaticResizeRequest,
+            next: request
+        ) else {
             return
         }
 
-        let previousRevision = appliedAutomaticResizeRevision
-        appliedAutomaticResizeRevision = request.revision
+        let previousRevision = appliedAutomaticResizeRequest?.revision
+        appliedAutomaticResizeRequest = request
         let isShowingOriginal = PopupWindowSizingPolicy.preservesHeightWhenShowingOriginal(
             from: previousRevision,
             to: request.revision
@@ -234,6 +257,30 @@ final class PopupWindowFrameController: ObservableObject {
             return
         }
 
+        let frame = automaticResizeFrame(
+            for: request,
+            window: window,
+            visibleFrame: visibleFrame,
+            isShowingOriginal: isShowingOriginal
+        )
+
+        guard PopupWindowSizingPolicy.requiresFrameHeightChange(
+            from: window.frame,
+            to: frame
+        ) else {
+            lastAutomaticFrame = window.frame
+            return
+        }
+        lastAutomaticFrame = frame
+        window.setFrame(frame, display: true)
+    }
+
+    private func automaticResizeFrame(
+        for request: PopupWindowAutomaticResizeRequest,
+        window: NSWindow,
+        visibleFrame: CGRect,
+        isShowingOriginal: Bool
+    ) -> CGRect {
         let measuredFrameHeight = frameHeight(
             forContentHeight: request.preferredContentHeight,
             window: window
@@ -248,18 +295,12 @@ final class PopupWindowFrameController: ObservableObject {
             forContentHeight: request.minimumContentHeight,
             window: window
         )
-        let frame = PopupWindowSizingPolicy.frame(
+        return PopupWindowSizingPolicy.frame(
             bySettingHeight: preferredFrameHeight,
             from: window.frame,
             visibleFrame: visibleFrame,
             minimumHeight: minimumFrameHeight
         )
-
-        lastAutomaticFrame = frame
-        guard !PopupWindowSizingPolicy.framesMatch(frame, window.frame) else {
-            return
-        }
-        window.setFrame(frame, display: true)
     }
 
     private func publishFrame(_ frame: CGRect) {

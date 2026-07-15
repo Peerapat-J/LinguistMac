@@ -4,17 +4,30 @@ import SwiftUI
 enum PopupTextPanelLayout {
     static let spacing: CGFloat = 12
     static let panelPadding: CGFloat = 12
-    static let sectionHeaderHeight: CGFloat = 24
+    static let sectionHeaderHeight: CGFloat = 28
+    static let minimumSourceTextViewportHeight: CGFloat = 44
     static let minimumTranslationTextViewportHeight: CGFloat = 28
-    static let minimumCollapsedContentHeight: CGFloat = 284
-    static let minimumExpandedContentHeight: CGFloat = 380
-    static let minimumSourcePanelHeight: CGFloat = 140
+    static let minimumCollapsedContentHeight: CGFloat = 300
+    static let minimumExpandedContentHeight: CGFloat = 356
+    static let minimumCollapsedSourcePanelHeight = (panelPadding * 2)
+        + sectionHeaderHeight
+    static let minimumSourcePanelHeight = minimumCollapsedSourcePanelHeight
+        + spacing
+        + minimumSourceTextViewportHeight
     static let minimumTranslationPanelHeight = (panelPadding * 2)
         + sectionHeaderHeight
         + spacing
         + minimumTranslationTextViewportHeight
     static let expandedContentHeightIncrement = minimumExpandedContentHeight
         - minimumCollapsedContentHeight
+
+    static func minimumPanelStackHeight(showsOriginal: Bool) -> CGFloat {
+        let sourcePanelHeight = showsOriginal
+            ? minimumSourcePanelHeight
+            : minimumCollapsedSourcePanelHeight
+        return sourcePanelHeight + spacing + minimumTranslationPanelHeight
+    }
+
     static func sourcePanelHeight(for availableHeight: CGFloat) -> CGFloat {
         let panelHeight = max(availableHeight - spacing, 0)
         let maximumSourceHeight = max(
@@ -63,6 +76,11 @@ extension TranslationPopupView {
                 .frame(maxHeight: .infinity)
             }
         }
+        .frame(
+            minHeight: PopupTextPanelLayout.minimumPanelStackHeight(
+                showsOriginal: showsOriginal
+            )
+        )
     }
 
     func naturalSuccessContent(
@@ -86,6 +104,11 @@ extension TranslationPopupView {
                 }
             }
         }
+        .frame(
+            minHeight: PopupTextPanelLayout.minimumPanelStackHeight(
+                showsOriginal: showsOriginal
+            )
+        )
     }
 
     private func sourcePanelContent(
@@ -101,14 +124,21 @@ extension TranslationPopupView {
                     TextEditor(text: popupSourceDraftBinding)
                         .scrollContentBackground(.hidden)
                         .font(popupFont)
-                        .frame(minHeight: 80, maxHeight: .infinity)
+                        .frame(
+                            minHeight: PopupTextPanelLayout.minimumSourceTextViewportHeight,
+                            maxHeight: .infinity
+                        )
                         .accessibilityLabel("Original Text")
                 } else {
                     Text(model.popupSourceDraft)
                         .font(popupFont)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
-                        .frame(minHeight: 80, maxHeight: 160, alignment: .topLeading)
+                        .frame(
+                            minHeight: PopupTextPanelLayout.minimumSourceTextViewportHeight,
+                            maxHeight: 160,
+                            alignment: .topLeading
+                        )
                 }
 
                 if let sourceReading = result.sourceReading, !model.isPopupSourceDirty {

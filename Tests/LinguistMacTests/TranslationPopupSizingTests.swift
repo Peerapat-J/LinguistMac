@@ -68,7 +68,9 @@ final class TranslationPopupSizingTests: XCTestCase {
     }
 
     func testPanelLayoutPreservesPanelMinimums() {
-        let availableHeight: CGFloat = 241
+        let availableHeight = PopupTextPanelLayout.minimumPanelStackHeight(
+            showsOriginal: true
+        )
 
         let sourceHeight = PopupTextPanelLayout.sourcePanelHeight(for: availableHeight)
         let translationHeight = availableHeight - PopupTextPanelLayout.spacing - sourceHeight
@@ -92,6 +94,39 @@ final class TranslationPopupSizingTests: XCTestCase {
         )
     }
 
+    func testCollapsedPanelStackMinimumKeepsSectionsAboveFooter() {
+        let height = PopupTextPanelLayout.minimumPanelStackHeight(showsOriginal: false)
+
+        XCTAssertEqual(
+            height,
+            PopupTextPanelLayout.minimumCollapsedSourcePanelHeight
+                + PopupTextPanelLayout.spacing
+                + PopupTextPanelLayout.minimumTranslationPanelHeight
+        )
+    }
+
+    func testExpandedPanelStackMinimumKeepsBothTextViewportsVisible() {
+        let height = PopupTextPanelLayout.minimumPanelStackHeight(showsOriginal: true)
+
+        XCTAssertEqual(
+            height,
+            PopupTextPanelLayout.minimumSourcePanelHeight
+                + PopupTextPanelLayout.spacing
+                + PopupTextPanelLayout.minimumTranslationPanelHeight
+        )
+    }
+
+    func testSourcePanelMinimumUsesCompactEditableViewport() {
+        let viewportHeight = PopupTextPanelLayout.minimumSourcePanelHeight
+            - PopupTextPanelLayout.minimumCollapsedSourcePanelHeight
+            - PopupTextPanelLayout.spacing
+
+        XCTAssertEqual(
+            viewportHeight,
+            PopupTextPanelLayout.minimumSourceTextViewportHeight
+        )
+    }
+
     func testAutomaticResizeUsesCurrentWindowPosition() {
         let currentFrame = CGRect(x: 640, y: 200, width: 460, height: 500)
         let visibleFrame = CGRect(x: 0, y: 23, width: 1440, height: 877)
@@ -112,6 +147,60 @@ final class TranslationPopupSizingTests: XCTestCase {
         let reportedFrame = CGRect(x: 100.5, y: 199.5, width: 460, height: 500.5)
 
         XCTAssertTrue(PopupWindowSizingPolicy.framesMatch(automaticFrame, reportedFrame))
+    }
+
+    func testSameRevisionCanGrowForACompletedHeightMeasurement() {
+        let revision = popupContentRevision()
+        let initialRequest = PopupWindowAutomaticResizeRequest(
+            revision: revision,
+            preferredContentHeight: 300,
+            minimumContentHeight: 300
+        )
+        let completedRequest = PopupWindowAutomaticResizeRequest(
+            revision: revision,
+            preferredContentHeight: 320,
+            minimumContentHeight: 300
+        )
+
+        XCTAssertTrue(
+            PopupWindowSizingPolicy.shouldApplyAutomaticResize(
+                after: initialRequest,
+                next: completedRequest
+            )
+        )
+    }
+
+    func testSameRevisionDoesNotShrinkForTransientHeightMeasurements() {
+        let revision = popupContentRevision()
+        let completedRequest = PopupWindowAutomaticResizeRequest(
+            revision: revision,
+            preferredContentHeight: 320,
+            minimumContentHeight: 300
+        )
+        let transientRequest = PopupWindowAutomaticResizeRequest(
+            revision: revision,
+            preferredContentHeight: 300,
+            minimumContentHeight: 300
+        )
+
+        XCTAssertFalse(
+            PopupWindowSizingPolicy.shouldApplyAutomaticResize(
+                after: completedRequest,
+                next: transientRequest
+            )
+        )
+    }
+
+    func testUnchangedHeightDoesNotRepositionLongPopup() {
+        let currentFrame = CGRect(x: 100, y: 200, width: 600, height: 640)
+        let positionClampedFrame = CGRect(x: 100, y: 160, width: 600, height: 640)
+
+        XCTAssertFalse(
+            PopupWindowSizingPolicy.requiresFrameHeightChange(
+                from: currentFrame,
+                to: positionClampedFrame
+            )
+        )
     }
 
     func testAutomaticResizeDoesNotShrinkWhenShowingOriginalForSameResult() {
@@ -184,5 +273,14 @@ final class TranslationPopupSizingTests: XCTestCase {
         )
 
         XCTAssertEqual(frame, CGRect(x: -1920, y: 23, width: 720, height: 640))
+    }
+
+    private func popupContentRevision() -> PopupWindowContentRevision {
+        PopupWindowContentRevision(
+            resultID: UUID(),
+            showsOriginal: false,
+            wordTranslations: [],
+            wordCard: nil
+        )
     }
 }
