@@ -93,39 +93,11 @@ final class TranslationPopupSizingTests: XCTestCase {
         XCTAssertEqual(resizedFrame.maxY, recordedTopLeft.y)
     }
 
-    func testAutomaticResizePreservesHeightWhenHidingOriginalForSameResult() {
-        let resultID = UUID()
-        let shownRevision = PopupWindowContentRevision(
-            resultID: resultID,
-            showsOriginal: true,
-            wordTranslations: [],
-            wordCard: nil
-        )
-        let hiddenRevision = PopupWindowContentRevision(
-            resultID: resultID,
-            showsOriginal: false,
-            wordTranslations: [],
-            wordCard: nil
-        )
-        let newResultRevision = PopupWindowContentRevision(
-            resultID: UUID(),
-            showsOriginal: false,
-            wordTranslations: [],
-            wordCard: nil
-        )
+    func testAutomaticFrameComparisonAllowsBackingPixelRounding() {
+        let automaticFrame = CGRect(x: 100, y: 200, width: 460, height: 500)
+        let reportedFrame = CGRect(x: 100.5, y: 199.5, width: 460, height: 500.5)
 
-        XCTAssertTrue(
-            PopupWindowSizingPolicy.preservesHeightWhenHidingOriginal(
-                from: shownRevision,
-                to: hiddenRevision
-            )
-        )
-        XCTAssertFalse(
-            PopupWindowSizingPolicy.preservesHeightWhenHidingOriginal(
-                from: shownRevision,
-                to: newResultRevision
-            )
-        )
+        XCTAssertTrue(PopupWindowSizingPolicy.framesMatch(automaticFrame, reportedFrame))
     }
 
     func testFrameClampsToSecondaryDisplayVisibleFrame() {

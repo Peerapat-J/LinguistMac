@@ -52,6 +52,7 @@ enum PopupWindowSizingPolicy {
     static let maximumWidth: CGFloat = 720
     static let minimumFrameHeight: CGFloat = 240
     static let maximumFrameHeight: CGFloat = 640
+    static let automaticFrameComparisonTolerance: CGFloat = 1
 
     static func frame(
         bySettingHeight preferredHeight: CGFloat,
@@ -68,19 +69,6 @@ enum PopupWindowSizingPolicy {
         return clampedFrame(frame, visibleFrame: visibleFrame, minimumHeight: minimumHeight)
     }
 
-    static func preservesHeightWhenHidingOriginal(
-        from previousRevision: PopupWindowContentRevision?,
-        to nextRevision: PopupWindowContentRevision
-    ) -> Bool {
-        guard let previousRevision else {
-            return false
-        }
-
-        return previousRevision.resultID == nextRevision.resultID
-            && previousRevision.showsOriginal
-            && !nextRevision.showsOriginal
-    }
-
     static func clampedFrame(
         _ frame: CGRect,
         visibleFrame: CGRect,
@@ -95,6 +83,13 @@ enum PopupWindowSizingPolicy {
         let originX = min(max(frame.origin.x, visibleFrame.minX), visibleFrame.maxX - width)
         let originY = min(max(frame.origin.y, visibleFrame.minY), visibleFrame.maxY - height)
         return CGRect(x: originX, y: originY, width: width, height: height)
+    }
+
+    static func framesMatch(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+        abs(lhs.minX - rhs.minX) <= automaticFrameComparisonTolerance
+            && abs(lhs.minY - rhs.minY) <= automaticFrameComparisonTolerance
+            && abs(lhs.width - rhs.width) <= automaticFrameComparisonTolerance
+            && abs(lhs.height - rhs.height) <= automaticFrameComparisonTolerance
     }
 }
 
@@ -162,14 +157,10 @@ private final class WindowFrameObserverView: NSView {
             return
         }
 
-        let measuredFrameHeight = frameHeight(
+        let preferredFrameHeight = frameHeight(
             forContentHeight: request.preferredContentHeight,
             window: window
         )
-        let preferredFrameHeight = PopupWindowSizingPolicy.preservesHeightWhenHidingOriginal(
-            from: appliedAutomaticResizeRevision,
-            to: request.revision
-        ) ? max(measuredFrameHeight, window.frame.height) : measuredFrameHeight
         let minimumFrameHeight = frameHeight(
             forContentHeight: request.minimumContentHeight,
             window: window
@@ -329,10 +320,7 @@ private final class WindowFrameObserverView: NSView {
     }
 
     private func framesMatch(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
-        abs(lhs.minX - rhs.minX) < 0.5
-            && abs(lhs.minY - rhs.minY) < 0.5
-            && abs(lhs.width - rhs.width) < 0.5
-            && abs(lhs.height - rhs.height) < 0.5
+        PopupWindowSizingPolicy.framesMatch(lhs, rhs)
     }
 
     private func configureSizeLimits(
