@@ -3,6 +3,23 @@
 import XCTest
 
 final class TranslationPopupSizingTests: XCTestCase {
+    func testSourceLanguageDisclosureAccessibilityLabelsDescribeState() {
+        XCTAssertEqual(
+            PopupTextPanelAccessibility.disclosureLabel(
+                languageName: "English",
+                showsOriginal: false
+            ),
+            "Show original text in English"
+        )
+        XCTAssertEqual(
+            PopupTextPanelAccessibility.disclosureLabel(
+                languageName: "English",
+                showsOriginal: true
+            ),
+            "Hide original text in English"
+        )
+    }
+
     func testAutomaticResizeRevisionChangesForWordContent() {
         let resultID = UUID()
         let baseRevision = PopupWindowContentRevision(

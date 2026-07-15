@@ -317,6 +317,8 @@ struct SpokenOutputControls: View {
     let result: TranslationResult
     var role: TranslationTextRole = .translation
     var textOverride: String?
+    var actionTitle: String?
+    var actionAccessibilityLabel: String?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -336,10 +338,10 @@ struct SpokenOutputControls: View {
                         textOverride: textOverride
                     )
                 } label: {
-                    Label(speakLabel, systemImage: "speaker.wave.2.fill")
+                    Label(actionTitle ?? speakLabel, systemImage: "speaker.wave.2.fill")
                 }
-                .help(speakLabel)
-                .accessibilityLabel(speakLabel)
+                .help(actionAccessibilityLabel ?? speakLabel)
+                .accessibilityLabel(actionAccessibilityLabel ?? speakLabel)
                 .disabled(request.trimmedText.isEmpty)
             }
 

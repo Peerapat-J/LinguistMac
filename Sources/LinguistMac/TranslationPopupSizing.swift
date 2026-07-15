@@ -43,13 +43,12 @@ extension TranslationPopupView {
 
                 PopupTextPanel(fillsHeight: true) {
                     VStack(alignment: .leading, spacing: 12) {
+                        translationPanelHeader(result: result)
+
                         ScrollView {
                             translationTextContent(result: result, wordCard: wordCard)
                         }
                         .frame(maxHeight: .infinity)
-
-                        Divider()
-                        PopupTextActionBar(model: model, result: result, role: .translation)
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -73,9 +72,8 @@ extension TranslationPopupView {
 
             PopupTextPanel {
                 VStack(alignment: .leading, spacing: 12) {
+                    translationPanelHeader(result: result)
                     translationTextContent(result: result, wordCard: wordCard)
-                    Divider()
-                    PopupTextActionBar(model: model, result: result, role: .translation)
                 }
             }
         }
@@ -87,21 +85,7 @@ extension TranslationPopupView {
         usesFlexibleEditorHeight: Bool
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Button {
-                    model.togglePopupOriginal()
-                    model.preparePopupSourceEditorIfNeeded()
-                } label: {
-                    Label(
-                        showsOriginal ? "Hide Original" : "Show Original",
-                        systemImage: showsOriginal ? "chevron.down" : "chevron.right"
-                    )
-                }
-                .buttonStyle(.plain)
-                .focusEffectDisabled()
-
-                Spacer()
-            }
+            sourcePanelHeader(result: result, showsOriginal: showsOriginal)
 
             if showsOriginal {
                 if usesFlexibleEditorHeight {
@@ -122,15 +106,64 @@ extension TranslationPopupView {
                     ReadingText(text: sourceReading, role: .source)
                 }
             }
+        }
+    }
 
-            Divider()
-            PopupTextActionBar(
+    private func sourcePanelHeader(
+        result: TranslationResult,
+        showsOriginal: Bool
+    ) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                model.togglePopupOriginal()
+                model.preparePopupSourceEditorIfNeeded()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: showsOriginal ? "chevron.down" : "chevron.right")
+                    Text(LocalizedStringKey(result.request.sourceLanguage.displayName))
+                        .font(.headline)
+                        .lineLimit(1)
+                }
+            }
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
+            .accessibilityLabel(
+                PopupTextPanelAccessibility.disclosureLabel(
+                    languageName: result.request.sourceLanguage.displayName,
+                    showsOriginal: showsOriginal
+                )
+            )
+
+            Spacer(minLength: 8)
+
+            PopupTextActions(
                 model: model,
                 result: result,
                 role: .source,
+                languageName: result.request.sourceLanguage.displayName,
                 textOverride: model.popupSourceDraft
             )
         }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func translationPanelHeader(result: TranslationResult) -> some View {
+        HStack(spacing: 8) {
+            Text(LocalizedStringKey(result.request.targetLanguage.displayName))
+                .font(.headline)
+                .lineLimit(1)
+                .accessibilityAddTraits(.isHeader)
+
+            Spacer(minLength: 8)
+
+            PopupTextActions(
+                model: model,
+                result: result,
+                role: .translation,
+                languageName: result.request.targetLanguage.displayName
+            )
+        }
+        .accessibilityElement(children: .contain)
     }
 
     private func translationTextContent(
@@ -265,31 +298,11 @@ private struct ReadingText: View {
     }
 }
 
-private struct PopupTextActionBar: View {
-    @ObservedObject var model: AppShellModel
-    let result: TranslationResult
-    let role: TranslationTextRole
-    var textOverride: String?
-
-    var body: some View {
-        HStack {
-            Spacer()
-
-            PopupTextActions(
-                model: model,
-                result: result,
-                role: role,
-                textOverride: textOverride
-            )
-        }
-        .accessibilityElement(children: .contain)
-    }
-}
-
 private struct PopupTextActions: View {
     @ObservedObject var model: AppShellModel
     let result: TranslationResult
     let role: TranslationTextRole
+    let languageName: String
     var textOverride: String?
 
     var body: some View {
@@ -299,7 +312,7 @@ private struct PopupTextActions: View {
                     await model.copyPopupText(role, textOverride: textOverride)
                 }
             } label: {
-                Label(copyLabel, systemImage: "doc.on.doc")
+                Label("Copy", systemImage: "doc.on.doc")
             }
             .help(copyLabel)
             .accessibilityLabel(copyLabel)
@@ -309,19 +322,20 @@ private struct PopupTextActions: View {
                 model: model,
                 result: result,
                 role: role,
-                textOverride: textOverride
+                textOverride: textOverride,
+                actionTitle: "Speak",
+                actionAccessibilityLabel: speakLabel
             )
         }
         .controlSize(.small)
     }
 
     private var copyLabel: String {
-        switch role {
-        case .source:
-            "Copy Original"
-        case .translation:
-            "Copy Translation"
-        }
+        "Copy \(languageName) text"
+    }
+
+    private var speakLabel: String {
+        "Speak \(languageName) text"
     }
 
     private var effectiveText: String {
@@ -335,5 +349,11 @@ private struct PopupTextActions: View {
         case .translation:
             result.translatedText
         }
+    }
+}
+
+enum PopupTextPanelAccessibility {
+    static func disclosureLabel(languageName: String, showsOriginal: Bool) -> String {
+        "\(showsOriginal ? "Hide" : "Show") original text in \(languageName)"
     }
 }
