@@ -100,6 +100,41 @@ final class TranslationPopupSizingTests: XCTestCase {
         XCTAssertTrue(PopupWindowSizingPolicy.framesMatch(automaticFrame, reportedFrame))
     }
 
+    func testAutomaticResizeDoesNotShrinkWhenShowingOriginalForSameResult() {
+        let resultID = UUID()
+        let hiddenRevision = PopupWindowContentRevision(
+            resultID: resultID,
+            showsOriginal: false,
+            wordTranslations: [],
+            wordCard: nil
+        )
+        let shownRevision = PopupWindowContentRevision(
+            resultID: resultID,
+            showsOriginal: true,
+            wordTranslations: [],
+            wordCard: nil
+        )
+        let differentResultRevision = PopupWindowContentRevision(
+            resultID: UUID(),
+            showsOriginal: true,
+            wordTranslations: [],
+            wordCard: nil
+        )
+
+        XCTAssertTrue(
+            PopupWindowSizingPolicy.preservesHeightWhenShowingOriginal(
+                from: hiddenRevision,
+                to: shownRevision
+            )
+        )
+        XCTAssertFalse(
+            PopupWindowSizingPolicy.preservesHeightWhenShowingOriginal(
+                from: hiddenRevision,
+                to: differentResultRevision
+            )
+        )
+    }
+
     func testFrameClampsToSecondaryDisplayVisibleFrame() {
         let proposedFrame = CGRect(x: -2500, y: -100, width: 900, height: 800)
         let secondaryVisibleFrame = CGRect(x: -1920, y: 23, width: 1920, height: 1057)

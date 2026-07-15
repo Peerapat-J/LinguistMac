@@ -24,6 +24,7 @@ struct WindowFrameObserver: NSViewRepresentable {
             return
         }
 
+        view.prepareForAutomaticResize(automaticResizeRequest)
         view.automaticResizeRequest = automaticResizeRequest
         view.automaticResizeEnabled = automaticResizeEnabled
         view.savedFrame = savedFrame
@@ -91,6 +92,19 @@ enum PopupWindowSizingPolicy {
             && abs(lhs.width - rhs.width) <= automaticFrameComparisonTolerance
             && abs(lhs.height - rhs.height) <= automaticFrameComparisonTolerance
     }
+
+    static func preservesHeightWhenShowingOriginal(
+        from previousRevision: PopupWindowContentRevision?,
+        to nextRevision: PopupWindowContentRevision
+    ) -> Bool {
+        guard let previousRevision else {
+            return false
+        }
+
+        return previousRevision.resultID == nextRevision.resultID
+            && !previousRevision.showsOriginal
+            && nextRevision.showsOriginal
+    }
 }
 
 private final class WindowFrameObserverView: NSView {
@@ -106,6 +120,8 @@ private final class WindowFrameObserverView: NSView {
     private var didObserveManualResize = false
     private var automaticResizeTopLeft: CGPoint?
     private var lastAutomaticFrame: CGRect?
+    private var userMoveInProgress = false
+    private var willMoveObserver: NSObjectProtocol?
     private var moveObserver: NSObjectProtocol?
     private var resizeObserver: NSObjectProtocol?
     private var liveResizeObserver: NSObjectProtocol?
@@ -141,6 +157,16 @@ private final class WindowFrameObserverView: NSView {
         didApplySavedFrame = true
     }
 
+    func prepareForAutomaticResize(_ request: PopupWindowAutomaticResizeRequest?) {
+        guard request?.revision != automaticResizeRequest?.revision,
+              let window
+        else {
+            return
+        }
+
+        automaticResizeTopLeft = topLeft(of: window.frame)
+    }
+
     func applyAutomaticResizeIfNeeded() {
         guard let request = automaticResizeRequest,
               let window,
@@ -157,10 +183,14 @@ private final class WindowFrameObserverView: NSView {
             return
         }
 
-        let preferredFrameHeight = frameHeight(
+        let measuredFrameHeight = frameHeight(
             forContentHeight: request.preferredContentHeight,
             window: window
         )
+        let preferredFrameHeight = PopupWindowSizingPolicy.preservesHeightWhenShowingOriginal(
+            from: appliedAutomaticResizeRevision,
+            to: request.revision
+        ) ? max(measuredFrameHeight, window.frame.height) : measuredFrameHeight
         let minimumFrameHeight = frameHeight(
             forContentHeight: request.minimumContentHeight,
             window: window
@@ -194,6 +224,21 @@ private final class WindowFrameObserverView: NSView {
             return
         }
 
+        observeWindowMoves(window)
+        observeWindowResizes(window)
+    }
+
+    private func observeWindowMoves(_ window: NSWindow) {
+        willMoveObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willMoveNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.userMoveInProgress = true
+            }
+        }
+
         moveObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didMoveNotification,
             object: window,
@@ -204,18 +249,29 @@ private final class WindowFrameObserverView: NSView {
                     return
                 }
                 self.clampWindowToVisibleFrameIfNeeded()
+                guard self.userMoveInProgress else {
+                    return
+                }
+                self.userMoveInProgress = false
                 self.rememberAutomaticResizeTopLeft(from: self.window)
                 self.publishFrame()
             }
         }
+    }
 
+    private func observeWindowResizes(_ window: NSWindow) {
         resizeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResizeNotification,
             object: window,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.publishFrame()
+                guard let self,
+                      self.didObserveManualResize || self.window?.inLiveResize == true
+                else {
+                    return
+                }
+                self.publishFrame()
             }
         }
 
@@ -238,9 +294,13 @@ private final class WindowFrameObserverView: NSView {
         didObserveManualResize = false
         automaticResizeTopLeft = nil
         lastAutomaticFrame = nil
+        userMoveInProgress = false
     }
 
     private func stopObserving() {
+        if let willMoveObserver {
+            NotificationCenter.default.removeObserver(willMoveObserver)
+        }
         if let moveObserver {
             NotificationCenter.default.removeObserver(moveObserver)
         }
@@ -250,6 +310,7 @@ private final class WindowFrameObserverView: NSView {
         if let liveResizeObserver {
             NotificationCenter.default.removeObserver(liveResizeObserver)
         }
+        willMoveObserver = nil
         moveObserver = nil
         resizeObserver = nil
         liveResizeObserver = nil
