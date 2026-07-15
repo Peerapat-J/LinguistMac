@@ -116,7 +116,20 @@ final class TranslationPopupSizingTests: XCTestCase {
         )
     }
 
-    func testSourcePanelMinimumUsesCompactEditableViewport() {
+    func testShowingOriginalAddsExactlyTheSourceTextViewportHeight() {
+        XCTAssertEqual(
+            PopupTextPanelLayout.expandedContentHeightIncrement,
+            PopupTextPanelLayout.minimumSourcePanelHeight
+                - PopupTextPanelLayout.minimumCollapsedSourcePanelHeight
+        )
+        XCTAssertEqual(
+            PopupTextPanelLayout.minimumExpandedContentHeight,
+            PopupTextPanelLayout.minimumCollapsedContentHeight
+                + PopupTextPanelLayout.expandedContentHeightIncrement
+        )
+    }
+
+    func testSourceAndTranslationPanelsUseMatchingMinimumTextViewports() {
         let viewportHeight = PopupTextPanelLayout.minimumSourcePanelHeight
             - PopupTextPanelLayout.minimumCollapsedSourcePanelHeight
             - PopupTextPanelLayout.spacing
@@ -125,6 +138,7 @@ final class TranslationPopupSizingTests: XCTestCase {
             viewportHeight,
             PopupTextPanelLayout.minimumSourceTextViewportHeight
         )
+        XCTAssertEqual(PopupTextPanelLayout.minimumTextViewportHeight, 44)
     }
 
     func testAutomaticResizeUsesCurrentWindowPosition() {
@@ -191,6 +205,26 @@ final class TranslationPopupSizingTests: XCTestCase {
         )
     }
 
+    func testFailureCanReplaceAPreviouslyTallSuccessRequest() {
+        let successRequest = PopupWindowAutomaticResizeRequest(
+            revision: popupContentRevision(),
+            preferredContentHeight: 640,
+            minimumContentHeight: PopupTextPanelLayout.minimumCollapsedContentHeight
+        )
+        let failureRequest = PopupWindowAutomaticResizeRequest(
+            revision: .failure(.permissionDenied(.screenRecording), originalText: nil),
+            preferredContentHeight: 240,
+            minimumContentHeight: 240
+        )
+
+        XCTAssertTrue(
+            PopupWindowSizingPolicy.shouldApplyAutomaticResize(
+                after: successRequest,
+                next: failureRequest
+            )
+        )
+    }
+
     func testUnchangedHeightDoesNotRepositionLongPopup() {
         let currentFrame = CGRect(x: 100, y: 200, width: 600, height: 640)
         let positionClampedFrame = CGRect(x: 100, y: 160, width: 600, height: 640)
@@ -236,27 +270,52 @@ final class TranslationPopupSizingTests: XCTestCase {
                 to: differentResultRevision
             )
         )
+        XCTAssertFalse(
+            PopupWindowSizingPolicy.preservesHeightWhenShowingOriginal(
+                from: hiddenRevision,
+                to: .failure(.permissionDenied(.screenRecording), originalText: nil)
+            )
+        )
     }
 
     func testShowingOriginalExpandsWindowInsteadOfShrinkingTranslationPanel() {
         let height = PopupWindowSizingPolicy.preferredFrameHeight(
             measuredFrameHeight: 480,
             currentFrameHeight: 500,
-            expandedContentHeightIncrement: PopupTextPanelLayout.expandedContentHeightIncrement,
+            minimumFrameHeight: 540,
             isShowingOriginal: true
         )
 
-        XCTAssertEqual(
-            height,
-            500 + PopupTextPanelLayout.expandedContentHeightIncrement
+        XCTAssertEqual(height, 540)
+    }
+
+    func testShowingOriginalUsesAStableIncrementAcrossLanguageMeasurements() {
+        let height = PopupWindowSizingPolicy.preferredFrameHeight(
+            measuredFrameHeight: 620,
+            currentFrameHeight: 500,
+            minimumFrameHeight: 540,
+            isShowingOriginal: true
         )
+
+        XCTAssertEqual(height, 540)
+    }
+
+    func testShowingOriginalLeavesAnAlreadyTallWindowFrameUnchanged() {
+        let height = PopupWindowSizingPolicy.preferredFrameHeight(
+            measuredFrameHeight: 640,
+            currentFrameHeight: 606,
+            minimumFrameHeight: 388,
+            isShowingOriginal: true
+        )
+
+        XCTAssertEqual(height, 606)
     }
 
     func testHidingOriginalReturnsToMeasuredContentHeight() {
         let height = PopupWindowSizingPolicy.preferredFrameHeight(
             measuredFrameHeight: 420,
             currentFrameHeight: 640,
-            expandedContentHeightIncrement: 140,
+            minimumFrameHeight: 560,
             isShowingOriginal: false
         )
 

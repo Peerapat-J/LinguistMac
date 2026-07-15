@@ -5,10 +5,10 @@ enum PopupTextPanelLayout {
     static let spacing: CGFloat = 12
     static let panelPadding: CGFloat = 12
     static let sectionHeaderHeight: CGFloat = 28
-    static let minimumSourceTextViewportHeight: CGFloat = 44
-    static let minimumTranslationTextViewportHeight: CGFloat = 28
-    static let minimumCollapsedContentHeight: CGFloat = 300
-    static let minimumExpandedContentHeight: CGFloat = 356
+    static let minimumTextViewportHeight: CGFloat = 44
+    static let minimumSourceTextViewportHeight = minimumTextViewportHeight
+    static let minimumTranslationTextViewportHeight = minimumTextViewportHeight
+    static let minimumCollapsedContentHeight: CGFloat = 336
     static let minimumCollapsedSourcePanelHeight = (panelPadding * 2)
         + sectionHeaderHeight
     static let minimumSourcePanelHeight = minimumCollapsedSourcePanelHeight
@@ -18,8 +18,9 @@ enum PopupTextPanelLayout {
         + sectionHeaderHeight
         + spacing
         + minimumTranslationTextViewportHeight
-    static let expandedContentHeightIncrement = minimumExpandedContentHeight
-        - minimumCollapsedContentHeight
+    static let expandedContentHeightIncrement = spacing + minimumSourceTextViewportHeight
+    static let minimumExpandedContentHeight = minimumCollapsedContentHeight
+        + expandedContentHeightIncrement
 
     static func minimumPanelStackHeight(showsOriginal: Bool) -> CGFloat {
         let sourcePanelHeight = showsOriginal
@@ -133,12 +134,12 @@ extension TranslationPopupView {
                     Text(model.popupSourceDraft)
                         .font(popupFont)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .fixedSize(horizontal: false, vertical: true)
                         .frame(
                             minHeight: PopupTextPanelLayout.minimumSourceTextViewportHeight,
-                            maxHeight: 160,
+                            maxHeight: PopupTextPanelLayout.minimumSourceTextViewportHeight,
                             alignment: .topLeading
                         )
+                        .clipped()
                 }
 
                 if let sourceReading = result.sourceReading, !model.isPopupSourceDirty {
@@ -184,6 +185,8 @@ extension TranslationPopupView {
             )
         }
         .frame(minHeight: PopupTextPanelLayout.sectionHeaderHeight)
+        .fixedSize(horizontal: false, vertical: true)
+        .layoutPriority(2)
         .accessibilityElement(children: .contain)
     }
 
@@ -204,6 +207,8 @@ extension TranslationPopupView {
             )
         }
         .frame(minHeight: PopupTextPanelLayout.sectionHeaderHeight)
+        .fixedSize(horizontal: false, vertical: true)
+        .layoutPriority(2)
         .accessibilityElement(children: .contain)
     }
 
@@ -250,6 +255,7 @@ extension TranslationPopupView {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 

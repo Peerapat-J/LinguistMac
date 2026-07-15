@@ -69,9 +69,15 @@ extension TranslationPopupView {
     ) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             languageBar
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(2)
             Divider()
+                .fixedSize(horizontal: false, vertical: true)
             content()
+                .layoutPriority(0)
             footer
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(2)
         }
         .padding(.horizontal, 20)
         .padding(.top, 20)
@@ -79,24 +85,16 @@ extension TranslationPopupView {
     }
 
     private var automaticResizeRequest: PopupWindowAutomaticResizeRequest? {
-        guard case let .success(result, showsOriginal, wordCard) = model.popupState else {
+        guard let revision = automaticResizeRevision else {
             return nil
         }
-
-        let revision = automaticResizeRevision(
-            result: result,
-            showsOriginal: showsOriginal,
-            wordCard: wordCard
-        )
         guard let measuredNaturalHeight,
               measuredNaturalHeight.revision == revision
         else {
             return nil
         }
 
-        let minimumContentHeight = showsOriginal
-            ? PopupTextPanelLayout.minimumExpandedContentHeight
-            : PopupTextPanelLayout.minimumCollapsedContentHeight
+        let minimumContentHeight = automaticResizeMinimumContentHeight
         return PopupWindowAutomaticResizeRequest(
             revision: revision,
             preferredContentHeight: max(measuredNaturalHeight.height, minimumContentHeight),
@@ -106,19 +104,10 @@ extension TranslationPopupView {
 
     @ViewBuilder
     private var naturalHeightMeasurement: some View {
-        if case let .success(result, showsOriginal, wordCard) = model.popupState {
-            let revision = automaticResizeRevision(
-                result: result,
-                showsOriginal: showsOriginal,
-                wordCard: wordCard
-            )
+        if let revision = automaticResizeRevision {
             GeometryReader { geometry in
                 popupLayout {
-                    naturalSuccessContent(
-                        result: result,
-                        showsOriginal: showsOriginal,
-                        wordCard: wordCard
-                    )
+                    naturalContentMeasurement
                 }
                 .frame(width: geometry.size.width)
                 .fixedSize(horizontal: false, vertical: true)
@@ -129,6 +118,50 @@ extension TranslationPopupView {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var naturalContentMeasurement: some View {
+        switch model.popupState {
+        case let .success(result, showsOriginal, wordCard):
+            naturalSuccessContent(
+                result: result,
+                showsOriginal: showsOriginal,
+                wordCard: wordCard
+            )
+        case let .failed(failure, originalText):
+            failureContent(failure: failure, originalText: originalText)
+        case .empty, .loading:
+            EmptyView()
+        }
+    }
+
+    private var automaticResizeRevision: PopupWindowContentRevision? {
+        switch model.popupState {
+        case let .success(result, showsOriginal, wordCard):
+            automaticResizeRevision(
+                result: result,
+                showsOriginal: showsOriginal,
+                wordCard: wordCard
+            )
+        case let .failed(failure, originalText):
+            .failure(failure, originalText: originalText)
+        case .empty, .loading:
+            nil
+        }
+    }
+
+    private var automaticResizeMinimumContentHeight: CGFloat {
+        switch model.popupState {
+        case let .success(_, showsOriginal, _):
+            showsOriginal
+                ? PopupTextPanelLayout.minimumExpandedContentHeight
+                : PopupTextPanelLayout.minimumCollapsedContentHeight
+        case .failed:
+            PopupWindowSizingPolicy.minimumFrameHeight
+        case .empty, .loading:
+            PopupWindowSizingPolicy.minimumFrameHeight
         }
     }
 
@@ -220,29 +253,36 @@ extension TranslationPopupView {
                 wordCard: wordCard
             )
         case let .failed(failure, originalText):
-            let presentation = failure.presentation
-            VStack(alignment: .leading, spacing: 10) {
-                Label(presentation.title, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                Text(presentation.message)
-                    .foregroundStyle(.secondary)
+            failureContent(failure: failure, originalText: originalText)
+        }
+    }
 
-                if let originalText, !originalText.isEmpty {
-                    Text(originalText)
-                        .font(popupFont)
-                        .textSelection(.enabled)
-                }
+    private func failureContent(
+        failure: TranslationFailure,
+        originalText: String?
+    ) -> some View {
+        let presentation = failure.presentation
+        return VStack(alignment: .leading, spacing: 10) {
+            Label(presentation.title, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(presentation.message)
+                .foregroundStyle(.secondary)
 
-                if let action = presentation.recoveryAction {
-                    Button {
-                        performRecoveryAction(action)
-                    } label: {
-                        Label(action.displayTitle, systemImage: action.systemImage)
-                    }
+            if let originalText, !originalText.isEmpty {
+                Text(originalText)
+                    .font(popupFont)
+                    .textSelection(.enabled)
+            }
+
+            if let action = presentation.recoveryAction {
+                Button {
+                    performRecoveryAction(action)
+                } label: {
+                    Label(action.displayTitle, systemImage: action.systemImage)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     func handleWordLookupRecovery(

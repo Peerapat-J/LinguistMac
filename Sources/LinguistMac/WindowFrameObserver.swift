@@ -44,11 +44,28 @@ struct PopupWindowAutomaticResizeRequest: Equatable {
     let minimumContentHeight: CGFloat
 }
 
-struct PopupWindowContentRevision: Equatable {
-    let resultID: UUID
-    let showsOriginal: Bool
-    let wordTranslations: [WordTranslation]
-    let wordCard: TranslationPopupWordCardState?
+enum PopupWindowContentRevision: Equatable {
+    case success(
+        resultID: UUID,
+        showsOriginal: Bool,
+        wordTranslations: [WordTranslation],
+        wordCard: TranslationPopupWordCardState?
+    )
+    case failure(TranslationFailure, originalText: String?)
+
+    init(
+        resultID: UUID,
+        showsOriginal: Bool,
+        wordTranslations: [WordTranslation],
+        wordCard: TranslationPopupWordCardState?
+    ) {
+        self = .success(
+            resultID: resultID,
+            showsOriginal: showsOriginal,
+            wordTranslations: wordTranslations,
+            wordCard: wordCard
+        )
+    }
 }
 
 enum PopupWindowSizingPolicy {
@@ -101,24 +118,27 @@ enum PopupWindowSizingPolicy {
             return false
         }
 
-        return previousRevision.resultID == nextRevision.resultID
-            && !previousRevision.showsOriginal
-            && nextRevision.showsOriginal
+        guard case let .success(previousResultID, previousShowsOriginal, _, _) = previousRevision,
+              case let .success(nextResultID, nextShowsOriginal, _, _) = nextRevision
+        else {
+            return false
+        }
+
+        return previousResultID == nextResultID
+            && !previousShowsOriginal
+            && nextShowsOriginal
     }
 
     static func preferredFrameHeight(
         measuredFrameHeight: CGFloat,
         currentFrameHeight: CGFloat,
-        expandedContentHeightIncrement: CGFloat,
+        minimumFrameHeight: CGFloat,
         isShowingOriginal: Bool
     ) -> CGFloat {
         guard isShowingOriginal else {
             return measuredFrameHeight
         }
-        return max(
-            measuredFrameHeight,
-            currentFrameHeight + expandedContentHeightIncrement
-        )
+        return max(currentFrameHeight, minimumFrameHeight)
     }
 
     static func shouldApplyAutomaticResize(
@@ -285,15 +305,15 @@ final class PopupWindowFrameController: ObservableObject {
             forContentHeight: request.preferredContentHeight,
             window: window
         )
-        let preferredFrameHeight = PopupWindowSizingPolicy.preferredFrameHeight(
-            measuredFrameHeight: measuredFrameHeight,
-            currentFrameHeight: window.frame.height,
-            expandedContentHeightIncrement: PopupTextPanelLayout.expandedContentHeightIncrement,
-            isShowingOriginal: isShowingOriginal
-        )
         let minimumFrameHeight = frameHeight(
             forContentHeight: request.minimumContentHeight,
             window: window
+        )
+        let preferredFrameHeight = PopupWindowSizingPolicy.preferredFrameHeight(
+            measuredFrameHeight: measuredFrameHeight,
+            currentFrameHeight: window.frame.height,
+            minimumFrameHeight: minimumFrameHeight,
+            isShowingOriginal: isShowingOriginal
         )
         return PopupWindowSizingPolicy.frame(
             bySettingHeight: preferredFrameHeight,
