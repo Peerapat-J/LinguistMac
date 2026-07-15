@@ -3,10 +3,16 @@ import SwiftUI
 
 enum PopupTextPanelLayout {
     static let spacing: CGFloat = 12
-    static let minimumCollapsedContentHeight: CGFloat = 240
+    static let panelPadding: CGFloat = 12
+    static let sectionHeaderHeight: CGFloat = 24
+    static let minimumTranslationTextViewportHeight: CGFloat = 28
+    static let minimumCollapsedContentHeight: CGFloat = 284
     static let minimumExpandedContentHeight: CGFloat = 380
-    static let minimumSourcePanelHeight: CGFloat = 138
-    static let minimumTranslationPanelHeight: CGFloat = 88
+    static let minimumSourcePanelHeight: CGFloat = 140
+    static let minimumTranslationPanelHeight = (panelPadding * 2)
+        + sectionHeaderHeight
+        + spacing
+        + minimumTranslationTextViewportHeight
     static let expandedContentHeightIncrement = minimumExpandedContentHeight
         - minimumCollapsedContentHeight
     static func sourcePanelHeight(for availableHeight: CGFloat) -> CGFloat {
@@ -48,7 +54,10 @@ extension TranslationPopupView {
                         ScrollView {
                             translationTextContent(result: result, wordCard: wordCard)
                         }
-                        .frame(maxHeight: .infinity)
+                        .frame(
+                            minHeight: PopupTextPanelLayout.minimumTranslationTextViewportHeight,
+                            maxHeight: .infinity
+                        )
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -144,6 +153,7 @@ extension TranslationPopupView {
                 textOverride: model.popupSourceDraft
             )
         }
+        .frame(minHeight: PopupTextPanelLayout.sectionHeaderHeight)
         .accessibilityElement(children: .contain)
     }
 
@@ -163,6 +173,7 @@ extension TranslationPopupView {
                 languageName: result.request.targetLanguage.displayName
             )
         }
+        .frame(minHeight: PopupTextPanelLayout.sectionHeaderHeight)
         .accessibilityElement(children: .contain)
     }
 
@@ -258,7 +269,7 @@ struct PopupTextPanel<Content: View>: View {
 
     var body: some View {
         content
-            .padding(12)
+            .padding(PopupTextPanelLayout.panelPadding)
             .frame(
                 maxWidth: .infinity,
                 maxHeight: fillsHeight ? .infinity : nil,

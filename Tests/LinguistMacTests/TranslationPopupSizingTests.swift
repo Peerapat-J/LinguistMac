@@ -80,6 +80,18 @@ final class TranslationPopupSizingTests: XCTestCase {
         )
     }
 
+    func testTranslationPanelMinimumIncludesVisibleTextViewport() {
+        let viewportHeight = PopupTextPanelLayout.minimumTranslationPanelHeight
+            - (PopupTextPanelLayout.panelPadding * 2)
+            - PopupTextPanelLayout.sectionHeaderHeight
+            - PopupTextPanelLayout.spacing
+
+        XCTAssertGreaterThanOrEqual(
+            viewportHeight,
+            PopupTextPanelLayout.minimumTranslationTextViewportHeight
+        )
+    }
+
     func testAutomaticResizeUsesCurrentWindowPosition() {
         let currentFrame = CGRect(x: 640, y: 200, width: 460, height: 500)
         let visibleFrame = CGRect(x: 0, y: 23, width: 1440, height: 877)
@@ -141,11 +153,14 @@ final class TranslationPopupSizingTests: XCTestCase {
         let height = PopupWindowSizingPolicy.preferredFrameHeight(
             measuredFrameHeight: 480,
             currentFrameHeight: 500,
-            expandedContentHeightIncrement: 140,
+            expandedContentHeightIncrement: PopupTextPanelLayout.expandedContentHeightIncrement,
             isShowingOriginal: true
         )
 
-        XCTAssertEqual(height, 640)
+        XCTAssertEqual(
+            height,
+            500 + PopupTextPanelLayout.expandedContentHeightIncrement
+        )
     }
 
     func testHidingOriginalReturnsToMeasuredContentHeight() {
