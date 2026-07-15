@@ -3,6 +3,7 @@ import LinguistMacCore
 import SwiftUI
 
 struct WindowFrameObserver: NSViewRepresentable {
+    let controller: PopupWindowFrameController
     let automaticResizeRequest: PopupWindowAutomaticResizeRequest?
     let automaticResizeEnabled: Bool
     let savedFrame: CGRect?
@@ -11,11 +12,8 @@ struct WindowFrameObserver: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSView {
         let view = WindowFrameObserverView()
-        view.automaticResizeRequest = automaticResizeRequest
-        view.automaticResizeEnabled = automaticResizeEnabled
-        view.savedFrame = savedFrame
-        view.onFrameChange = onFrameChange
-        view.onManualResize = onManualResize
+        view.controller = controller
+        update(controller)
         return view
     }
 
@@ -24,14 +22,19 @@ struct WindowFrameObserver: NSViewRepresentable {
             return
         }
 
-        view.prepareForAutomaticResize(automaticResizeRequest)
-        view.automaticResizeRequest = automaticResizeRequest
-        view.automaticResizeEnabled = automaticResizeEnabled
-        view.savedFrame = savedFrame
-        view.onFrameChange = onFrameChange
-        view.onManualResize = onManualResize
-        view.applySavedFrameIfNeeded()
-        view.applyAutomaticResizeIfNeeded()
+        view.controller = controller
+        update(controller)
+        view.attachControllerToCurrentWindow()
+    }
+
+    private func update(_ controller: PopupWindowFrameController) {
+        controller.update(
+            automaticResizeRequest: automaticResizeRequest,
+            automaticResizeEnabled: automaticResizeEnabled,
+            savedFrame: savedFrame,
+            onFrameChange: onFrameChange,
+            onManualResize: onManualResize
+        )
     }
 }
 
@@ -59,14 +62,11 @@ enum PopupWindowSizingPolicy {
         bySettingHeight preferredHeight: CGFloat,
         from currentFrame: CGRect,
         visibleFrame: CGRect,
-        minimumHeight: CGFloat = minimumFrameHeight,
-        anchoredAt topLeft: CGPoint? = nil
+        minimumHeight: CGFloat = minimumFrameHeight
     ) -> CGRect {
-        let topLeft = topLeft ?? CGPoint(x: currentFrame.minX, y: currentFrame.maxY)
         var frame = currentFrame
         frame.size.height = preferredHeight
-        frame.origin.x = topLeft.x
-        frame.origin.y = topLeft.y - preferredHeight
+        frame.origin.y = currentFrame.maxY - preferredHeight
         return clampedFrame(frame, visibleFrame: visibleFrame, minimumHeight: minimumHeight)
     }
 
@@ -105,47 +105,96 @@ enum PopupWindowSizingPolicy {
             && !previousRevision.showsOriginal
             && nextRevision.showsOriginal
     }
+
+    static func preferredFrameHeight(
+        measuredFrameHeight: CGFloat,
+        currentFrameHeight: CGFloat,
+        expandedContentHeightIncrement: CGFloat,
+        isShowingOriginal: Bool
+    ) -> CGFloat {
+        guard isShowingOriginal else {
+            return measuredFrameHeight
+        }
+        return max(
+            measuredFrameHeight,
+            currentFrameHeight + expandedContentHeightIncrement
+        )
+    }
 }
 
-private final class WindowFrameObserverView: NSView {
-    var automaticResizeRequest: PopupWindowAutomaticResizeRequest?
-    var automaticResizeEnabled = true
-    var savedFrame: CGRect?
-    var onFrameChange: ((CGRect) -> Void)?
-    var onManualResize: (() -> Void)?
-
-    private weak var observedWindow: NSWindow?
+@MainActor
+final class PopupWindowFrameController: ObservableObject {
+    private weak var window: NSWindow?
+    private var automaticResizeRequest: PopupWindowAutomaticResizeRequest?
+    private var automaticResizeEnabled = true
+    private var savedFrame: CGRect?
+    private var onFrameChange: ((CGRect) -> Void)?
+    private var onManualResize: (() -> Void)?
     private var didApplySavedFrame = false
     private var appliedAutomaticResizeRevision: PopupWindowContentRevision?
     private var didObserveManualResize = false
-    private var automaticResizeTopLeft: CGPoint?
     private var lastAutomaticFrame: CGRect?
-    private var userMoveInProgress = false
-    private var willMoveObserver: NSObjectProtocol?
-    private var moveObserver: NSObjectProtocol?
-    private var resizeObserver: NSObjectProtocol?
-    private var liveResizeObserver: NSObjectProtocol?
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        observe(window)
+    func update(
+        automaticResizeRequest: PopupWindowAutomaticResizeRequest?,
+        automaticResizeEnabled: Bool,
+        savedFrame: CGRect?,
+        onFrameChange: @escaping (CGRect) -> Void,
+        onManualResize: @escaping () -> Void
+    ) {
+        self.automaticResizeRequest = automaticResizeRequest
+        self.automaticResizeEnabled = automaticResizeEnabled
+        self.savedFrame = savedFrame
+        self.onFrameChange = onFrameChange
+        self.onManualResize = onManualResize
         applySavedFrameIfNeeded()
-        rememberAutomaticResizeTopLeft(from: window)
         applyAutomaticResizeIfNeeded()
-        publishFrame()
     }
 
-    override func viewWillMove(toWindow newWindow: NSWindow?) {
-        super.viewWillMove(toWindow: newWindow)
-
-        guard newWindow !== observedWindow else {
+    func attach(to window: NSWindow?) {
+        guard let window else {
             return
         }
 
-        resetObservedWindow()
+        if self.window !== window {
+            self.window = window
+            didApplySavedFrame = false
+            appliedAutomaticResizeRevision = nil
+            didObserveManualResize = false
+            lastAutomaticFrame = nil
+        }
+        applySavedFrameIfNeeded()
+        applyAutomaticResizeIfNeeded()
+        publishFrame(window.frame)
     }
 
-    func applySavedFrameIfNeeded() {
+    func windowDidMove(_ window: NSWindow) {
+        guard self.window === window else {
+            return
+        }
+        publishFrame(window.frame)
+    }
+
+    func windowDidResize(_ window: NSWindow) {
+        guard self.window === window,
+              didObserveManualResize || window.inLiveResize
+        else {
+            return
+        }
+        publishFrame(window.frame)
+    }
+
+    func windowWillStartLiveResize(_ window: NSWindow) {
+        guard self.window === window,
+              !didObserveManualResize
+        else {
+            return
+        }
+        didObserveManualResize = true
+        onManualResize?()
+    }
+
+    private func applySavedFrameIfNeeded() {
         guard !didApplySavedFrame,
               let savedFrame,
               let window
@@ -153,21 +202,16 @@ private final class WindowFrameObserverView: NSView {
             return
         }
 
-        window.setFrame(clamped(savedFrame, for: window), display: true)
+        let frame = clamped(savedFrame, for: window)
         didApplySavedFrame = true
-    }
-
-    func prepareForAutomaticResize(_ request: PopupWindowAutomaticResizeRequest?) {
-        guard request?.revision != automaticResizeRequest?.revision,
-              let window
-        else {
+        lastAutomaticFrame = frame
+        guard !PopupWindowSizingPolicy.framesMatch(frame, window.frame) else {
             return
         }
-
-        automaticResizeTopLeft = topLeft(of: window.frame)
+        window.setFrame(frame, display: true)
     }
 
-    func applyAutomaticResizeIfNeeded() {
+    private func applyAutomaticResizeIfNeeded() {
         guard let request = automaticResizeRequest,
               let window,
               let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
@@ -176,10 +220,17 @@ private final class WindowFrameObserverView: NSView {
         }
 
         configureSizeLimits(for: window, request: request, visibleFrame: visibleFrame)
-        guard automaticResizeEnabled,
-              !didObserveManualResize,
-              request.revision != appliedAutomaticResizeRevision
-        else {
+        guard request.revision != appliedAutomaticResizeRevision else {
+            return
+        }
+
+        let previousRevision = appliedAutomaticResizeRevision
+        appliedAutomaticResizeRevision = request.revision
+        let isShowingOriginal = PopupWindowSizingPolicy.preservesHeightWhenShowingOriginal(
+            from: previousRevision,
+            to: request.revision
+        )
+        guard (automaticResizeEnabled && !didObserveManualResize) || isShowingOriginal else {
             return
         }
 
@@ -187,10 +238,12 @@ private final class WindowFrameObserverView: NSView {
             forContentHeight: request.preferredContentHeight,
             window: window
         )
-        let preferredFrameHeight = PopupWindowSizingPolicy.preservesHeightWhenShowingOriginal(
-            from: appliedAutomaticResizeRevision,
-            to: request.revision
-        ) ? max(measuredFrameHeight, window.frame.height) : measuredFrameHeight
+        let preferredFrameHeight = PopupWindowSizingPolicy.preferredFrameHeight(
+            measuredFrameHeight: measuredFrameHeight,
+            currentFrameHeight: window.frame.height,
+            expandedContentHeightIncrement: PopupTextPanelLayout.expandedContentHeightIncrement,
+            isShowingOriginal: isShowingOriginal
+        )
         let minimumFrameHeight = frameHeight(
             forContentHeight: request.minimumContentHeight,
             window: window
@@ -199,189 +252,24 @@ private final class WindowFrameObserverView: NSView {
             bySettingHeight: preferredFrameHeight,
             from: window.frame,
             visibleFrame: visibleFrame,
-            minimumHeight: minimumFrameHeight,
-            anchoredAt: automaticResizeTopLeft
+            minimumHeight: minimumFrameHeight
         )
 
-        appliedAutomaticResizeRevision = request.revision
-        automaticResizeTopLeft = topLeft(of: frame)
         lastAutomaticFrame = frame
-        guard frame != window.frame else {
+        guard !PopupWindowSizingPolicy.framesMatch(frame, window.frame) else {
             return
         }
         window.setFrame(frame, display: true)
     }
 
-    private func observe(_ window: NSWindow?) {
-        guard observedWindow !== window else {
-            return
-        }
-
-        resetObservedWindow()
-        observedWindow = window
-
-        guard let window else {
-            return
-        }
-
-        observeWindowMoves(window)
-        observeWindowResizes(window)
-    }
-
-    private func observeWindowMoves(_ window: NSWindow) {
-        willMoveObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.willMoveNotification,
-            object: window,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.userMoveInProgress = true
+    private func publishFrame(_ frame: CGRect) {
+        if let lastAutomaticFrame {
+            guard !PopupWindowSizingPolicy.framesMatch(frame, lastAutomaticFrame) else {
+                return
             }
-        }
-
-        moveObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didMoveNotification,
-            object: window,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                guard let self else {
-                    return
-                }
-                self.clampWindowToVisibleFrameIfNeeded()
-                guard self.userMoveInProgress else {
-                    return
-                }
-                self.userMoveInProgress = false
-                self.rememberAutomaticResizeTopLeft(from: self.window)
-                self.publishFrame()
-            }
-        }
-    }
-
-    private func observeWindowResizes(_ window: NSWindow) {
-        resizeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification,
-            object: window,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                guard let self,
-                      self.didObserveManualResize || self.window?.inLiveResize == true
-                else {
-                    return
-                }
-                self.publishFrame()
-            }
-        }
-
-        liveResizeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.willStartLiveResizeNotification,
-            object: window,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.observeManualResizeIfNeeded()
-            }
-        }
-    }
-
-    private func resetObservedWindow() {
-        stopObserving()
-        observedWindow = nil
-        didApplySavedFrame = false
-        appliedAutomaticResizeRevision = nil
-        didObserveManualResize = false
-        automaticResizeTopLeft = nil
-        lastAutomaticFrame = nil
-        userMoveInProgress = false
-    }
-
-    private func stopObserving() {
-        if let willMoveObserver {
-            NotificationCenter.default.removeObserver(willMoveObserver)
-        }
-        if let moveObserver {
-            NotificationCenter.default.removeObserver(moveObserver)
-        }
-        if let resizeObserver {
-            NotificationCenter.default.removeObserver(resizeObserver)
-        }
-        if let liveResizeObserver {
-            NotificationCenter.default.removeObserver(liveResizeObserver)
-        }
-        willMoveObserver = nil
-        moveObserver = nil
-        resizeObserver = nil
-        liveResizeObserver = nil
-    }
-
-    private func publishFrame() {
-        guard let window else {
-            return
-        }
-
-        if let lastAutomaticFrame, framesMatch(window.frame, lastAutomaticFrame) {
-            return
         }
         lastAutomaticFrame = nil
-        onFrameChange?(window.frame)
-    }
-
-    private func observeManualResizeIfNeeded() {
-        guard !didObserveManualResize else {
-            return
-        }
-        didObserveManualResize = true
-        onManualResize?()
-    }
-
-    private func clampWindowToVisibleFrameIfNeeded() {
-        guard let window,
-              let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
-        else {
-            return
-        }
-
-        if let automaticResizeRequest {
-            configureSizeLimits(
-                for: window,
-                request: automaticResizeRequest,
-                visibleFrame: visibleFrame
-            )
-        }
-        let minimumHeight = automaticResizeRequest.map {
-            frameHeight(forContentHeight: $0.minimumContentHeight, window: window)
-        } ?? PopupWindowSizingPolicy.minimumFrameHeight
-        let frame = PopupWindowSizingPolicy.clampedFrame(
-            window.frame,
-            visibleFrame: visibleFrame,
-            minimumHeight: minimumHeight
-        )
-        guard frame != window.frame else {
-            return
-        }
-        automaticResizeTopLeft = topLeft(of: frame)
-        lastAutomaticFrame = frame
-        window.setFrame(frame, display: true)
-    }
-
-    private func rememberAutomaticResizeTopLeft(from window: NSWindow?) {
-        guard let window else {
-            return
-        }
-        guard lastAutomaticFrame.map({ framesMatch(window.frame, $0) }) != true else {
-            return
-        }
-        automaticResizeTopLeft = topLeft(of: window.frame)
-    }
-
-    private func topLeft(of frame: CGRect) -> CGPoint {
-        CGPoint(x: frame.minX, y: frame.maxY)
-    }
-
-    private func framesMatch(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
-        PopupWindowSizingPolicy.framesMatch(lhs, rhs)
+        onFrameChange?(frame)
     }
 
     private func configureSizeLimits(
@@ -432,6 +320,84 @@ private final class WindowFrameObserverView: NSView {
             .filter { $0.area > 0 }
             .max { $0.area < $1.area }?
             .frame
+    }
+}
+
+private final class WindowFrameObserverView: NSView {
+    weak var controller: PopupWindowFrameController?
+
+    private weak var observedWindow: NSWindow?
+    private var moveObserver: NSObjectProtocol?
+    private var resizeObserver: NSObjectProtocol?
+    private var liveResizeObserver: NSObjectProtocol?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observe(window)
+        attachControllerToCurrentWindow()
+    }
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+
+        guard newWindow !== observedWindow else {
+            return
+        }
+        stopObserving()
+        observedWindow = nil
+    }
+
+    func attachControllerToCurrentWindow() {
+        controller?.attach(to: window)
+    }
+
+    private func observe(_ window: NSWindow?) {
+        guard observedWindow !== window else {
+            return
+        }
+        stopObserving()
+        observedWindow = window
+
+        guard let window else {
+            return
+        }
+
+        moveObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.controller?.windowDidMove(window)
+            }
+        }
+        resizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.controller?.windowDidResize(window)
+            }
+        }
+        liveResizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willStartLiveResizeNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.controller?.windowWillStartLiveResize(window)
+            }
+        }
+    }
+
+    private func stopObserving() {
+        for observer in [moveObserver, resizeObserver, liveResizeObserver].compactMap(\.self) {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        moveObserver = nil
+        resizeObserver = nil
+        liveResizeObserver = nil
     }
 }
 

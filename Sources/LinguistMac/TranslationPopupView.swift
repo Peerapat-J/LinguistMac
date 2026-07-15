@@ -6,6 +6,7 @@ struct TranslationPopupView: View {
     @Environment(\.openSettings) private var openSettings
     @ObservedObject var model: AppShellModel
     @State private var measuredNaturalHeight: PopupNaturalHeightMeasurement?
+    @StateObject private var windowFrameController = PopupWindowFrameController()
 
     var body: some View {
         popupLayout {
@@ -40,6 +41,7 @@ struct TranslationPopupView: View {
         }
         .background {
             WindowFrameObserver(
+                controller: windowFrameController,
                 automaticResizeRequest: automaticResizeRequest,
                 automaticResizeEnabled: !model.hasManuallyResizedPopup,
                 savedFrame: model.savedPopupWindowFrame,

@@ -63,8 +63,8 @@ final class TranslationPopupSizingTests: XCTestCase {
         )
     }
 
-    func testAutomaticResizePreservesTopEdge() {
-        let currentFrame = CGRect(x: 100, y: 200, width: 460, height: 500)
+    func testAutomaticResizeUsesCurrentWindowPosition() {
+        let currentFrame = CGRect(x: 640, y: 200, width: 460, height: 500)
         let visibleFrame = CGRect(x: 0, y: 23, width: 1440, height: 877)
 
         let resizedFrame = PopupWindowSizingPolicy.frame(
@@ -74,23 +74,8 @@ final class TranslationPopupSizingTests: XCTestCase {
         )
 
         XCTAssertEqual(resizedFrame.height, 300)
+        XCTAssertEqual(resizedFrame.minX, currentFrame.minX)
         XCTAssertEqual(resizedFrame.maxY, currentFrame.maxY)
-    }
-
-    func testAutomaticResizeUsesRecordedTopEdgeInsteadOfCurrentWindowPosition() {
-        let currentFrame = CGRect(x: 100, y: 200, width: 460, height: 500)
-        let visibleFrame = CGRect(x: 0, y: 23, width: 1440, height: 877)
-        let recordedTopLeft = CGPoint(x: 100, y: 800)
-
-        let resizedFrame = PopupWindowSizingPolicy.frame(
-            bySettingHeight: 300,
-            from: currentFrame,
-            visibleFrame: visibleFrame,
-            anchoredAt: recordedTopLeft
-        )
-
-        XCTAssertEqual(resizedFrame.minX, recordedTopLeft.x)
-        XCTAssertEqual(resizedFrame.maxY, recordedTopLeft.y)
     }
 
     func testAutomaticFrameComparisonAllowsBackingPixelRounding() {
@@ -133,6 +118,28 @@ final class TranslationPopupSizingTests: XCTestCase {
                 to: differentResultRevision
             )
         )
+    }
+
+    func testShowingOriginalExpandsWindowInsteadOfShrinkingTranslationPanel() {
+        let height = PopupWindowSizingPolicy.preferredFrameHeight(
+            measuredFrameHeight: 480,
+            currentFrameHeight: 500,
+            expandedContentHeightIncrement: 140,
+            isShowingOriginal: true
+        )
+
+        XCTAssertEqual(height, 640)
+    }
+
+    func testHidingOriginalReturnsToMeasuredContentHeight() {
+        let height = PopupWindowSizingPolicy.preferredFrameHeight(
+            measuredFrameHeight: 420,
+            currentFrameHeight: 640,
+            expandedContentHeightIncrement: 140,
+            isShowingOriginal: false
+        )
+
+        XCTAssertEqual(height, 420)
     }
 
     func testFrameClampsToSecondaryDisplayVisibleFrame() {

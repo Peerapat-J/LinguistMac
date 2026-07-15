@@ -7,6 +7,8 @@ enum PopupTextPanelLayout {
     static let minimumExpandedContentHeight: CGFloat = 380
     static let minimumSourcePanelHeight: CGFloat = 138
     static let minimumTranslationPanelHeight: CGFloat = 88
+    static let expandedContentHeightIncrement = minimumExpandedContentHeight
+        - minimumCollapsedContentHeight
     static func sourcePanelHeight(for availableHeight: CGFloat) -> CGFloat {
         let panelHeight = max(availableHeight - spacing, 0)
         let maximumSourceHeight = max(
