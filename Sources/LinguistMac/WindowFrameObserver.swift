@@ -68,6 +68,19 @@ enum PopupWindowSizingPolicy {
         return clampedFrame(frame, visibleFrame: visibleFrame, minimumHeight: minimumHeight)
     }
 
+    static func preservesHeightWhenHidingOriginal(
+        from previousRevision: PopupWindowContentRevision?,
+        to nextRevision: PopupWindowContentRevision
+    ) -> Bool {
+        guard let previousRevision else {
+            return false
+        }
+
+        return previousRevision.resultID == nextRevision.resultID
+            && previousRevision.showsOriginal
+            && !nextRevision.showsOriginal
+    }
+
     static func clampedFrame(
         _ frame: CGRect,
         visibleFrame: CGRect,
@@ -149,10 +162,14 @@ private final class WindowFrameObserverView: NSView {
             return
         }
 
-        let preferredFrameHeight = frameHeight(
+        let measuredFrameHeight = frameHeight(
             forContentHeight: request.preferredContentHeight,
             window: window
         )
+        let preferredFrameHeight = PopupWindowSizingPolicy.preservesHeightWhenHidingOriginal(
+            from: appliedAutomaticResizeRevision,
+            to: request.revision
+        ) ? max(measuredFrameHeight, window.frame.height) : measuredFrameHeight
         let minimumFrameHeight = frameHeight(
             forContentHeight: request.minimumContentHeight,
             window: window

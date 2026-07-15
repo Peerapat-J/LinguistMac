@@ -41,14 +41,13 @@ final class TranslationPopupSizingTests: XCTestCase {
         XCTAssertNotEqual(wordTranslationsRevision, wordCardRevision)
     }
 
-    func testPanelLayoutGivesTranslationMostAdditionalHeight() {
+    func testPanelLayoutBalancesExpandedPanels() {
         let availableHeight: CGFloat = 500
 
         let sourceHeight = PopupTextPanelLayout.sourcePanelHeight(for: availableHeight)
         let translationHeight = availableHeight - PopupTextPanelLayout.spacing - sourceHeight
 
-        XCTAssertEqual(sourceHeight, 214.72, accuracy: 0.001)
-        XCTAssertGreaterThan(translationHeight, sourceHeight)
+        XCTAssertEqual(sourceHeight, translationHeight, accuracy: 0.001)
     }
 
     func testPanelLayoutPreservesPanelMinimums() {
@@ -92,6 +91,41 @@ final class TranslationPopupSizingTests: XCTestCase {
 
         XCTAssertEqual(resizedFrame.minX, recordedTopLeft.x)
         XCTAssertEqual(resizedFrame.maxY, recordedTopLeft.y)
+    }
+
+    func testAutomaticResizePreservesHeightWhenHidingOriginalForSameResult() {
+        let resultID = UUID()
+        let shownRevision = PopupWindowContentRevision(
+            resultID: resultID,
+            showsOriginal: true,
+            wordTranslations: [],
+            wordCard: nil
+        )
+        let hiddenRevision = PopupWindowContentRevision(
+            resultID: resultID,
+            showsOriginal: false,
+            wordTranslations: [],
+            wordCard: nil
+        )
+        let newResultRevision = PopupWindowContentRevision(
+            resultID: UUID(),
+            showsOriginal: false,
+            wordTranslations: [],
+            wordCard: nil
+        )
+
+        XCTAssertTrue(
+            PopupWindowSizingPolicy.preservesHeightWhenHidingOriginal(
+                from: shownRevision,
+                to: hiddenRevision
+            )
+        )
+        XCTAssertFalse(
+            PopupWindowSizingPolicy.preservesHeightWhenHidingOriginal(
+                from: shownRevision,
+                to: newResultRevision
+            )
+        )
     }
 
     func testFrameClampsToSecondaryDisplayVisibleFrame() {
