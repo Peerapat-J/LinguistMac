@@ -1,11 +1,15 @@
+import AppKit
 import LinguistMacCore
 import SwiftUI
 
 struct TranslationPopupView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: AppShellModel
     @State private var measuredNaturalHeight: PopupNaturalHeightMeasurement?
+    @State private var shouldRetryAfterDismiss = false
     @StateObject private var windowFrameController = PopupWindowFrameController()
 
     var body: some View {
@@ -59,6 +63,9 @@ struct TranslationPopupView: View {
             Task {
                 await model.refreshAppleLanguagePackGroupsIfNeeded()
             }
+        }
+        .onDisappear {
+            retryAfterDismissIfNeeded()
         }
     }
 }
@@ -310,8 +317,24 @@ extension TranslationPopupView {
         switch action {
         case .openSettings:
             openLinguistSettings(model: model, using: openSettings)
-        case .openSystemSettings, .retry:
+        case .openSystemSettings:
             model.performRecoveryAction(action)
+        case .retry:
+            shouldRetryAfterDismiss = true
+            dismissWindow(id: AppWindow.translationPopup.rawValue)
+        }
+    }
+
+    private func retryAfterDismissIfNeeded() {
+        guard shouldRetryAfterDismiss else {
+            return
+        }
+
+        shouldRetryAfterDismiss = false
+        Task {
+            await model.retryLastTranslationCommand()
+            openWindow(id: AppWindow.translationPopup.rawValue)
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 

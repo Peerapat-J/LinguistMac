@@ -141,7 +141,7 @@ extension AppShellModel {
         NSWorkspace.shared.open(url)
     }
 
-    private func retryLastTranslationCommand() async {
+    func retryLastTranslationCommand() async {
         switch lastCommand {
         case .some(.screenTranslate):
             await runScreenTranslation()
