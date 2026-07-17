@@ -6,6 +6,39 @@ enum AppWindow: String {
     case status, quickTranslate, translationPopup, onboarding
 }
 
+enum TranslationTextRole: Equatable {
+    case source
+    case translation
+}
+
+struct SpokenOutputContext: Equatable {
+    let resultID: UUID
+    let role: TranslationTextRole
+}
+
+struct PopupTranslationContext: Equatable {
+    let sourceText: String
+    let inputMode: TranslationInputMode
+    let showsOriginal: Bool
+}
+
+enum PopupManualResizeScope {
+    static func startsNewContent(
+        from previousState: TranslationPopupState,
+        to nextState: TranslationPopupState
+    ) -> Bool {
+        switch nextState {
+        case .empty, .loading, .failed:
+            return true
+        case let .success(nextResult, _, _):
+            guard case let .success(previousResult, _, _) = previousState else {
+                return true
+            }
+            return previousResult.id != nextResult.id
+        }
+    }
+}
+
 enum AppShellCommand: Equatable {
     case screenTranslate
     case quickTranslate
@@ -35,7 +68,20 @@ final class AppShellModel: ObservableObject {
     }
 
     @Published var recentTranslations: [TranslationResult]
-    @Published var popupState: TranslationPopupState
+    @Published var popupState: TranslationPopupState {
+        didSet {
+            guard PopupManualResizeScope.startsNewContent(
+                from: oldValue,
+                to: popupState
+            ) else {
+                return
+            }
+            hasManuallyResizedPopup = false
+        }
+    }
+
+    @Published var popupSourceDraft: String
+    @Published var isPopupSourceDirty: Bool
     @Published var quickDraft: QuickTranslateDraft
     @Published var quickSessionState: TranslationSessionState
     @Published var quickVoiceState: SpeechRecognitionSessionState
@@ -56,6 +102,7 @@ final class AppShellModel: ObservableObject {
     @Published var screenTranslationNotificationMessage: String?
     @Published var historyLoadError: HistoryLoadErrorState?
     @Published private(set) var lastCommand: AppShellCommand?
+    @Published private(set) var hasManuallyResizedPopup = false
 
     let availableLanguages = TranslationLanguageCatalog.defaultLanguages
 
@@ -64,12 +111,15 @@ final class AppShellModel: ObservableObject {
     var doubleCopyTriggerDetector: DoubleCopyTriggerDetector
     var activePopupWordLookupID: UUID?
     var activePopupWordLookupTask: Task<WordLookupState, Never>?
+    var activePopupTranslationID: UUID?
+    var activePopupTranslationTask: Task<Void, Never>?
+    var popupTranslationContext: PopupTranslationContext?
     var activeQuickWordTranslationID: UUID?
     var activeQuickWordTranslationTask: Task<Void, Never>?
     var activeQuickVoiceCaptureID: UUID?
     var activeQuickVoiceCaptureTask: Task<Void, Never>?
     var activeSpokenOutputID: UUID?
-    var activeSpokenOutputResultID: UUID?
+    var activeSpokenOutputContext: SpokenOutputContext?
     var activeSpokenOutputTask: Task<Void, Never>?
     var isRefreshingAppleLanguagePackGroups = false
     var needsApplePackGroupRefresh = false
@@ -91,6 +141,8 @@ final class AppShellModel: ObservableObject {
         self.settings = initialSettings
         self.recentTranslations = recentTranslations
         popupState = .empty
+        popupSourceDraft = ""
+        isPopupSourceDirty = false
         quickDraft = QuickTranslateDraft(
             sourceLanguage: initialSettings.sourceLanguage,
             targetLanguage: initialSettings.targetLanguage
@@ -132,29 +184,24 @@ final class AppShellModel: ObservableObject {
 
     deinit {
         activePopupWordLookupTask?.cancel()
+        activePopupTranslationTask?.cancel()
         activeQuickWordTranslationTask?.cancel()
         activeQuickVoiceCaptureTask?.cancel()
         activeSpokenOutputTask?.cancel()
-    }
-
-    var recentMenuItems: [TranslationResult] {
-        Array(recentTranslations.prefix(5))
     }
 
     func record(_ command: AppShellCommand) {
         lastCommand = command
     }
 
-    func prepareQuickTranslate() {
-        record(.quickTranslate)
-        stopSpokenOutput()
-        cancelQuickWordTranslation()
-        clearActiveQuickVoiceCapture()
-        quickDraft.sourceLanguage = settings.sourceLanguage
-        quickDraft.targetLanguage = settings.targetLanguage
-        quickSessionState = .idle
-        quickVoiceState = .idle
-        quickVoiceTranscript = nil
+    func notePopupManualResize() {
+        hasManuallyResizedPopup = true
+    }
+
+    func clearActiveQuickVoiceCapture() {
+        activeQuickVoiceCaptureID = nil
+        activeQuickVoiceCaptureTask?.cancel()
+        activeQuickVoiceCaptureTask = nil
     }
 
     func swapQuickDraftLanguages() {
@@ -273,12 +320,21 @@ final class AppShellModel: ObservableObject {
         await services.screenTranslationNotifier.openNotificationSettings()
     }
 
-    func speakTranslation(_ result: TranslationResult) {
+    func speakPopupText(
+        _ role: TranslationTextRole,
+        result: TranslationResult,
+        textOverride: String? = nil
+    ) {
+        let request = spokenOutputRequest(
+            for: role,
+            result: result,
+            textOverride: textOverride
+        )
+        let context = SpokenOutputContext(resultID: result.id, role: role)
         stopSpokenOutput()
         let outputID = UUID()
-        let request = SpokenOutputRequest(result: result)
         activeSpokenOutputID = outputID
-        activeSpokenOutputResultID = result.id
+        activeSpokenOutputContext = context
         spokenOutputState = .preparing(request.normalized)
         activeSpokenOutputTask = Task {
             await runSpokenOutput(request, outputID: outputID)
@@ -287,23 +343,10 @@ final class AppShellModel: ObservableObject {
 
     func stopSpokenOutput() {
         activeSpokenOutputID = nil
-        activeSpokenOutputResultID = nil
+        activeSpokenOutputContext = nil
         activeSpokenOutputTask?.cancel()
         activeSpokenOutputTask = nil
         spokenOutputState = .idle
-    }
-
-    func isSpokenOutputActive(for result: TranslationResult) -> Bool {
-        guard activeSpokenOutputResultID == result.id else {
-            return false
-        }
-
-        switch spokenOutputState {
-        case .preparing, .speaking:
-            return true
-        case .idle, .completed, .failed:
-            return false
-        }
     }
 
     private func persistSettings() {

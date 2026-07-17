@@ -208,6 +208,13 @@ public struct CloudTranslationProvider: TranslationProviding {
         let httpRequest = try makeHTTPRequest(for: request, text: text, apiKey: apiKey, apiRegion: apiRegion)
         let response = try await client.perform(httpRequest)
         let translatedText = try decodeTranslatedText(from: response)
+        let readings = await providerReadings(
+            sourceText: text,
+            translatedText: translatedText,
+            request: request,
+            apiKey: apiKey,
+            apiRegion: apiRegion
+        )
 
         return TranslationResult(
             request: TranslationRequest(
@@ -215,10 +222,39 @@ public struct CloudTranslationProvider: TranslationProviding {
                 sourceLanguage: request.sourceLanguage,
                 targetLanguage: request.targetLanguage,
                 inputMode: request.inputMode,
-                providerID: request.providerID
+                providerID: request.providerID,
+                requestsReadings: request.requestsReadings
             ),
-            translatedText: translatedText
+            translatedText: translatedText,
+            sourceReading: readings.source,
+            translatedReading: readings.translation
         )
+    }
+
+    private func providerReadings(
+        sourceText: String,
+        translatedText: String,
+        request: TranslationRequest,
+        apiKey: String,
+        apiRegion: String?
+    ) async -> TranslationReadings {
+        guard id == .microsoftAzure, request.requestsReadings else {
+            return TranslationReadings()
+        }
+
+        let source = await microsoftAzureReading(
+            for: sourceText,
+            language: request.sourceLanguage,
+            apiKey: apiKey,
+            apiRegion: apiRegion
+        )
+        let translation = await microsoftAzureReading(
+            for: translatedText,
+            language: request.targetLanguage,
+            apiKey: apiKey,
+            apiRegion: apiRegion
+        )
+        return TranslationReadings(source: source, translation: translation)
     }
 
     private func makeHTTPRequest(
@@ -332,6 +368,73 @@ public struct CloudTranslationProvider: TranslationProviding {
         )
     }
 
+    private func microsoftAzureReading(
+        for text: String,
+        language: TranslationLanguage,
+        apiKey: String,
+        apiRegion: String?
+    ) async -> String? {
+        guard let sourceScript = language.microsoftAzureSourceScript else {
+            return nil
+        }
+
+        do {
+            let request = try makeMicrosoftAzureTransliterationRequest(
+                text: text,
+                language: language,
+                sourceScript: sourceScript,
+                apiKey: apiKey,
+                apiRegion: apiRegion
+            )
+            let response = try await client.perform(request)
+            return try decodeMicrosoftAzureReading(from: response)
+        } catch {
+            return nil
+        }
+    }
+
+    private func makeMicrosoftAzureTransliterationRequest(
+        text: String,
+        language: TranslationLanguage,
+        sourceScript: String,
+        apiKey: String,
+        apiRegion: String?
+    ) throws -> CloudTranslationHTTPRequest {
+        var components = URLComponents(string: "https://api.cognitive.microsofttranslator.com/transliterate")
+        components?.queryItems = [
+            URLQueryItem(name: "api-version", value: "3.0"),
+            URLQueryItem(name: "language", value: language.id),
+            URLQueryItem(name: "fromScript", value: sourceScript),
+            URLQueryItem(name: "toScript", value: "Latn")
+        ]
+        guard let url = components?.url else {
+            throw TranslationFailure.providerUnavailable(id)
+        }
+
+        var headers = [
+            "Ocp-Apim-Subscription-Key": apiKey,
+            "Content-Type": "application/json; charset=UTF-8"
+        ]
+        if let apiRegion = apiRegion?.trimmedNonEmpty {
+            headers["Ocp-Apim-Subscription-Region"] = apiRegion
+        }
+
+        return try CloudTranslationHTTPRequest(
+            providerID: id,
+            url: url,
+            headers: headers,
+            body: JSONEncoder().encode([MicrosoftAzureTranslateRequest(text: text)])
+        )
+    }
+
+    private func decodeMicrosoftAzureReading(from response: CloudTranslationHTTPResponse) throws -> String {
+        let decoded = try JSONDecoder().decode([MicrosoftAzureTransliterateResponse].self, from: response.data)
+        guard let reading = decoded.first?.text.trimmedNonEmpty else {
+            throw TranslationFailure.providerFailed("Microsoft Azure returned no transliteration.")
+        }
+        return reading
+    }
+
     private func decodeTranslatedText(from response: CloudTranslationHTTPResponse) throws -> String {
         switch id {
         case .deepl:
@@ -356,6 +459,11 @@ public struct CloudTranslationProvider: TranslationProviding {
             throw TranslationFailure.providerUnavailable(id)
         }
     }
+}
+
+private struct TranslationReadings {
+    var source: String?
+    var translation: String?
 }
 
 public enum SensitiveValueRedactor {
@@ -432,7 +540,34 @@ private struct MicrosoftAzureTranslateResponse: Decodable {
     let translations: [Translation]
 }
 
+private struct MicrosoftAzureTransliterateResponse: Decodable {
+    let text: String
+}
+
 private extension TranslationLanguage {
+    var microsoftAzureSourceScript: String? {
+        switch id {
+        case "ar":
+            "Arab"
+        case "hi":
+            "Deva"
+        case "ja":
+            "Jpan"
+        case "ko":
+            "Kore"
+        case "ru", "uk":
+            "Cyrl"
+        case "th":
+            "Thai"
+        case "zh-Hans":
+            "Hans"
+        case "zh-Hant":
+            "Hant"
+        default:
+            nil
+        }
+    }
+
     var deeplLanguageCode: String {
         switch id {
         case "zh-Hans":

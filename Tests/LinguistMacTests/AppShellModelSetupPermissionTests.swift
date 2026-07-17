@@ -51,6 +51,175 @@ final class AppShellModelSetupPermissionTests: XCTestCase {
     }
 }
 
+@MainActor
+final class PopupRetranslationReviewTests: XCTestCase {
+    func testPopupRetranslationRestoresWordTranslationsForEligibleInputModes() async throws {
+        for inputMode in [TranslationInputMode.quickTranslate, .selectedText] {
+            let provider = PopupRetranslationReviewProvider()
+            let model = AppShellModel(
+                settings: AppSettings(sourceLanguage: .english, targetLanguage: .japanese),
+                services: makeServices(provider: provider)
+            )
+            model.popupState = .success(
+                popupResult(
+                    text: "hello world",
+                    targetLanguage: .japanese,
+                    inputMode: inputMode
+                ),
+                showsOriginal: true
+            )
+
+            model.selectPopupTargetLanguage(.thai)
+            let task = try XCTUnwrap(model.activePopupTranslationTask)
+            await task.value
+
+            guard case let .success(result, _, _) = model.popupState else {
+                return XCTFail("Expected popup retranslation to complete.")
+            }
+
+            XCTAssertEqual(
+                result.wordTranslations,
+                [
+                    WordTranslation(sourceText: "hello", translatedText: "สวัสดี"),
+                    WordTranslation(sourceText: "world", translatedText: "โลก")
+                ]
+            )
+            let requests = await provider.capturedRequests()
+            XCTAssertEqual(requests.map(\.text), ["hello world", "hello", "world"])
+            XCTAssertEqual(requests.dropFirst().map(\.requestsReadings), [false, false])
+        }
+    }
+
+    func testPopupRetranslationAutoCopiesTheLatestResult() async throws {
+        let provider = PopupRetranslationReviewProvider()
+        let clipboard = PopupRetranslationReviewClipboard(text: "ก่อนแปลใหม่")
+        let model = AppShellModel(
+            settings: AppSettings(
+                sourceLanguage: .english,
+                targetLanguage: .japanese,
+                autoCopyEnabled: true
+            ),
+            services: makeServices(provider: provider, clipboard: clipboard)
+        )
+        model.popupState = .success(
+            popupResult(
+                text: "hello world",
+                targetLanguage: .japanese,
+                inputMode: .quickTranslate
+            ),
+            showsOriginal: true
+        )
+
+        model.selectPopupTargetLanguage(.thai)
+        let task = try XCTUnwrap(model.activePopupTranslationTask)
+        await task.value
+
+        let copiedText = await clipboard.textValue()
+        XCTAssertEqual(copiedText, "สวัสดีชาวโลก")
+    }
+
+    private func makeServices(
+        provider: any TranslationProviding,
+        clipboard: any ClipboardServicing = SetupPermissionNoOpService()
+    ) -> LinguistServices {
+        let noOpService = SetupPermissionNoOpService()
+        return LinguistServices(
+            screenCapture: noOpService,
+            ocr: noOpService,
+            translatorRegistry: PopupRetranslationReviewRegistry(provider: provider),
+            languageAvailability: noOpService,
+            settingsStore: noOpService,
+            apiKeyStore: noOpService,
+            launchAtLogin: noOpService,
+            historyStore: noOpService,
+            permissionChecker: noOpService,
+            clipboard: clipboard,
+            selectedTextCapture: noOpService,
+            shortcutRegistry: noOpService,
+            screenTranslationSoundPlayer: NoOpScreenTranslationSoundPlayer(),
+            screenTranslationNotifier: NoOpScreenTranslationNotifier()
+        )
+    }
+
+    private func popupResult(
+        text: String,
+        targetLanguage: TranslationLanguage,
+        inputMode: TranslationInputMode
+    ) -> TranslationResult {
+        TranslationResult(
+            request: TranslationRequest(
+                text: text,
+                sourceLanguage: .english,
+                targetLanguage: targetLanguage,
+                inputMode: inputMode,
+                providerID: .apple
+            ),
+            translatedText: "ก่อนแปลใหม่"
+        )
+    }
+}
+
+@MainActor
+final class PopupLanguagePackReadinessTests: XCTestCase {
+    func testPopupLanguagePackStatusMenuImagesKeepOriginalRendering() {
+        XCTAssertFalse(popupLanguagePackStatusMenuImage(for: .ready).isTemplate)
+        XCTAssertFalse(popupLanguagePackStatusMenuImage(for: .needsDownload).isTemplate)
+    }
+
+    func testPopupLanguagePackReadinessMatchesSettingsLanguageListStatus() {
+        let model = AppShellModel(services: makeServices())
+        model.appleLanguagePackGroups = [
+            languageGroup(.japanese, readinesses: [.needsDownload, .ready]),
+            languageGroup(.thai, readinesses: [.needsDownload]),
+            languageGroup(.english, readinesses: [.unavailable])
+        ]
+
+        XCTAssertEqual(model.popupLanguagePackReadiness(for: .japanese), .ready)
+        XCTAssertEqual(model.popupLanguagePackReadiness(for: .thai), .needsDownload)
+        XCTAssertEqual(model.popupLanguagePackReadiness(for: .english), .unavailable)
+        XCTAssertNil(model.popupLanguagePackReadiness(for: .autoDetect))
+    }
+
+    private func makeServices() -> LinguistServices {
+        let noOpService = SetupPermissionNoOpService()
+        return LinguistServices(
+            screenCapture: noOpService,
+            ocr: noOpService,
+            translatorRegistry: noOpService,
+            languageAvailability: noOpService,
+            settingsStore: noOpService,
+            apiKeyStore: noOpService,
+            launchAtLogin: noOpService,
+            historyStore: noOpService,
+            permissionChecker: noOpService,
+            clipboard: noOpService,
+            selectedTextCapture: noOpService,
+            shortcutRegistry: noOpService,
+            screenTranslationSoundPlayer: NoOpScreenTranslationSoundPlayer(),
+            screenTranslationNotifier: NoOpScreenTranslationNotifier()
+        )
+    }
+
+    private func languageGroup(
+        _ language: TranslationLanguage,
+        readinesses: [LanguagePackReadiness]
+    ) -> AppleLanguagePackGroup {
+        AppleLanguagePackGroup(
+            language: language,
+            rows: readinesses.enumerated().map { index, readiness in
+                AppleLanguagePackReadinessRow(
+                    pair: AppleLanguagePackPair(
+                        sourceLanguage: language,
+                        targetLanguage: index.isMultiple(of: 2) ? .english : .thai
+                    ),
+                    readiness: readiness,
+                    isCurrentPair: false
+                )
+            }
+        )
+    }
+}
+
 struct SetupPermissionNoOpService {}
 
 extension SetupPermissionNoOpService: ScreenCaptureServicing {
@@ -220,5 +389,78 @@ private actor RecordingSetupPermissionChecker: PermissionChecking {
 
     func capturedRequestCalls() -> [PermissionKind] {
         requestCalls
+    }
+}
+
+private struct PopupRetranslationReviewRegistry: TranslationProviderRegistry {
+    let provider: any TranslationProviding
+
+    func provider(for id: TranslationProviderID) async throws -> any TranslationProviding {
+        guard id == provider.id else {
+            throw TranslationFailure.providerUnavailable(id)
+        }
+
+        return provider
+    }
+
+    func availableProviders() async -> [TranslationProviderDescriptor] {
+        [
+            TranslationProviderDescriptor(
+                id: provider.id,
+                displayName: provider.displayName,
+                requiresAPIKey: provider.requiresAPIKey,
+                usesNetwork: provider.usesNetwork
+            )
+        ]
+    }
+}
+
+private actor PopupRetranslationReviewProvider: TranslationProviding {
+    nonisolated let id = TranslationProviderID.apple
+    nonisolated let displayName = "Popup Review Provider"
+    nonisolated let detail = "Popup retranslation regression test provider"
+    nonisolated let requiresAPIKey = false
+    nonisolated let usesNetwork = false
+    nonisolated let privacySummary = "Test provider"
+
+    private var requests: [TranslationRequest] = []
+
+    func configurationStatus() async -> TranslationProviderConfigurationStatus {
+        .ready
+    }
+
+    func translate(_ request: TranslationRequest) async throws -> TranslationResult {
+        requests.append(request)
+        let translatedText = switch request.text {
+        case "hello world": "สวัสดีชาวโลก"
+        case "hello": "สวัสดี"
+        case "world": "โลก"
+        default: request.text
+        }
+        return TranslationResult(request: request, translatedText: translatedText)
+    }
+
+    func capturedRequests() -> [TranslationRequest] {
+        requests
+    }
+}
+
+private actor PopupRetranslationReviewClipboard: ClipboardServicing {
+    private var text: String?
+
+    init(text: String? = nil) {
+        self.text = text
+    }
+
+    func readText() async -> String? {
+        text
+    }
+
+    func writeText(_ text: String) async {
+        self.text = text
+    }
+
+    func textValue() -> String? {
+        text
     }
 }

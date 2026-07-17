@@ -210,19 +210,22 @@ public struct TranslationRequest: Equatable, Sendable {
     public let targetLanguage: TranslationLanguage
     public let inputMode: TranslationInputMode
     public let providerID: TranslationProviderID
+    public let requestsReadings: Bool
 
     public init(
         text: String,
         sourceLanguage: TranslationLanguage,
         targetLanguage: TranslationLanguage,
         inputMode: TranslationInputMode,
-        providerID: TranslationProviderID
+        providerID: TranslationProviderID,
+        requestsReadings: Bool = true
     ) {
         self.text = text
         self.sourceLanguage = sourceLanguage
         self.targetLanguage = targetLanguage
         self.inputMode = inputMode
         self.providerID = providerID
+        self.requestsReadings = requestsReadings
     }
 }
 
@@ -377,7 +380,8 @@ public extension TranslationRequest {
             sourceLanguage: sourceLanguage,
             targetLanguage: targetLanguage,
             inputMode: inputMode,
-            providerID: providerID
+            providerID: providerID,
+            requestsReadings: requestsReadings
         )
     }
 
@@ -393,7 +397,8 @@ public extension TranslationRequest {
             sourceLanguage: detectedLanguage,
             targetLanguage: targetLanguage,
             inputMode: inputMode,
-            providerID: providerID
+            providerID: providerID,
+            requestsReadings: requestsReadings
         )
     }
 }
@@ -403,6 +408,8 @@ public struct TranslationResult: Identifiable, Equatable, Sendable {
     public let request: TranslationRequest
     public let translatedText: String
     public let originalText: String
+    public let sourceReading: String?
+    public let translatedReading: String?
     public let wordTranslations: [WordTranslation]
     public let shownWordCards: [ShownWordCardContent]
     public let createdAt: Date
@@ -412,6 +419,8 @@ public struct TranslationResult: Identifiable, Equatable, Sendable {
         request: TranslationRequest,
         translatedText: String,
         originalText: String? = nil,
+        sourceReading: String? = nil,
+        translatedReading: String? = nil,
         wordTranslations: [WordTranslation] = [],
         shownWordCards: [ShownWordCardContent] = [],
         createdAt: Date = Date()
@@ -420,6 +429,8 @@ public struct TranslationResult: Identifiable, Equatable, Sendable {
         self.request = request
         self.translatedText = translatedText
         self.originalText = originalText ?? request.text
+        self.sourceReading = sourceReading
+        self.translatedReading = translatedReading
         self.wordTranslations = wordTranslations
         self.shownWordCards = shownWordCards
         self.createdAt = createdAt
@@ -438,6 +449,8 @@ public extension TranslationResult {
             request: request,
             translatedText: translatedText,
             originalText: originalText,
+            sourceReading: sourceReading,
+            translatedReading: translatedReading,
             wordTranslations: wordTranslations,
             shownWordCards: updatedCards,
             createdAt: createdAt

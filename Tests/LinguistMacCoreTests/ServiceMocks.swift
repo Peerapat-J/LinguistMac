@@ -289,14 +289,24 @@ actor RecordingShortcutRegistry: ShortcutRegistering {
 
 actor StubCloudTranslationClient: CloudTranslationClient {
     private(set) var requests: [CloudTranslationHTTPRequest] = []
-    var response: CloudTranslationHTTPResponse
+    private var responses: [CloudTranslationHTTPResponse]
 
     init(response: CloudTranslationHTTPResponse) {
-        self.response = response
+        responses = [response]
+    }
+
+    init(responses: [CloudTranslationHTTPResponse]) {
+        self.responses = responses
     }
 
     func perform(_ request: CloudTranslationHTTPRequest) async throws -> CloudTranslationHTTPResponse {
         requests.append(request)
-        return response
+        guard !responses.isEmpty else {
+            throw TranslationFailure.providerFailed("No stub response configured.")
+        }
+        if responses.count == 1 {
+            return responses[0]
+        }
+        return responses.removeFirst()
     }
 }

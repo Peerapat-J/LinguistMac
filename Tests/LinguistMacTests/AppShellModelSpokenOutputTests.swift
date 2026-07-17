@@ -36,7 +36,7 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let result = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
         model.quickSessionState = .completed(result)
 
-        model.speakTranslation(result)
+        model.speakPopupText(.translation, result: result)
         let task = try XCTUnwrap(model.activeSpokenOutputTask)
         await spokenOutput.waitUntilSpeakStarts()
 
@@ -51,7 +51,7 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let requests = await spokenOutput.capturedRequests()
         XCTAssertEqual(requests, [SpokenOutputRequest(text: "สวัสดี", language: .thai)])
         XCTAssertEqual(model.spokenOutputState, .completed(SpokenOutputRequest(text: "สวัสดี", language: .thai)))
-        XCTAssertFalse(model.isSpokenOutputActive(for: result))
+        XCTAssertFalse(model.isSpokenOutputActive(context: translationContext(for: result)))
     }
 
     func testSpeakPopupTranslationSurfacesUnsupportedTargetLanguage() async throws {
@@ -60,7 +60,7 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let result = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
         model.popupState = .success(result, showsOriginal: false)
 
-        model.speakTranslation(result)
+        model.speakPopupText(.translation, result: result)
         let task = try XCTUnwrap(model.activeSpokenOutputTask)
         await task.value
 
@@ -75,6 +75,44 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         XCTAssertTrue(requests.isEmpty)
     }
 
+    func testSpeakPopupSourceUsesOriginalTextAndSourceLanguage() async throws {
+        let spokenOutput = SpokenOutputTestService(supportedLanguages: [.english])
+        let model = AppShellModel(services: makeServices(spokenOutput: spokenOutput))
+        let result = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
+        model.popupState = .success(result, showsOriginal: true)
+
+        model.speakPopupText(.source, result: result)
+        let task = try XCTUnwrap(model.activeSpokenOutputTask)
+        await task.value
+
+        let expectedRequest = SpokenOutputRequest(text: "hello", language: .english)
+        let requests = await spokenOutput.capturedRequests()
+        XCTAssertEqual(requests, [expectedRequest])
+        XCTAssertEqual(model.spokenOutputState, .completed(expectedRequest))
+        XCTAssertEqual(
+            model.activeSpokenOutputContext,
+            SpokenOutputContext(resultID: result.id, role: .source)
+        )
+    }
+
+    func testPopupCopyUsesTextForRequestedRole() async {
+        let clipboard = RecordingSpokenOutputClipboard()
+        let model = AppShellModel(
+            services: makeServices(
+                spokenOutput: SpokenOutputTestService(supportedLanguages: [.english, .thai]),
+                clipboard: clipboard
+            )
+        )
+        let result = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
+        model.popupState = .success(result, showsOriginal: true)
+
+        await model.copyPopupText(.source)
+        await model.copyPopupText(.translation)
+
+        let copiedTexts = await clipboard.capturedTexts()
+        XCTAssertEqual(copiedTexts, ["hello", "สวัสดี"])
+    }
+
     func testStopSpokenOutputCancelsActivePlayback() async throws {
         let spokenOutput = SpokenOutputTestService(
             supportedLanguages: [.thai],
@@ -83,18 +121,18 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let model = AppShellModel(services: makeServices(spokenOutput: spokenOutput))
         let result = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
 
-        model.speakTranslation(result)
+        model.speakPopupText(.translation, result: result)
         let task = try XCTUnwrap(model.activeSpokenOutputTask)
         await spokenOutput.waitUntilSpeakStarts()
 
-        XCTAssertTrue(model.isSpokenOutputActive(for: result))
+        XCTAssertTrue(model.isSpokenOutputActive(context: translationContext(for: result)))
 
         model.stopSpokenOutput()
         await task.value
 
         XCTAssertEqual(model.spokenOutputState, .idle)
         XCTAssertNil(model.activeSpokenOutputID)
-        XCTAssertNil(model.activeSpokenOutputResultID)
+        XCTAssertNil(model.activeSpokenOutputContext)
         XCTAssertNil(model.activeSpokenOutputTask)
         let stopCount = await spokenOutput.stopCallCount()
         XCTAssertEqual(stopCount, 1)
@@ -110,10 +148,10 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
         let firstResult = makeSpokenOutputResult(translatedText: "สวัสดี", targetLanguage: .thai)
         let secondResult = makeSpokenOutputResult(translatedText: "ขอบคุณ", targetLanguage: .thai)
 
-        model.speakTranslation(firstResult)
+        model.speakPopupText(.translation, result: firstResult)
         await spokenOutput.waitUntilSpeakStarts(count: 1)
 
-        model.speakTranslation(secondResult)
+        model.speakPopupText(.translation, result: secondResult)
         await spokenOutput.waitUntilSpeakStarts(count: 2)
         await spokenOutput.waitUntilStopCallCount(1)
 
@@ -127,8 +165,8 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
             model.spokenOutputState,
             .speaking(SpokenOutputRequest(text: "ขอบคุณ", language: .thai))
         )
-        XCTAssertFalse(model.isSpokenOutputActive(for: firstResult))
-        XCTAssertTrue(model.isSpokenOutputActive(for: secondResult))
+        XCTAssertFalse(model.isSpokenOutputActive(context: translationContext(for: firstResult)))
+        XCTAssertTrue(model.isSpokenOutputActive(context: translationContext(for: secondResult)))
 
         await spokenOutput.releaseSpeech(sessionID: secondSessionID)
         let task = try XCTUnwrap(model.activeSpokenOutputTask)
@@ -142,7 +180,8 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
 
     private func makeServices(
         permissionChecker: any PermissionChecking = SpokenOutputGrantedPermissionChecker(),
-        spokenOutput: any SpokenOutputServicing
+        spokenOutput: any SpokenOutputServicing,
+        clipboard: any ClipboardServicing = SpokenOutputClipboard()
     ) -> LinguistServices {
         LinguistServices(
             screenCapture: SpokenOutputScreenCaptureService(),
@@ -154,11 +193,15 @@ final class AppShellModelSpokenOutputTests: XCTestCase {
             launchAtLogin: SpokenOutputLaunchAtLoginService(),
             historyStore: SpokenOutputHistoryStore(),
             permissionChecker: permissionChecker,
-            clipboard: SpokenOutputClipboard(),
+            clipboard: clipboard,
             selectedTextCapture: SpokenOutputSelectedTextCapture(),
             shortcutRegistry: SpokenOutputShortcutRegistry(),
             spokenOutput: spokenOutput
         )
+    }
+
+    private func translationContext(for result: TranslationResult) -> SpokenOutputContext {
+        SpokenOutputContext(resultID: result.id, role: .translation)
     }
 }
 
@@ -550,6 +593,22 @@ private actor SpokenOutputClipboard: ClipboardServicing {
 
     func writeText(_ text: String) async {
         _ = text
+    }
+}
+
+private actor RecordingSpokenOutputClipboard: ClipboardServicing {
+    private var texts: [String] = []
+
+    func readText() async -> String? {
+        texts.last
+    }
+
+    func writeText(_ text: String) async {
+        texts.append(text)
+    }
+
+    func capturedTexts() -> [String] {
+        texts
     }
 }
 
