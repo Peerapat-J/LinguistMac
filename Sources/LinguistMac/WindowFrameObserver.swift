@@ -250,6 +250,18 @@ enum PopupWindowMoveEventPolicy {
     }
 }
 
+private struct PopupWindowAutomaticResizeContext {
+    let request: PopupWindowAutomaticResizeRequest
+    let window: NSWindow
+    let visibleFrame: CGRect
+}
+
+private struct PopupWindowAutomaticWidthAdjustment {
+    let preferredFrameWidth: CGFloat?
+    let startsNewSuccessResult: Bool
+    let remeasuresAfterWidthChange: Bool
+}
+
 @MainActor
 final class PopupWindowFrameController: ObservableObject {
     private weak var window: NSWindow?
@@ -388,12 +400,13 @@ private extension PopupWindowFrameController {
     }
 
     private func applyAutomaticResizeIfNeeded() {
-        guard let request = automaticResizeRequest,
-              let window,
-              let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+        guard let context = automaticResizeContext()
         else {
             return
         }
+        let request = context.request
+        let window = context.window
+        let visibleFrame = context.visibleFrame
 
         configureSizeLimits(
             for: window,
@@ -417,6 +430,50 @@ private extension PopupWindowFrameController {
         }
         appliedAutomaticResizeRequest = request
 
+        let widthAdjustment = automaticWidthAdjustment(
+            for: request,
+            previousRevision: previousRevision,
+            currentWidth: window.frame.width
+        )
+        let frame = automaticResizeFrame(
+            for: request,
+            window: window,
+            visibleFrame: visibleFrame,
+            isShowingOriginal: isShowingOriginal,
+            preferredFrameWidth: widthAdjustment.preferredFrameWidth
+        )
+        let didChangeWidth = abs(frame.width - window.frame.width)
+            > PopupWindowSizingPolicy.automaticFrameComparisonTolerance
+        updateLastSuccessFrame(frame, for: request.revision)
+        finishAutomaticResize(
+            to: frame,
+            request: request,
+            window: window,
+            shouldRemeasureAfterWidthChange: widthAdjustment.remeasuresAfterWidthChange
+                || (widthAdjustment.startsNewSuccessResult && didChangeWidth)
+        )
+    }
+
+    private func automaticResizeContext() -> PopupWindowAutomaticResizeContext? {
+        guard let request = automaticResizeRequest,
+              let window,
+              let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+        else {
+            return nil
+        }
+
+        return PopupWindowAutomaticResizeContext(
+            request: request,
+            window: window,
+            visibleFrame: visibleFrame
+        )
+    }
+
+    private func automaticWidthAdjustment(
+        for request: PopupWindowAutomaticResizeRequest,
+        previousRevision: PopupWindowContentRevision?,
+        currentWidth: CGFloat
+    ) -> PopupWindowAutomaticWidthAdjustment {
         let startsNewSuccessResult = PopupWindowSizingPolicy.startsNewSuccessResult(
             after: previousRevision,
             next: request.revision
@@ -433,26 +490,13 @@ private extension PopupWindowFrameController {
         } else {
             preferredFrameWidth = automaticWidthState.preferredFrameWidth(
                 requestedWidth: request.preferredFrameWidth,
-                currentWidth: window.frame.width
+                currentWidth: currentWidth
             )
         }
-        let frame = automaticResizeFrame(
-            for: request,
-            window: window,
-            visibleFrame: visibleFrame,
-            isShowingOriginal: isShowingOriginal,
-            preferredFrameWidth: preferredFrameWidth
-        )
-        let didChangeWidth = abs(frame.width - window.frame.width)
-            > PopupWindowSizingPolicy.automaticFrameComparisonTolerance
-        let shouldRemeasureAfterWidthChange = isRestoringCompactWidth
-            || (startsNewSuccessResult && didChangeWidth)
-        updateLastSuccessFrame(frame, for: request.revision)
-        finishAutomaticResize(
-            to: frame,
-            request: request,
-            window: window,
-            shouldRemeasureAfterWidthChange: shouldRemeasureAfterWidthChange
+        return PopupWindowAutomaticWidthAdjustment(
+            preferredFrameWidth: preferredFrameWidth,
+            startsNewSuccessResult: startsNewSuccessResult,
+            remeasuresAfterWidthChange: isRestoringCompactWidth
         )
     }
 
@@ -615,122 +659,6 @@ private extension PopupWindowFrameController {
             .filter { $0.area > 0 }
             .max { $0.area < $1.area }?
             .frame
-    }
-}
-
-private final class WindowFrameObserverView: NSView {
-    weak var controller: PopupWindowFrameController?
-
-    private weak var observedWindow: NSWindow?
-    private var willMoveObserver: NSObjectProtocol?
-    private var moveObserver: NSObjectProtocol?
-    private var resizeObserver: NSObjectProtocol?
-    private var liveResizeObserver: NSObjectProtocol?
-    private var mouseUpMonitor: Any?
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        observe(window)
-        attachControllerToCurrentWindow()
-    }
-
-    override func viewWillMove(toWindow newWindow: NSWindow?) {
-        super.viewWillMove(toWindow: newWindow)
-
-        guard newWindow !== observedWindow else {
-            return
-        }
-        stopObserving()
-        observedWindow = nil
-    }
-
-    func attachControllerToCurrentWindow() {
-        controller?.attach(to: window)
-    }
-
-    private func observe(_ window: NSWindow?) {
-        guard observedWindow !== window else {
-            return
-        }
-        stopObserving()
-        observedWindow = window
-
-        guard let window else {
-            return
-        }
-
-        observeMoveNotifications(for: window)
-        mouseUpMonitor = NSEvent.addLocalMonitorForEvents(
-            matching: .leftMouseUp
-        ) { [weak self, weak window] event in
-            guard let window else {
-                return event
-            }
-            Task { @MainActor in
-                self?.controller?.windowDidEndMove(window)
-            }
-            return event
-        }
-        resizeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification,
-            object: window,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.controller?.windowDidResize(window)
-            }
-        }
-        liveResizeObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.willStartLiveResizeNotification,
-            object: window,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.controller?.windowWillStartLiveResize(window)
-            }
-        }
-    }
-
-    private func observeMoveNotifications(for window: NSWindow) {
-        willMoveObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.willMoveNotification,
-            object: window,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                let initiatedByMouse = PopupWindowMoveEventPolicy.isWindowDrag(
-                    NSApp.currentEvent?.type
-                )
-                self?.controller?.windowWillMove(
-                    window,
-                    initiatedByMouse: initiatedByMouse
-                )
-            }
-        }
-        moveObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didMoveNotification,
-            object: window,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.controller?.windowDidMove(window)
-            }
-        }
-    }
-
-    private func stopObserving() {
-        let observers = [willMoveObserver, moveObserver, resizeObserver, liveResizeObserver]
-        for observer in observers.compactMap(\.self) {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        willMoveObserver = nil
-        moveObserver = nil
-        resizeObserver = nil
-        liveResizeObserver = nil
-        if let mouseUpMonitor {
-            NSEvent.removeMonitor(mouseUpMonitor)
-            self.mouseUpMonitor = nil
-        }
     }
 }
 

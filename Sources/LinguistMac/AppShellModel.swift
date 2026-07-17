@@ -126,10 +126,6 @@ final class AppShellModel: ObservableObject {
     var pendingApplePackRefreshLanguages: Set<TranslationLanguage>?
     var didRefreshAppleLanguagePackGroups = false
 
-    func notePopupManualResize() {
-        hasManuallyResizedPopup = true
-    }
-
     init(
         settings: AppSettings? = nil,
         recentTranslations: [TranslationResult] = [],
@@ -194,24 +190,18 @@ final class AppShellModel: ObservableObject {
         activeSpokenOutputTask?.cancel()
     }
 
-    var recentMenuItems: [TranslationResult] {
-        Array(recentTranslations.prefix(5))
-    }
-
     func record(_ command: AppShellCommand) {
         lastCommand = command
     }
 
-    func prepareQuickTranslate() {
-        record(.quickTranslate)
-        stopSpokenOutput()
-        cancelQuickWordTranslation()
-        clearActiveQuickVoiceCapture()
-        quickDraft.sourceLanguage = settings.sourceLanguage
-        quickDraft.targetLanguage = settings.targetLanguage
-        quickSessionState = .idle
-        quickVoiceState = .idle
-        quickVoiceTranscript = nil
+    func notePopupManualResize() {
+        hasManuallyResizedPopup = true
+    }
+
+    func clearActiveQuickVoiceCapture() {
+        activeQuickVoiceCaptureID = nil
+        activeQuickVoiceCaptureTask?.cancel()
+        activeQuickVoiceCaptureTask = nil
     }
 
     func swapQuickDraftLanguages() {

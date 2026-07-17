@@ -294,67 +294,6 @@ final class AppShellModelTests: XCTestCase {
         XCTAssertEqual(lookupResult.example, shownWordCard.example)
     }
 
-    func testRememberPopupWindowFramePreservesConfiguredSize() {
-        let model = AppShellModel(services: makeServices())
-        model.settings.popupWidth = 640
-        model.settings.popupHeight = 480
-
-        model.rememberPopupWindowFrame(CGRect(x: 12, y: 24, width: 900, height: 120))
-
-        XCTAssertEqual(model.settings.popupOriginX, 12)
-        XCTAssertEqual(model.settings.popupOriginY, 24)
-        XCTAssertEqual(model.settings.popupWidth, 640)
-        XCTAssertEqual(model.settings.popupHeight, 480)
-        XCTAssertEqual(
-            model.savedPopupWindowFrame,
-            CGRect(x: 12, y: 24, width: 640, height: 480)
-        )
-    }
-
-    func testNotePopupManualResizeDisablesFutureAutomaticSizing() {
-        let model = AppShellModel(services: makeServices())
-
-        model.notePopupManualResize()
-
-        XCTAssertTrue(model.hasManuallyResizedPopup)
-    }
-
-    func testNewTranslationResetsManualPopupResize() {
-        let model = AppShellModel(services: makeServices())
-        model.notePopupManualResize()
-        let request = TranslationRequest(
-            text: "hello",
-            sourceLanguage: .english,
-            targetLanguage: .thai,
-            inputMode: .quickTranslate,
-            providerID: .apple
-        )
-
-        model.popupState = .loading(request)
-
-        XCTAssertFalse(model.hasManuallyResizedPopup)
-    }
-
-    func testFailureResetsManualPopupResize() {
-        let model = AppShellModel(services: makeServices())
-        model.notePopupManualResize()
-
-        model.popupState = .failed(.captureCancelled, originalText: nil)
-
-        XCTAssertFalse(model.hasManuallyResizedPopup)
-    }
-
-    func testSameResultLayoutChangesPreserveManualPopupResize() {
-        let model = AppShellModel(services: makeServices())
-        let result = makeResult(text: "hello")
-        model.popupState = .success(result, showsOriginal: false)
-        model.notePopupManualResize()
-
-        model.popupState = .success(result, showsOriginal: true)
-
-        XCTAssertTrue(model.hasManuallyResizedPopup)
-    }
-
     private func makeServices(
         translatorRegistry: (any TranslationProviderRegistry)? = nil,
         historyStore: any TranslationHistoryStoring = TestTranslationHistoryStore(),
@@ -407,13 +346,13 @@ private func makeResult(
     )
 }
 
-private struct TestScreenCaptureService: ScreenCaptureServicing {
+struct TestScreenCaptureService: ScreenCaptureServicing {
     func captureSelection() async throws -> CapturedScreenRegion {
         CapturedScreenRegion(imageData: Data())
     }
 }
 
-private struct TestOCRService: OCRServicing {
+struct TestOCRService: OCRServicing {
     func recognizeText(in region: CapturedScreenRegion) async throws -> RecognizedText {
         _ = region
         return RecognizedText(text: "hello")
@@ -450,7 +389,7 @@ private struct TestTranslationProvider: TranslationProviding {
     }
 }
 
-private struct TestTranslationProviderRegistry: TranslationProviderRegistry {
+struct TestTranslationProviderRegistry: TranslationProviderRegistry {
     let provider: any TranslationProviding
 
     init(provider: any TranslationProviding = TestTranslationProvider()) {
@@ -534,7 +473,7 @@ private actor GatedQuickTranslateProvider: TranslationProviding {
     }
 }
 
-private struct TestLanguageAvailabilityChecker: LanguageAvailabilityChecking {
+struct TestLanguageAvailabilityChecker: LanguageAvailabilityChecking {
     func readiness(
         from source: TranslationLanguage,
         to target: TranslationLanguage,
@@ -547,7 +486,7 @@ private struct TestLanguageAvailabilityChecker: LanguageAvailabilityChecking {
     }
 }
 
-private actor TestAppSettingsStore: AppSettingsStoring {
+actor TestAppSettingsStore: AppSettingsStoring {
     private var settings = AppSettings()
 
     func loadSettings() async throws -> AppSettings {
@@ -559,7 +498,7 @@ private actor TestAppSettingsStore: AppSettingsStoring {
     }
 }
 
-private actor TestAPIKeyStore: APIKeyStoring {
+actor TestAPIKeyStore: APIKeyStoring {
     private var status: APIKeyStatus
     private var regions: [TranslationProviderID: String]
 
@@ -602,7 +541,7 @@ private actor TestAPIKeyStore: APIKeyStoring {
     }
 }
 
-private actor TestLaunchAtLoginService: LaunchAtLoginServicing {
+actor TestLaunchAtLoginService: LaunchAtLoginServicing {
     func isEnabled() async -> Bool {
         false
     }
@@ -612,7 +551,7 @@ private actor TestLaunchAtLoginService: LaunchAtLoginServicing {
     }
 }
 
-private actor TestTranslationHistoryStore: TranslationHistoryStoring {
+actor TestTranslationHistoryStore: TranslationHistoryStoring {
     private var results: [TranslationResult]
 
     init(results: [TranslationResult] = []) {
@@ -663,7 +602,7 @@ private struct TestHistorySaveError: LocalizedError {
     }
 }
 
-private struct TestPermissionChecker: PermissionChecking {
+struct TestPermissionChecker: PermissionChecking {
     var statuses: [PermissionKind: PermissionStatus] = [:]
     var requestStatuses: [PermissionKind: PermissionStatus] = [:]
 
@@ -676,7 +615,7 @@ private struct TestPermissionChecker: PermissionChecking {
     }
 }
 
-private actor TestClipboard: ClipboardServicing {
+actor TestClipboard: ClipboardServicing {
     private var text: String?
 
     func readText() async -> String? {
@@ -692,13 +631,13 @@ private actor TestClipboard: ClipboardServicing {
     }
 }
 
-private struct TestSelectedTextCapture: SelectedTextCapturing {
+struct TestSelectedTextCapture: SelectedTextCapturing {
     func captureSelectedText() async throws -> String {
         "hello"
     }
 }
 
-private actor TestShortcutRegistry: ShortcutRegistering {
+actor TestShortcutRegistry: ShortcutRegistering {
     func register(_ shortcut: KeyboardShortcut, for action: ShortcutAction) async throws {
         _ = shortcut
         _ = action

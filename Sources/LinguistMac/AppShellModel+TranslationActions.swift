@@ -3,6 +3,18 @@ import LinguistMacCore
 
 @MainActor
 extension AppShellModel {
+    func prepareQuickTranslate() {
+        record(.quickTranslate)
+        stopSpokenOutput()
+        cancelQuickWordTranslation()
+        clearActiveQuickVoiceCapture()
+        quickDraft.sourceLanguage = settings.sourceLanguage
+        quickDraft.targetLanguage = settings.targetLanguage
+        quickSessionState = .idle
+        quickVoiceState = .idle
+        quickVoiceTranscript = nil
+    }
+
     func runScreenTranslation() async {
         record(.screenTranslate)
         cancelPopupRetranslation()
@@ -85,12 +97,6 @@ extension AppShellModel {
 
     var isQuickVoiceCaptureActive: Bool {
         activeQuickVoiceCaptureID != nil || activeQuickVoiceCaptureTask != nil
-    }
-
-    func clearActiveQuickVoiceCapture() {
-        activeQuickVoiceCaptureID = nil
-        activeQuickVoiceCaptureTask?.cancel()
-        activeQuickVoiceCaptureTask = nil
     }
 
     private func runQuickTranslate(
@@ -603,12 +609,6 @@ extension AppShellModel {
         activePopupWordLookupID = nil
         activePopupWordLookupTask?.cancel()
         activePopupWordLookupTask = nil
-    }
-
-    func cancelQuickWordTranslation() {
-        activeQuickWordTranslationID = nil
-        activeQuickWordTranslationTask?.cancel()
-        activeQuickWordTranslationTask = nil
     }
 
     private func wordLookupRequest(

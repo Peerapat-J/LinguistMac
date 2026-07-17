@@ -3,6 +3,10 @@ import LinguistMacCore
 
 @MainActor
 extension AppShellModel {
+    var recentMenuItems: [TranslationResult] {
+        Array(recentTranslations.prefix(5))
+    }
+
     var popupSourceLanguage: TranslationLanguage {
         switch popupState {
         case let .success(result, _, _):
@@ -51,6 +55,12 @@ extension AppShellModel {
             sourceLanguage: language,
             targetLanguage: popupTargetLanguage
         )
+    }
+
+    func cancelQuickWordTranslation() {
+        activeQuickWordTranslationID = nil
+        activeQuickWordTranslationTask?.cancel()
+        activeQuickWordTranslationTask = nil
     }
 
     func selectPopupTargetLanguage(_ language: TranslationLanguage) {
