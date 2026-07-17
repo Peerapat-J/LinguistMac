@@ -119,15 +119,13 @@ final class TranslationPopupSizingTests: XCTestCase {
     }
 
     func testShowingOriginalAddsExactlyTheSourceTextViewportHeight() {
-        XCTAssertEqual(
-            PopupTextPanelLayout.expandedContentHeightIncrement,
-            PopupTextPanelLayout.minimumSourcePanelHeight
-                - PopupTextPanelLayout.minimumCollapsedSourcePanelHeight
-        )
+        let sourceTextViewportHeight = PopupTextPanelLayout.minimumSourcePanelHeight
+            - PopupTextPanelLayout.minimumCollapsedSourcePanelHeight
+
         XCTAssertEqual(
             PopupTextPanelLayout.minimumExpandedContentHeight,
             PopupTextPanelLayout.minimumCollapsedContentHeight
-                + PopupTextPanelLayout.expandedContentHeightIncrement
+                + sourceTextViewportHeight
         )
     }
 
