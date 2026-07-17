@@ -132,7 +132,6 @@ enum PopupTextPanelLayout {
         + minimumTranslationTextViewportHeight
     static let minimumCollapsedContentHeight = fixedContentChromeHeight
         + minimumPanelStackHeight(showsOriginal: false)
-    static let expandedContentHeightIncrement = spacing + minimumSourceTextViewportHeight
     static let minimumExpandedContentHeight = fixedContentChromeHeight
         + minimumPanelStackHeight(showsOriginal: true)
 
