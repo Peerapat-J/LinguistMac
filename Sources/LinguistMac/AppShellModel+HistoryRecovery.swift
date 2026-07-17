@@ -114,21 +114,14 @@ extension AppShellModel {
     }
 
     func rememberPopupWindowFrame(_ frame: CGRect) {
-        let width = min(max(frame.width, 320), 720)
-        let height = min(max(frame.height, 240), 640)
-
         guard settings.popupOriginX != frame.origin.x
             || settings.popupOriginY != frame.origin.y
-            || settings.popupWidth != width
-            || settings.popupHeight != height
         else {
             return
         }
 
         settings.popupOriginX = frame.origin.x
         settings.popupOriginY = frame.origin.y
-        settings.popupWidth = width
-        settings.popupHeight = height
     }
 
     func openSystemSettings(for kind: PermissionKind) {
@@ -141,7 +134,7 @@ extension AppShellModel {
         NSWorkspace.shared.open(url)
     }
 
-    private func retryLastTranslationCommand() async {
+    func retryLastTranslationCommand() async {
         switch lastCommand {
         case .some(.screenTranslate):
             await runScreenTranslation()

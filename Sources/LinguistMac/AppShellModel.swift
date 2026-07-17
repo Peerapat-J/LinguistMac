@@ -22,6 +22,23 @@ struct PopupTranslationContext: Equatable {
     let showsOriginal: Bool
 }
 
+enum PopupManualResizeScope {
+    static func startsNewContent(
+        from previousState: TranslationPopupState,
+        to nextState: TranslationPopupState
+    ) -> Bool {
+        switch nextState {
+        case .empty, .loading, .failed:
+            return true
+        case let .success(nextResult, _, _):
+            guard case let .success(previousResult, _, _) = previousState else {
+                return true
+            }
+            return previousResult.id != nextResult.id
+        }
+    }
+}
+
 enum AppShellCommand: Equatable {
     case screenTranslate
     case quickTranslate
@@ -51,7 +68,18 @@ final class AppShellModel: ObservableObject {
     }
 
     @Published var recentTranslations: [TranslationResult]
-    @Published var popupState: TranslationPopupState
+    @Published var popupState: TranslationPopupState {
+        didSet {
+            guard PopupManualResizeScope.startsNewContent(
+                from: oldValue,
+                to: popupState
+            ) else {
+                return
+            }
+            hasManuallyResizedPopup = false
+        }
+    }
+
     @Published var popupSourceDraft: String
     @Published var isPopupSourceDirty: Bool
     @Published var quickDraft: QuickTranslateDraft
@@ -74,6 +102,7 @@ final class AppShellModel: ObservableObject {
     @Published var screenTranslationNotificationMessage: String?
     @Published var historyLoadError: HistoryLoadErrorState?
     @Published private(set) var lastCommand: AppShellCommand?
+    @Published private(set) var hasManuallyResizedPopup = false
 
     let availableLanguages = TranslationLanguageCatalog.defaultLanguages
 
@@ -161,24 +190,18 @@ final class AppShellModel: ObservableObject {
         activeSpokenOutputTask?.cancel()
     }
 
-    var recentMenuItems: [TranslationResult] {
-        Array(recentTranslations.prefix(5))
-    }
-
     func record(_ command: AppShellCommand) {
         lastCommand = command
     }
 
-    func prepareQuickTranslate() {
-        record(.quickTranslate)
-        stopSpokenOutput()
-        cancelQuickWordTranslation()
-        clearActiveQuickVoiceCapture()
-        quickDraft.sourceLanguage = settings.sourceLanguage
-        quickDraft.targetLanguage = settings.targetLanguage
-        quickSessionState = .idle
-        quickVoiceState = .idle
-        quickVoiceTranscript = nil
+    func notePopupManualResize() {
+        hasManuallyResizedPopup = true
+    }
+
+    func clearActiveQuickVoiceCapture() {
+        activeQuickVoiceCaptureID = nil
+        activeQuickVoiceCaptureTask?.cancel()
+        activeQuickVoiceCaptureTask = nil
     }
 
     func swapQuickDraftLanguages() {

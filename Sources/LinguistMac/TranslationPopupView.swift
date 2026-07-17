@@ -1,38 +1,60 @@
+import AppKit
 import LinguistMacCore
 import SwiftUI
 
 struct TranslationPopupView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: AppShellModel
+    @State private var measuredNaturalHeight: PopupNaturalHeightMeasurement?
+    @State private var shouldRetryAfterDismiss = false
+    @StateObject private var windowFrameController = PopupWindowFrameController()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            languageBar
-
-            Divider()
-
+        popupLayout {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-            footer
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-        .padding(.bottom, 12)
         .frame(
-            minWidth: 320,
+            minWidth: PopupWindowSizingPolicy.minimumWidth,
             idealWidth: model.settings.popupWidth,
-            maxWidth: 760,
-            minHeight: 240,
-            idealHeight: model.settings.popupHeight,
-            maxHeight: 680
+            maxWidth: PopupWindowSizingPolicy.maximumWidth,
+            minHeight: PopupWindowSizingPolicy.minimumFrameHeight,
+            idealHeight: model.settings.popupHeight
         )
         .background(Color(nsColor: .windowBackgroundColor))
-        .background {
-            WindowFrameObserver(savedFrame: model.savedPopupWindowFrame) { frame in
-                model.rememberPopupWindowFrame(frame)
+        .background(alignment: .topLeading) {
+            naturalHeightMeasurement
+        }
+        .onPreferenceChange(PopupNaturalHeightPreferenceKey.self) { measurement in
+            guard let measurement, measurement.height > 0 else {
+                measuredNaturalHeight = nil
+                return
             }
+
+            let roundedMeasurement = PopupNaturalHeightMeasurement(
+                revision: measurement.revision,
+                height: ceil(measurement.height)
+            )
+            if measuredNaturalHeight != roundedMeasurement {
+                measuredNaturalHeight = roundedMeasurement
+            }
+        }
+        .background {
+            WindowFrameObserver(
+                controller: windowFrameController,
+                automaticResizeRequest: automaticResizeRequest,
+                automaticResizeEnabled: !model.hasManuallyResizedPopup,
+                savedFrame: model.savedPopupWindowFrame,
+                onFrameChange: { frame in
+                    model.rememberPopupWindowFrame(frame)
+                },
+                onManualResize: {
+                    model.notePopupManualResize()
+                }
+            )
             .frame(width: 0, height: 0)
         }
         .onAppear {
@@ -41,6 +63,122 @@ struct TranslationPopupView: View {
                 await model.refreshAppleLanguagePackGroupsIfNeeded()
             }
         }
+        .onDisappear {
+            retryAfterDismissIfNeeded()
+        }
+    }
+}
+
+extension TranslationPopupView {
+    func popupLayout(
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            languageBar
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(2)
+            Divider()
+                .fixedSize(horizontal: false, vertical: true)
+            content()
+                .layoutPriority(0)
+            footer
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(2)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 20)
+    }
+
+    private var automaticResizeRequest: PopupWindowAutomaticResizeRequest? {
+        guard let revision = automaticResizeRevision else {
+            return nil
+        }
+        guard let measuredNaturalHeight,
+              measuredNaturalHeight.revision == revision
+        else {
+            return nil
+        }
+
+        let minimumContentHeight = automaticResizeMinimumContentHeight()
+        return PopupWindowAutomaticResizeRequest(
+            revision: revision,
+            preferredContentHeight: max(measuredNaturalHeight.height, minimumContentHeight),
+            minimumContentHeight: minimumContentHeight,
+            preferredFrameWidth: automaticResizePreferredFrameWidth(for: revision)
+        )
+    }
+
+    private func automaticResizePreferredFrameWidth(
+        for revision: PopupWindowContentRevision
+    ) -> CGFloat? {
+        if revision.isSuccess {
+            return model.settings.popupWidth
+        }
+        return PopupWindowSizingPolicy.preferredFrameWidth(for: revision)
+    }
+
+    @ViewBuilder
+    private var naturalHeightMeasurement: some View {
+        if let revision = automaticResizeRevision {
+            GeometryReader { geometry in
+                popupLayout {
+                    naturalContentMeasurement
+                }
+                .frame(width: geometry.size.width)
+                .fixedSize(horizontal: false, vertical: true)
+                .background {
+                    PopupNaturalHeightReader(revision: revision)
+                }
+                .hidden()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var naturalContentMeasurement: some View {
+        switch model.popupState {
+        case let .success(result, showsOriginal, wordCard):
+            naturalSuccessContent(
+                result: result,
+                showsOriginal: showsOriginal,
+                wordCard: wordCard
+            )
+        case let .failed(failure, originalText):
+            failureContent(failure: failure, originalText: originalText)
+        case .empty, .loading:
+            EmptyView()
+        }
+    }
+
+    private var automaticResizeRevision: PopupWindowContentRevision? {
+        switch model.popupState {
+        case let .success(result, showsOriginal, wordCard):
+            automaticResizeRevision(
+                result: result,
+                showsOriginal: showsOriginal,
+                wordCard: wordCard
+            )
+        case let .failed(failure, originalText):
+            .failure(failure, originalText: originalText)
+        case .empty, .loading:
+            nil
+        }
+    }
+
+    private func automaticResizeRevision(
+        result: TranslationResult,
+        showsOriginal: Bool,
+        wordCard: TranslationPopupWordCardState?
+    ) -> PopupWindowContentRevision {
+        PopupWindowContentRevision(
+            resultID: result.id,
+            showsOriginal: showsOriginal,
+            wordTranslations: result.wordTranslations,
+            wordCard: wordCard
+        )
     }
 
     private var languageBar: some View {
@@ -112,119 +250,45 @@ struct TranslationPopupView: View {
             ProgressView("Translating...")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .success(result, showsOriginal, wordCard):
-            VStack(alignment: .leading, spacing: 12) {
-                PopupTextPanel {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Button {
-                                model.togglePopupOriginal()
-                                model.preparePopupSourceEditorIfNeeded()
-                            } label: {
-                                Label(
-                                    showsOriginal ? "Hide Original" : "Show Original",
-                                    systemImage: showsOriginal ? "chevron.down" : "chevron.right"
-                                )
-                            }
-                            .buttonStyle(.plain)
-
-                            Spacer()
-
-                            PopupTextActions(
-                                model: model,
-                                result: result,
-                                role: .source,
-                                textOverride: model.popupSourceDraft
-                            )
-                        }
-
-                        if showsOriginal {
-                            TextEditor(text: popupSourceDraftBinding)
-                                .scrollContentBackground(.hidden)
-                                .font(popupFont)
-                                .frame(minHeight: 80, maxHeight: 160)
-                                .accessibilityLabel("Original Text")
-
-                            if let sourceReading = result.sourceReading, !model.isPopupSourceDirty {
-                                ReadingText(text: sourceReading, role: .source)
-                            }
-                        }
-                    }
-                }
-
-                PopupTextPanel {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(result.translatedText)
-                                .font(popupFont)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
-                            if let translatedReading = result.translatedReading {
-                                ReadingText(text: translatedReading, role: .translation)
-                            }
-
-                            PopupTextActions(model: model, result: result, role: .translation)
-
-                            if !result.wordTranslations.isEmpty || wordCard != nil {
-                                Divider()
-                                TranslationWordLookupSection(
-                                    wordTranslations: result.wordTranslations,
-                                    wordCard: wordCard,
-                                    isSelectionEnabled: true,
-                                    onSelectWord: { wordTranslation, index in
-                                        Task {
-                                            await model.selectPopupWord(
-                                                wordTranslation,
-                                                at: index,
-                                                resultID: result.id
-                                            )
-                                        }
-                                    },
-                                    onDismissWordCard: {
-                                        model.dismissPopupWordCard()
-                                    },
-                                    onRecoveryAction: { action, card in
-                                        handleWordLookupRecovery(
-                                            action,
-                                            card: card,
-                                            resultID: result.id
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            flexibleSuccessContent(
+                result: result,
+                showsOriginal: showsOriginal,
+                wordCard: wordCard
+            )
         case let .failed(failure, originalText):
-            let presentation = failure.presentation
-            VStack(alignment: .leading, spacing: 10) {
-                Label(presentation.title, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                Text(presentation.message)
-                    .foregroundStyle(.secondary)
-
-                if let originalText, !originalText.isEmpty {
-                    Text(originalText)
-                        .font(popupFont)
-                        .textSelection(.enabled)
-                }
-
-                if let action = presentation.recoveryAction {
-                    Button {
-                        performRecoveryAction(action)
-                    } label: {
-                        Label(action.displayTitle, systemImage: action.systemImage)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            failureContent(failure: failure, originalText: originalText)
         }
     }
 
-    private func handleWordLookupRecovery(
+    private func failureContent(
+        failure: TranslationFailure,
+        originalText: String?
+    ) -> some View {
+        let presentation = failure.presentation
+        return VStack(alignment: .leading, spacing: 10) {
+            Label(presentation.title, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(presentation.message)
+                .foregroundStyle(.secondary)
+
+            if let originalText, !originalText.isEmpty {
+                Text(originalText)
+                    .font(popupFont)
+                    .textSelection(.enabled)
+            }
+
+            if let action = presentation.recoveryAction {
+                Button {
+                    performRecoveryAction(action)
+                } label: {
+                    Label(action.displayTitle, systemImage: action.systemImage)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    func handleWordLookupRecovery(
         _ action: TranslationRecoveryAction,
         card: TranslationPopupWordCardState,
         resultID: UUID
@@ -249,12 +313,28 @@ struct TranslationPopupView: View {
         switch action {
         case .openSettings:
             openLinguistSettings(model: model, using: openSettings)
-        case .openSystemSettings, .retry:
+        case .openSystemSettings:
             model.performRecoveryAction(action)
+        case .retry:
+            shouldRetryAfterDismiss = true
+            dismissWindow(id: AppWindow.translationPopup.rawValue)
         }
     }
 
-    private var popupFont: Font {
+    private func retryAfterDismissIfNeeded() {
+        guard shouldRetryAfterDismiss else {
+            return
+        }
+
+        shouldRetryAfterDismiss = false
+        Task {
+            await model.retryLastTranslationCommand()
+            openWindow(id: AppWindow.translationPopup.rawValue)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    var popupFont: Font {
         guard !model.settings.popupFontFamily.isEmpty else {
             return .system(size: model.settings.popupFontSize)
         }
@@ -262,7 +342,7 @@ struct TranslationPopupView: View {
         return .custom(model.settings.popupFontFamily, size: model.settings.popupFontSize)
     }
 
-    private var popupSourceDraftBinding: Binding<String> {
+    var popupSourceDraftBinding: Binding<String> {
         Binding {
             model.popupSourceDraft
         } set: { text in
@@ -291,104 +371,13 @@ struct TranslationPopupView: View {
     }
 }
 
-private struct PopupTextPanel<Content: View>: View {
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        content
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                Color(nsColor: .underPageBackgroundColor),
-                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.75), lineWidth: 1)
-            }
-    }
-}
-
-private struct ReadingText: View {
-    let text: String
-    let role: TranslationTextRole
-
-    var body: some View {
-        Text(text)
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityLabel("\(accessibilityPrefix) reading: \(text)")
-    }
-
-    private var accessibilityPrefix: String {
-        switch role {
-        case .source:
-            "Original"
-        case .translation:
-            "Translation"
-        }
-    }
-}
-
-private struct PopupTextActions: View {
-    @ObservedObject var model: AppShellModel
-    let result: TranslationResult
-    let role: TranslationTextRole
-    var textOverride: String?
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Button {
-                Task {
-                    await model.copyPopupText(role, textOverride: textOverride)
-                }
-            } label: {
-                Label(copyLabel, systemImage: "doc.on.doc")
-            }
-            .help(copyLabel)
-            .accessibilityLabel(copyLabel)
-            .disabled(effectiveText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-            SpokenOutputControls(
-                model: model,
-                result: result,
-                role: role,
-                textOverride: textOverride
-            )
-        }
-        .controlSize(.small)
-    }
-
-    private var copyLabel: String {
-        switch role {
-        case .source:
-            "Copy Original"
-        case .translation:
-            "Copy Translation"
-        }
-    }
-
-    private var effectiveText: String {
-        if let textOverride {
-            return textOverride
-        }
-
-        return switch role {
-        case .source:
-            result.originalText
-        case .translation:
-            result.translatedText
-        }
-    }
-}
-
 struct SpokenOutputControls: View {
     @ObservedObject var model: AppShellModel
     let result: TranslationResult
     var role: TranslationTextRole = .translation
     var textOverride: String?
+    var actionTitle: String?
+    var actionAccessibilityLabel: String?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -408,10 +397,10 @@ struct SpokenOutputControls: View {
                         textOverride: textOverride
                     )
                 } label: {
-                    Label(speakLabel, systemImage: "speaker.wave.2.fill")
+                    Label(actionTitle ?? speakLabel, systemImage: "speaker.wave.2.fill")
                 }
-                .help(speakLabel)
-                .accessibilityLabel(speakLabel)
+                .help(actionAccessibilityLabel ?? speakLabel)
+                .accessibilityLabel(actionAccessibilityLabel ?? speakLabel)
                 .disabled(request.trimmedText.isEmpty)
             }
 

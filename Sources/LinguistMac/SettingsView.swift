@@ -349,11 +349,11 @@ private extension SettingsView {
         VStack(alignment: .leading, spacing: SettingsLayout.cardTitleSpacing) {
             settingsSection("Setup") {
                 ForEach(Array(model.readiness.items.enumerated()), id: \.element.id) { index, item in
-                    if index > 0 { SettingsDivider() }
+                    if index > 0 {
+                        SettingsDivider()
+                    }
                     ReadinessRow(item: item, searchText: sidebarSearchText) {
-                        Task {
-                            await handleReadinessAction(for: item)
-                        }
+                        Task { await handleReadinessAction(for: item) }
                     }
                 }
             }
