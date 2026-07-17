@@ -90,6 +90,7 @@
 		E10000000000000000000001 /* AppShellModel+PopupTranslation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* AppShellModel+PopupTranslation.swift */; };
 		F10000000000000000000085 /* TranslationPopupSizing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000085 /* TranslationPopupSizing.swift */; };
 		F10000000000000000000086 /* TranslationPopupSizingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000086 /* TranslationPopupSizingTests.swift */; };
+		F10000000000000000000087 /* TranslationPopupWidthSizingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000087 /* TranslationPopupWidthSizingTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -210,6 +211,7 @@
 		E20000000000000000000001 /* AppShellModel+PopupTranslation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppShellModel+PopupTranslation.swift"; sourceTree = "<group>"; };
 		F20000000000000000000085 /* TranslationPopupSizing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPopupSizing.swift; sourceTree = "<group>"; };
 		F20000000000000000000086 /* TranslationPopupSizingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPopupSizingTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000087 /* TranslationPopupWidthSizingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPopupWidthSizingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -373,6 +375,7 @@
 			children = (
 				C20000000000000000000001 /* AppShellModelTests.swift */,
 				F20000000000000000000086 /* TranslationPopupSizingTests.swift */,
+				F20000000000000000000087 /* TranslationPopupWidthSizingTests.swift */,
 				C20000000000000000000008 /* AppShellModelLanguagePackTests.swift */,
 				C20000000000000000000007 /* AppShellModelSetupPermissionTests.swift */,
 				C20000000000000000000006 /* AppShellModelSpokenOutputTests.swift */,
@@ -654,6 +657,7 @@
 			files = (
 				C10000000000000000000001 /* AppShellModelTests.swift in Sources */,
 				F10000000000000000000086 /* TranslationPopupSizingTests.swift in Sources */,
+				F10000000000000000000087 /* TranslationPopupWidthSizingTests.swift in Sources */,
 				C10000000000000000000008 /* AppShellModelLanguagePackTests.swift in Sources */,
 				C10000000000000000000007 /* AppShellModelSetupPermissionTests.swift in Sources */,
 				C10000000000000000000006 /* AppShellModelSpokenOutputTests.swift in Sources */,

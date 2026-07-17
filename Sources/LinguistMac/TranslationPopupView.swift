@@ -18,12 +18,11 @@ struct TranslationPopupView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(
-            minWidth: 320,
+            minWidth: PopupWindowSizingPolicy.minimumWidth,
             idealWidth: model.settings.popupWidth,
-            maxWidth: 760,
-            minHeight: 240,
-            idealHeight: model.settings.popupHeight,
-            maxHeight: 680
+            maxWidth: PopupWindowSizingPolicy.maximumWidth,
+            minHeight: PopupWindowSizingPolicy.minimumFrameHeight,
+            idealHeight: model.settings.popupHeight
         )
         .background(Color(nsColor: .windowBackgroundColor))
         .background(alignment: .topLeading) {
@@ -101,12 +100,22 @@ extension TranslationPopupView {
             return nil
         }
 
-        let minimumContentHeight = automaticResizeMinimumContentHeight
+        let minimumContentHeight = automaticResizeMinimumContentHeight()
         return PopupWindowAutomaticResizeRequest(
             revision: revision,
             preferredContentHeight: max(measuredNaturalHeight.height, minimumContentHeight),
-            minimumContentHeight: minimumContentHeight
+            minimumContentHeight: minimumContentHeight,
+            preferredFrameWidth: automaticResizePreferredFrameWidth(for: revision)
         )
+    }
+
+    private func automaticResizePreferredFrameWidth(
+        for revision: PopupWindowContentRevision
+    ) -> CGFloat? {
+        if revision.isSuccess {
+            return model.settings.popupWidth
+        }
+        return PopupWindowSizingPolicy.preferredFrameWidth(for: revision)
     }
 
     @ViewBuilder
@@ -156,19 +165,6 @@ extension TranslationPopupView {
             .failure(failure, originalText: originalText)
         case .empty, .loading:
             nil
-        }
-    }
-
-    private var automaticResizeMinimumContentHeight: CGFloat {
-        switch model.popupState {
-        case let .success(_, showsOriginal, _):
-            showsOriginal
-                ? PopupTextPanelLayout.minimumExpandedContentHeight
-                : PopupTextPanelLayout.minimumCollapsedContentHeight
-        case .failed:
-            PopupWindowSizingPolicy.minimumFrameHeight
-        case .empty, .loading:
-            PopupWindowSizingPolicy.minimumFrameHeight
         }
     }
 

@@ -1,14 +1,126 @@
 import LinguistMacCore
 import SwiftUI
 
+struct PopupTextPanelAllocatedHeights {
+    let sourcePanel: CGFloat
+    let translationPanel: CGFloat
+}
+
+struct PopupNaturalPanelStackLayout: Layout {
+    let showsOriginal: Bool
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        let measurements = panelMeasurements(proposal: proposal, subviews: subviews)
+        let allocation = PopupTextPanelLayout.naturalPanelAllocation(
+            sourcePanelHeight: measurements.source.height,
+            translationPanelHeight: measurements.translation.height,
+            showsOriginal: showsOriginal
+        )
+        return CGSize(
+            width: proposal.width ?? max(
+                measurements.source.width,
+                measurements.translation.width
+            ),
+            height: allocation.sourcePanel
+                + PopupTextPanelLayout.spacing
+                + allocation.translationPanel
+        )
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        guard subviews.count == 2 else {
+            return
+        }
+        let measurements = panelMeasurements(
+            proposal: ProposedViewSize(width: bounds.width, height: nil),
+            subviews: subviews
+        )
+        let allocation = PopupTextPanelLayout.naturalPanelAllocation(
+            sourcePanelHeight: measurements.source.height,
+            translationPanelHeight: measurements.translation.height,
+            showsOriginal: showsOriginal
+        )
+        subviews[0].place(
+            at: bounds.origin,
+            anchor: .topLeading,
+            proposal: ProposedViewSize(
+                width: bounds.width,
+                height: allocation.sourcePanel
+            )
+        )
+        subviews[1].place(
+            at: CGPoint(
+                x: bounds.minX,
+                y: bounds.minY
+                    + allocation.sourcePanel
+                    + PopupTextPanelLayout.spacing
+            ),
+            anchor: .topLeading,
+            proposal: ProposedViewSize(
+                width: bounds.width,
+                height: allocation.translationPanel
+            )
+        )
+    }
+
+    private func panelMeasurements(
+        proposal: ProposedViewSize,
+        subviews: Subviews
+    ) -> (source: CGSize, translation: CGSize) {
+        guard subviews.count == 2 else {
+            return (.zero, .zero)
+        }
+        let panelProposal = ProposedViewSize(width: proposal.width, height: nil)
+        return (
+            subviews[0].sizeThatFits(panelProposal),
+            subviews[1].sizeThatFits(panelProposal)
+        )
+    }
+}
+
+struct PopupWindowAutomaticWidthState {
+    private(set) var restoreWidth: CGFloat?
+
+    var hasPendingRestore: Bool {
+        restoreWidth != nil
+    }
+
+    mutating func preferredFrameWidth(
+        requestedWidth: CGFloat?,
+        currentWidth: CGFloat
+    ) -> CGFloat? {
+        guard let requestedWidth else {
+            defer { restoreWidth = nil }
+            return restoreWidth
+        }
+        if restoreWidth == nil {
+            restoreWidth = currentWidth
+        }
+        return requestedWidth
+    }
+
+    mutating func reset() {
+        restoreWidth = nil
+    }
+}
+
 enum PopupTextPanelLayout {
     static let spacing: CGFloat = 12
     static let panelPadding: CGFloat = 12
     static let sectionHeaderHeight: CGFloat = 28
-    static let minimumTextViewportHeight: CGFloat = 44
+    static let minimumTextViewportHeight: CGFloat = 28
     static let minimumSourceTextViewportHeight = minimumTextViewportHeight
     static let minimumTranslationTextViewportHeight = minimumTextViewportHeight
-    static let minimumCollapsedContentHeight: CGFloat = 336
+    static let fixedContentChromeHeight: CGFloat = 164
     static let minimumCollapsedSourcePanelHeight = (panelPadding * 2)
         + sectionHeaderHeight
     static let minimumSourcePanelHeight = minimumCollapsedSourcePanelHeight
@@ -18,9 +130,11 @@ enum PopupTextPanelLayout {
         + sectionHeaderHeight
         + spacing
         + minimumTranslationTextViewportHeight
+    static let minimumCollapsedContentHeight = fixedContentChromeHeight
+        + minimumPanelStackHeight(showsOriginal: false)
     static let expandedContentHeightIncrement = spacing + minimumSourceTextViewportHeight
-    static let minimumExpandedContentHeight = minimumCollapsedContentHeight
-        + expandedContentHeightIncrement
+    static let minimumExpandedContentHeight = fixedContentChromeHeight
+        + minimumPanelStackHeight(showsOriginal: true)
 
     static func minimumPanelStackHeight(showsOriginal: Bool) -> CGFloat {
         let sourcePanelHeight = showsOriginal
@@ -29,14 +143,79 @@ enum PopupTextPanelLayout {
         return sourcePanelHeight + spacing + minimumTranslationPanelHeight
     }
 
-    static func sourcePanelHeight(for availableHeight: CGFloat) -> CGFloat {
+    static func sourcePanelHeight(
+        for availableHeight: CGFloat,
+        minimumSourceHeight: CGFloat = minimumSourcePanelHeight,
+        minimumTranslationHeight: CGFloat = minimumTranslationPanelHeight
+    ) -> CGFloat {
         let panelHeight = max(availableHeight - spacing, 0)
+        guard minimumSourceHeight + minimumTranslationHeight <= panelHeight else {
+            let maximumSourceHeight = max(
+                minimumSourcePanelHeight,
+                panelHeight - minimumTranslationPanelHeight
+            )
+            return min(
+                max(panelHeight / 2, minimumSourcePanelHeight),
+                maximumSourceHeight
+            )
+        }
         let maximumSourceHeight = max(
-            minimumSourcePanelHeight,
-            panelHeight - minimumTranslationPanelHeight
+            minimumSourceHeight,
+            panelHeight - minimumTranslationHeight
         )
         let balancedHeight = panelHeight / 2
-        return min(max(balancedHeight, minimumSourcePanelHeight), maximumSourceHeight)
+        return min(max(balancedHeight, minimumSourceHeight), maximumSourceHeight)
+    }
+
+    static func allocatedPanelHeights(
+        availableHeight: CGFloat,
+        showsOriginal: Bool
+    ) -> PopupTextPanelAllocatedHeights {
+        let panelHeight = max(availableHeight - spacing, 0)
+        guard showsOriginal else {
+            let sourcePanel = min(minimumCollapsedSourcePanelHeight, panelHeight)
+            return PopupTextPanelAllocatedHeights(
+                sourcePanel: sourcePanel,
+                translationPanel: max(panelHeight - sourcePanel, 0)
+            )
+        }
+
+        let sourcePanel = min(sourcePanelHeight(for: availableHeight), panelHeight)
+        return PopupTextPanelAllocatedHeights(
+            sourcePanel: sourcePanel,
+            translationPanel: max(panelHeight - sourcePanel, 0)
+        )
+    }
+
+    static func naturalPanelAllocation(
+        sourcePanelHeight: CGFloat,
+        translationPanelHeight: CGFloat,
+        showsOriginal: Bool
+    ) -> PopupTextPanelAllocatedHeights {
+        let sourceRequiredHeight = max(
+            ceil(sourcePanelHeight),
+            showsOriginal ? minimumSourcePanelHeight : minimumCollapsedSourcePanelHeight
+        )
+        let translationRequiredHeight = max(
+            ceil(translationPanelHeight),
+            minimumTranslationPanelHeight
+        )
+        guard showsOriginal else {
+            return PopupTextPanelAllocatedHeights(
+                sourcePanel: sourceRequiredHeight,
+                translationPanel: translationRequiredHeight
+            )
+        }
+
+        let equalPanelHeight = max(sourceRequiredHeight, translationRequiredHeight)
+        return PopupTextPanelAllocatedHeights(
+            sourcePanel: equalPanelHeight,
+            translationPanel: equalPanelHeight
+        )
+    }
+
+    static func minimumContentHeight(showsOriginal: Bool) -> CGFloat {
+        showsOriginal ? minimumExpandedContentHeight : minimumCollapsedContentHeight
     }
 }
 
@@ -47,8 +226,9 @@ extension TranslationPopupView {
         wordCard: TranslationPopupWordCardState?
     ) -> some View {
         GeometryReader { geometry in
-            let sourceHeight = PopupTextPanelLayout.sourcePanelHeight(
-                for: geometry.size.height
+            let allocatedHeights = PopupTextPanelLayout.allocatedPanelHeights(
+                availableHeight: geometry.size.height,
+                showsOriginal: showsOriginal
             )
 
             VStack(alignment: .leading, spacing: PopupTextPanelLayout.spacing) {
@@ -59,7 +239,7 @@ extension TranslationPopupView {
                         usesFlexibleEditorHeight: true
                     )
                 }
-                .frame(height: showsOriginal ? sourceHeight : nil)
+                .frame(height: allocatedHeights.sourcePanel)
 
                 PopupTextPanel(fillsHeight: true) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -68,13 +248,10 @@ extension TranslationPopupView {
                         ScrollView {
                             translationTextContent(result: result, wordCard: wordCard)
                         }
-                        .frame(
-                            minHeight: PopupTextPanelLayout.minimumTranslationTextViewportHeight,
-                            maxHeight: .infinity
-                        )
+                        .frame(maxHeight: .infinity)
                     }
                 }
-                .frame(maxHeight: .infinity)
+                .frame(height: allocatedHeights.translationPanel)
             }
         }
         .frame(
@@ -89,7 +266,7 @@ extension TranslationPopupView {
         showsOriginal: Bool,
         wordCard: TranslationPopupWordCardState?
     ) -> some View {
-        VStack(alignment: .leading, spacing: PopupTextPanelLayout.spacing) {
+        PopupNaturalPanelStackLayout(showsOriginal: showsOriginal) {
             PopupTextPanel {
                 sourcePanelContent(
                     result: result,
@@ -136,16 +313,24 @@ extension TranslationPopupView {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .frame(
                             minHeight: PopupTextPanelLayout.minimumSourceTextViewportHeight,
-                            maxHeight: PopupTextPanelLayout.minimumSourceTextViewportHeight,
                             alignment: .topLeading
                         )
-                        .clipped()
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if let sourceReading = result.sourceReading, !model.isPopupSourceDirty {
                     ReadingText(text: sourceReading, role: .source)
                 }
             }
+        }
+    }
+
+    func automaticResizeMinimumContentHeight() -> CGFloat {
+        switch model.popupState {
+        case let .success(_, showsOriginal, _):
+            PopupTextPanelLayout.minimumContentHeight(showsOriginal: showsOriginal)
+        case .failed, .empty, .loading:
+            PopupWindowSizingPolicy.minimumFrameHeight
         }
     }
 
@@ -221,6 +406,7 @@ extension TranslationPopupView {
                 .font(popupFont)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
 
             if let translatedReading = result.translatedReading {
                 ReadingText(text: translatedReading, role: .translation)

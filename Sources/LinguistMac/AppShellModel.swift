@@ -22,6 +22,23 @@ struct PopupTranslationContext: Equatable {
     let showsOriginal: Bool
 }
 
+enum PopupManualResizeScope {
+    static func startsNewContent(
+        from previousState: TranslationPopupState,
+        to nextState: TranslationPopupState
+    ) -> Bool {
+        switch nextState {
+        case .empty, .loading, .failed:
+            return true
+        case let .success(nextResult, _, _):
+            guard case let .success(previousResult, _, _) = previousState else {
+                return true
+            }
+            return previousResult.id != nextResult.id
+        }
+    }
+}
+
 enum AppShellCommand: Equatable {
     case screenTranslate
     case quickTranslate
@@ -51,7 +68,18 @@ final class AppShellModel: ObservableObject {
     }
 
     @Published var recentTranslations: [TranslationResult]
-    @Published var popupState: TranslationPopupState
+    @Published var popupState: TranslationPopupState {
+        didSet {
+            guard PopupManualResizeScope.startsNewContent(
+                from: oldValue,
+                to: popupState
+            ) else {
+                return
+            }
+            hasManuallyResizedPopup = false
+        }
+    }
+
     @Published var popupSourceDraft: String
     @Published var isPopupSourceDirty: Bool
     @Published var quickDraft: QuickTranslateDraft
